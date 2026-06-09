@@ -32,6 +32,8 @@ updateAt: 2026-06-09
 
 The preferred local entry is the root package script, matching the LangGraph demo pattern: source root `.env` and `.env.local`, set any local defaults, then run the Python app under `apps/worker`. The worker also loads the repository root `.env` when run directly. Process environment variables take precedence over `.env` values. `PHONE_AUTOMATION_ENV_FILE` can point at a different env file when needed.
 
+The default listener is `127.0.0.1:8765`. For a real Android phone on the same Wi-Fi network, use `pnpm dev:worker:open-autoglm:lan`; it sets `PHONE_AUTOMATION_WORKER_HOST=0.0.0.0` so the phone can reach the Mac through `http://<mac-lan-ip>:8765`. Keep that mode limited to a trusted local demo network.
+
 `open-autoglm` mode uses:
 
 - `OPEN_AUTOGLM_ROOT`: path to a local Open-AutoGLM checkout when `phone_agent` is not installed into the worker environment. The root `dev:worker:open-autoglm` script defaults this to `../Open-AutoGLM` for the current local workspace.
@@ -40,6 +42,8 @@ The preferred local entry is the root package script, matching the LangGraph dem
 - `PHONE_AGENT_DEVICE_ID`: optional ADB device id.
 - `PHONE_AGENT_LANG`: Open-AutoGLM language setting. Defaults to `cn`.
 - `PHONE_AGENT_VERBOSE`: verbose Open-AutoGLM logging flag. Defaults to false.
+- `PHONE_AUTOMATION_WORKER_HOST`: HTTP bind host. Defaults to `127.0.0.1`.
+- `PHONE_AUTOMATION_WORKER_PORT`: HTTP bind port. Defaults to `8765`.
 
 ## Device Provider
 
@@ -66,6 +70,12 @@ To run against the already validated local Open-AutoGLM checkout:
 
 ```bash
 pnpm dev:worker:open-autoglm
+```
+
+To run the same mode for a real phone on the LAN:
+
+```bash
+pnpm dev:worker:open-autoglm:lan
 ```
 
 Then call the public endpoint:

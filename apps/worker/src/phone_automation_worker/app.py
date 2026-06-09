@@ -45,10 +45,16 @@ def create_app(
         request: TaskCreateRequest,
         background_tasks: BackgroundTasks,
     ) -> TaskRecord:
-        task = store.create_task(
+        task = store.create_task_if_idle(
             instruction=request.instruction,
             source=request.source,
         )
+        if task is None:
+            raise HTTPException(
+                status_code=409,
+                detail="Another task is already active on the controlled phone.",
+            )
+
         background_tasks.add_task(_run_task, store, runner, task.id)
         return task
 
@@ -87,6 +93,13 @@ def _run_task(store: TaskStore, runner: TaskRunner, task_id: str) -> None:
         raise RuntimeError(f"Task {task_id} disappeared before execution.")
 
     store.mark_running(task_id)
+    store.append_event(
+        task_id,
+        TaskEventInput(
+            type="task.started",
+            message="Task started.",
+        ),
+    )
 
     try:
         result = normalize_run_result(runner.run(task))

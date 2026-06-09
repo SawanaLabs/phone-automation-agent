@@ -25,10 +25,6 @@ class DryRunTaskRunner:
             summary=summary,
             events=[
                 TaskEventInput(
-                    type="task.started",
-                    message="Dry-run task started.",
-                ),
-                TaskEventInput(
                     type="step.action",
                     message="Dry-run action selected.",
                     payload={

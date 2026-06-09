@@ -6,6 +6,14 @@ from threading import RLock
 from phone_automation_worker.models import TaskEvent, TaskEventInput, TaskRecord, TaskStatus
 
 
+ACTIVE_TASK_STATUSES: set[TaskStatus] = {
+    "created",
+    "running",
+    "confirmation_required",
+    "takeover_required",
+}
+
+
 class TaskStore:
     def __init__(self) -> None:
         self._tasks: dict[str, TaskRecord] = {}
@@ -16,18 +24,30 @@ class TaskStore:
         task = TaskRecord(instruction=instruction, source=source)
 
         with self._lock:
-            self._tasks[task.id] = task
-            self._events[task.id] = []
-            self.append_event(
-                task.id,
-                TaskEventInput(
-                    type="task.created",
-                    message="Task created.",
-                    payload={
-                        "source": source,
-                    },
-                ),
-            )
+            return self._create_task_locked(task, source)
+
+    def create_task_if_idle(self, *, instruction: str, source: str) -> TaskRecord | None:
+        task = TaskRecord(instruction=instruction, source=source)
+
+        with self._lock:
+            if any(existing.status in ACTIVE_TASK_STATUSES for existing in self._tasks.values()):
+                return None
+
+            return self._create_task_locked(task, source)
+
+    def _create_task_locked(self, task: TaskRecord, source: str) -> TaskRecord:
+        self._tasks[task.id] = task
+        self._events[task.id] = []
+        self.append_event(
+            task.id,
+            TaskEventInput(
+                type="task.created",
+                message="Task created.",
+                payload={
+                    "source": source,
+                },
+            ),
+        )
 
         return task.model_copy(deep=True)
 
