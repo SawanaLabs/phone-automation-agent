@@ -28,7 +28,7 @@ updateAt: 2026-06-09
 
 - `PHONE_AUTOMATION_WORKER_RUNNER=unconfigured`: default. Task creation succeeds, then the task fails explicitly with a setup error.
 - `PHONE_AUTOMATION_WORKER_RUNNER=dry-run`: explicit endpoint-verification mode. It completes tasks without touching a phone.
-- `PHONE_AUTOMATION_WORKER_RUNNER=open-autoglm`: thin wrapper around the existing Open-AutoGLM `PhoneAgent.run()` path.
+- `PHONE_AUTOMATION_WORKER_RUNNER=open-autoglm`: thin wrapper around the existing Open-AutoGLM `PhoneAgent.step()` path. It emits normalized step events, exposes the successful terminal finish message as `screen_summary`, fails unsupported confirmation or takeover gates without waiting for terminal input, and treats Open-AutoGLM terminal model errors as failed tasks.
 
 The preferred local entry is the root package script, matching the LangGraph demo pattern: source root `.env` and `.env.local`, set any local defaults, then run the Python app under `apps/worker`. The worker also loads the repository root `.env` when run directly. Process environment variables take precedence over `.env` values. `PHONE_AUTOMATION_ENV_FILE` can point at a different env file when needed.
 
@@ -92,6 +92,8 @@ curl -sS -X POST http://127.0.0.1:8765/tasks \
 - Dry-run mode must be explicit; it is for API verification only.
 - Real phone control belongs in `open-autoglm` mode and should stay a thin wrapper until the first app-submitted QA story passes.
 - Missing Open-AutoGLM root, unsupported runner mode, missing ADB, and device provider failures should fail explicitly.
+- `open-autoglm` mode should expose recent action evidence through `step.action` and `step.result` events, plus terminal `screen_summary` when the task finishes successfully, without changing Open-AutoGLM internals.
+- `open-autoglm` mode should emit `gate.confirmation_required` or `gate.takeover_required`, then fail the task, because the first mobile demo has no confirmation or takeover UI.
 
 ## Update Triggers
 

@@ -21,7 +21,8 @@ updateAt: 2026-06-09
 - Use the existing Open-AutoGLM code path directly for the first demo.
 - Avoid heavy edits to the upstream framework unless a concrete demo blocker appears.
 - Wrap the automation loop at the worker boundary so `apps/mobile` sees stable task state and events rather than Open-AutoGLM internals.
-- The current worker wrapper lives in `apps/worker/src/phone_automation_worker/open_autoglm.py` and calls `PhoneAgent.run()` after preparing the import path and model/agent config.
+- The current worker wrapper lives in `apps/worker/src/phone_automation_worker/open_autoglm.py` and calls `PhoneAgent.step()` after preparing the import path and model/agent config.
+- The wrapper normalizes Open-AutoGLM step results into task events, exposes successful finish messages as terminal `screen_summary`, and fails unsupported confirmation or takeover gates without waiting for terminal input.
 - The local Open-AutoGLM checkout at `/Users/openclaw/projects/Playground/Open-AutoGLM` has already completed the Android quickstart successfully with a real HUAWEI Android 12 phone and the hosted `autoglm-phone` model.
 - The first known-good real task remains `打开美团搜索附近的火锅店，不要下单，只停在搜索结果页`.
 - Keep model and device setup explicit: missing API key, unreachable model endpoint, missing ADB device, missing ADB keyboard, or unsupported app mapping should fail clearly.

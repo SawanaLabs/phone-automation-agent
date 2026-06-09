@@ -65,24 +65,112 @@ class OpenAutoGlmRunner:
                 lang=self.lang,
                 verbose=self.verbose,
             ),
+            confirmation_callback=_decline_confirmation,
+            takeover_callback=_acknowledge_takeover,
         )
 
-        summary = agent.run(task.instruction)
-        status = "failed" if summary == "Max steps reached" else "finished"
-        error = summary if status == "failed" else None
+        events: list[TaskEventInput] = []
 
+        for step in range(1, self.max_steps + 1):
+            result = agent.step(task.instruction if step == 1 else None)
+            gate_event = _gate_event(
+                action=result.action,
+                step=step,
+                thinking=result.thinking,
+            )
+            if gate_event is not None:
+                summary = gate_event.message or "Manual gate is not supported."
+                events.append(gate_event)
+                events.append(
+                    _terminal_event(
+                        status="failed",
+                        summary=summary,
+                        max_steps=self.max_steps,
+                        device_id=self.device_id,
+                        step_count=step,
+                        success=False,
+                        action=result.action,
+                        thinking=result.thinking,
+                    )
+                )
+                return TaskRunResult(
+                    status="failed",
+                    summary=summary,
+                    error=summary,
+                    events=events,
+                )
+
+            if result.finished:
+                summary = result.message or "Task completed"
+                status = (
+                    "failed"
+                    if not result.success or _is_failure_summary(summary)
+                    else "finished"
+                )
+                error = summary if status == "failed" else None
+                events.append(
+                    _terminal_event(
+                        status=status,
+                        summary=summary,
+                        max_steps=self.max_steps,
+                        device_id=self.device_id,
+                        step_count=step,
+                        success=result.success,
+                        action=result.action,
+                        thinking=result.thinking,
+                    )
+                )
+
+                return TaskRunResult(
+                    status=status,
+                    summary=summary,
+                    error=error,
+                    events=events,
+                )
+
+            if result.action is not None:
+                events.append(
+                    TaskEventInput(
+                        type="step.action",
+                        message=_describe_action(result.action),
+                        payload={
+                            "step": step,
+                            "action": result.action,
+                            "thinking": result.thinking,
+                        },
+                    )
+                )
+
+            events.append(
+                TaskEventInput(
+                    type="step.result",
+                    message=result.message,
+                    payload={
+                        "step": step,
+                        "success": result.success,
+                        "finished": result.finished,
+                        "message": result.message,
+                    },
+                )
+            )
+
+        summary = "Max steps reached"
+        status = "failed"
         return TaskRunResult(
             status=status,
             summary=summary,
-            error=error,
+            error=summary,
             events=[
-                TaskEventInput(
-                    type="task.finished" if status == "finished" else "task.failed",
-                    message=summary,
-                    payload={
-                        "max_steps": self.max_steps,
-                        "device_id": self.device_id,
-                    },
+                *events,
+                _terminal_event(
+                    status=status,
+                    summary=summary,
+                    max_steps=self.max_steps,
+                    device_id=self.device_id,
+                    step_count=self.max_steps,
+                    success=False,
+                    action=None,
+                    thinking="",
                 ),
             ],
         )
@@ -124,3 +212,91 @@ def _required_value(
         raise RuntimeError(f"{name} is required for Open-AutoGLM runner mode.")
 
     return normalized
+
+
+def _is_failure_summary(summary: str) -> bool:
+    return summary == "Max steps reached" or summary.startswith("Model error:")
+
+
+def _decline_confirmation(message: str) -> bool:
+    return False
+
+
+def _acknowledge_takeover(message: str) -> None:
+    return None
+
+
+def _gate_event(
+    *,
+    action: dict | None,
+    step: int,
+    thinking: str,
+) -> TaskEventInput | None:
+    if action is None:
+        return None
+
+    if action.get("_metadata") != "do":
+        return None
+
+    action_name = action.get("action")
+    message = str(action.get("message") or "Manual intervention required")
+
+    if action_name == "Take_over":
+        return TaskEventInput(
+            type="gate.takeover_required",
+            message=f"Manual takeover is not supported: {message}",
+            payload={
+                "step": step,
+                "action": action,
+                "message": message,
+                "thinking": thinking,
+            },
+        )
+
+    if action_name == "Tap" and action.get("message"):
+        return TaskEventInput(
+            type="gate.confirmation_required",
+            message=f"Sensitive confirmation is not supported: {message}",
+            payload={
+                "step": step,
+                "action": action,
+                "message": message,
+                "thinking": thinking,
+            },
+        )
+
+    return None
+
+
+def _terminal_event(
+    *,
+    status: str,
+    summary: str,
+    max_steps: int,
+    device_id: str | None,
+    step_count: int,
+    success: bool,
+    action: dict | None,
+    thinking: str,
+) -> TaskEventInput:
+    return TaskEventInput(
+        type="task.finished" if status == "finished" else "task.failed",
+        message=summary,
+        payload={
+            "max_steps": max_steps,
+            "device_id": device_id,
+            "step_count": step_count,
+            "success": success,
+            "screen_summary": summary if status == "finished" else None,
+            "action": action,
+            "thinking": thinking,
+        },
+    )
+
+
+def _describe_action(action: dict) -> str:
+    action_type = action.get("_metadata")
+    action_name = action.get("action")
+    if action_name:
+        return f"{action_type}: {action_name}"
+    return str(action_type)

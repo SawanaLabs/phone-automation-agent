@@ -1,3 +1,4 @@
+import sys
 from threading import Event, Lock, Thread
 
 import pytest
@@ -9,6 +10,8 @@ from phone_automation_worker.__main__ import main
 
 @pytest.fixture(autouse=True)
 def clear_worker_environment(monkeypatch):
+    original_sys_path = list(sys.path)
+
     for name in [
         "ADB_PATH",
         "OPEN_AUTOGLM_ROOT",
@@ -22,6 +25,18 @@ def clear_worker_environment(monkeypatch):
         "PHONE_AUTOMATION_WORKER_RUNNER",
     ]:
         monkeypatch.delenv(name, raising=False)
+
+    for module_name in list(sys.modules):
+        if module_name == "phone_agent" or module_name.startswith("phone_agent."):
+            del sys.modules[module_name]
+
+    yield
+
+    sys.path[:] = original_sys_path
+
+    for module_name in list(sys.modules):
+        if module_name == "phone_agent" or module_name.startswith("phone_agent."):
+            del sys.modules[module_name]
 
 
 class ScriptedRunner:
@@ -87,6 +102,44 @@ class BlockingFirstRunner:
                 },
             ],
         }
+
+
+def write_fake_open_autoglm_package(root, *, phone_agent_class: str) -> None:
+    phone_agent_package = root / "phone_agent"
+    phone_agent_package.mkdir(parents=True)
+    (phone_agent_package / "__init__.py").write_text("from .agent import PhoneAgent\n")
+    (phone_agent_package / "agent.py").write_text(
+        f"""
+class AgentConfig:
+    def __init__(self, max_steps=12, device_id=None, lang="cn", verbose=False):
+        self.max_steps = max_steps
+        self.device_id = device_id
+        self.lang = lang
+        self.verbose = verbose
+
+
+{phone_agent_class}
+"""
+    )
+    (phone_agent_package / "model.py").write_text(
+        """
+class ModelConfig:
+    def __init__(self, base_url, api_key, model_name, lang):
+        self.base_url = base_url
+        self.api_key = api_key
+        self.model_name = model_name
+        self.lang = lang
+"""
+    )
+
+
+def configure_open_autoglm_env(monkeypatch, worker_dir, open_autoglm_root) -> None:
+    monkeypatch.chdir(worker_dir)
+    monkeypatch.setenv("PHONE_AUTOMATION_WORKER_RUNNER", "open-autoglm")
+    monkeypatch.setenv("OPEN_AUTOGLM_ROOT", str(open_autoglm_root))
+    monkeypatch.setenv("PHONE_AGENT_BASE_URL", "https://open.bigmodel.cn/api/paas/v4")
+    monkeypatch.setenv("PHONE_AGENT_MODEL", "autoglm-phone")
+    monkeypatch.setenv("PHONE_AGENT_API_KEY", "test-api-key")
 
 
 def test_mobile_app_can_submit_task_and_read_resulting_state_and_events():
@@ -336,6 +389,283 @@ def test_open_autoglm_mode_fails_fast_without_model_api_key(monkeypatch, tmp_pat
 
     with pytest.raises(RuntimeError, match="PHONE_AGENT_API_KEY is required"):
         create_app(load_env=False)
+
+
+def test_open_autoglm_model_error_is_reported_as_failed(monkeypatch, tmp_path):
+    repo_root = tmp_path / "phone-automation-agent"
+    worker_dir = repo_root / "apps" / "worker"
+    open_autoglm_root = tmp_path / "Open-AutoGLM"
+    worker_dir.mkdir(parents=True)
+    (repo_root / "pnpm-workspace.yaml").write_text("packages:\n  - apps/*\n")
+    write_fake_open_autoglm_package(
+        open_autoglm_root,
+        phone_agent_class="""
+class PhoneAgent:
+    def __init__(
+        self,
+        model_config,
+        agent_config,
+        confirmation_callback=None,
+        takeover_callback=None,
+    ):
+        self.model_config = model_config
+        self.agent_config = agent_config
+
+    def step(self, task=None):
+        class StepResult:
+            success = False
+            finished = True
+            action = None
+            thinking = ""
+            message = "Model error: api down"
+
+        return StepResult()
+""",
+    )
+    configure_open_autoglm_env(monkeypatch, worker_dir, open_autoglm_root)
+    client = TestClient(create_app(load_env=False))
+
+    created = client.post(
+        "/tasks",
+        json={
+            "instruction": "打开美团搜索附近的火锅店，不要下单，只停在搜索结果页",
+            "source": "mobile",
+        },
+    )
+    task = client.get(f"/tasks/{created.json()['id']}")
+    events = client.get(f"/tasks/{created.json()['id']}/events")
+
+    assert created.status_code == 201
+    assert task.status_code == 200
+    assert task.json()["status"] == "failed"
+    assert task.json()["error"] == "Model error: api down"
+    assert [event["type"] for event in events.json()["events"]] == [
+        "task.created",
+        "task.started",
+        "task.failed",
+    ]
+
+
+def test_open_autoglm_events_include_recent_action_trace(monkeypatch, tmp_path):
+    repo_root = tmp_path / "phone-automation-agent"
+    worker_dir = repo_root / "apps" / "worker"
+    open_autoglm_root = tmp_path / "Open-AutoGLM"
+    worker_dir.mkdir(parents=True)
+    (repo_root / "pnpm-workspace.yaml").write_text("packages:\n  - apps/*\n")
+    write_fake_open_autoglm_package(
+        open_autoglm_root,
+        phone_agent_class="""
+class StepResult:
+    def __init__(self, success, finished, action, thinking, message=None):
+        self.success = success
+        self.finished = finished
+        self.action = action
+        self.thinking = thinking
+        self.message = message
+
+
+class PhoneAgent:
+    def __init__(
+        self,
+        model_config,
+        agent_config,
+        confirmation_callback=None,
+        takeover_callback=None,
+    ):
+        self.model_config = model_config
+        self.agent_config = agent_config
+        self.calls = 0
+
+    def step(self, task=None):
+        self.calls += 1
+        if self.calls == 1:
+            return StepResult(
+                success=True,
+                finished=False,
+                action={"_metadata": "do", "action": "Launch", "app": "美团"},
+                thinking="Need to open Meituan.",
+                message="Launched Meituan",
+            )
+
+        return StepResult(
+            success=True,
+            finished=True,
+            action={"_metadata": "finish", "message": "停在搜索结果页"},
+            thinking="Search results are visible.",
+            message="停在搜索结果页",
+        )
+""",
+    )
+    configure_open_autoglm_env(monkeypatch, worker_dir, open_autoglm_root)
+    client = TestClient(create_app(load_env=False))
+
+    created = client.post(
+        "/tasks",
+        json={
+            "instruction": "打开美团搜索附近的火锅店，不要下单，只停在搜索结果页",
+            "source": "mobile",
+        },
+    )
+    task = client.get(f"/tasks/{created.json()['id']}")
+    events = client.get(f"/tasks/{created.json()['id']}/events")
+
+    assert created.status_code == 201
+    assert task.status_code == 200
+    assert task.json()["status"] == "finished"
+    assert task.json()["summary"] == "停在搜索结果页"
+
+    event_body = events.json()["events"]
+    assert [event["type"] for event in event_body] == [
+        "task.created",
+        "task.started",
+        "step.action",
+        "step.result",
+        "task.finished",
+    ]
+    assert event_body[2]["payload"]["step"] == 1
+    assert event_body[2]["payload"]["action"] == {
+        "_metadata": "do",
+        "action": "Launch",
+        "app": "美团",
+    }
+    assert event_body[3]["payload"] == {
+        "step": 1,
+        "success": True,
+        "finished": False,
+        "message": "Launched Meituan",
+    }
+    assert event_body[4]["payload"]["step_count"] == 2
+    assert event_body[4]["payload"]["screen_summary"] == "停在搜索结果页"
+
+
+def test_open_autoglm_takeover_gate_fails_without_waiting_for_stdin(
+    monkeypatch, tmp_path
+):
+    repo_root = tmp_path / "phone-automation-agent"
+    worker_dir = repo_root / "apps" / "worker"
+    open_autoglm_root = tmp_path / "Open-AutoGLM"
+    worker_dir.mkdir(parents=True)
+    (repo_root / "pnpm-workspace.yaml").write_text("packages:\n  - apps/*\n")
+    write_fake_open_autoglm_package(
+        open_autoglm_root,
+        phone_agent_class="""
+class StepResult:
+    success = True
+    finished = False
+    action = {"_metadata": "do", "action": "Take_over", "message": "需要登录"}
+    thinking = "Need manual login."
+    message = None
+
+
+class PhoneAgent:
+    def __init__(
+        self,
+        model_config,
+        agent_config,
+        confirmation_callback=None,
+        takeover_callback=None,
+    ):
+        self.confirmation_callback = confirmation_callback
+        self.takeover_callback = takeover_callback
+
+    def step(self, task=None):
+        if self.confirmation_callback is None or self.takeover_callback is None:
+            raise AssertionError("non-interactive callbacks were not provided")
+        assert self.confirmation_callback("需要确认") is False
+        self.takeover_callback("需要登录")
+        return StepResult()
+""",
+    )
+    configure_open_autoglm_env(monkeypatch, worker_dir, open_autoglm_root)
+    client = TestClient(create_app(load_env=False))
+
+    created = client.post(
+        "/tasks",
+        json={
+            "instruction": "打开美团搜索附近的火锅店，不要登录，只停在当前页",
+            "source": "mobile",
+        },
+    )
+    task = client.get(f"/tasks/{created.json()['id']}")
+    events = client.get(f"/tasks/{created.json()['id']}/events")
+
+    assert created.status_code == 201
+    assert task.status_code == 200
+    assert task.json()["status"] == "failed"
+    assert task.json()["error"] == "Manual takeover is not supported: 需要登录"
+    assert [event["type"] for event in events.json()["events"]] == [
+        "task.created",
+        "task.started",
+        "gate.takeover_required",
+        "task.failed",
+    ]
+    assert events.json()["events"][2]["payload"] == {
+        "step": 1,
+        "action": {"_metadata": "do", "action": "Take_over", "message": "需要登录"},
+        "message": "需要登录",
+        "thinking": "Need manual login.",
+    }
+
+
+def test_open_autoglm_confirmation_gate_fails_without_waiting_for_stdin(
+    monkeypatch, tmp_path
+):
+    repo_root = tmp_path / "phone-automation-agent"
+    worker_dir = repo_root / "apps" / "worker"
+    open_autoglm_root = tmp_path / "Open-AutoGLM"
+    worker_dir.mkdir(parents=True)
+    (repo_root / "pnpm-workspace.yaml").write_text("packages:\n  - apps/*\n")
+    write_fake_open_autoglm_package(
+        open_autoglm_root,
+        phone_agent_class="""
+class StepResult:
+    success = False
+    finished = True
+    action = {"_metadata": "do", "action": "Tap", "message": "可能会下单"}
+    thinking = "This tap is sensitive."
+    message = "User cancelled sensitive operation"
+
+
+class PhoneAgent:
+    def __init__(
+        self,
+        model_config,
+        agent_config,
+        confirmation_callback=None,
+        takeover_callback=None,
+    ):
+        self.confirmation_callback = confirmation_callback
+
+    def step(self, task=None):
+        if self.confirmation_callback is None:
+            raise AssertionError("confirmation callback was not provided")
+        assert self.confirmation_callback("可能会下单") is False
+        return StepResult()
+""",
+    )
+    configure_open_autoglm_env(monkeypatch, worker_dir, open_autoglm_root)
+    client = TestClient(create_app(load_env=False))
+
+    created = client.post(
+        "/tasks",
+        json={
+            "instruction": "打开美团搜索附近的火锅店，不要下单",
+            "source": "mobile",
+        },
+    )
+    task = client.get(f"/tasks/{created.json()['id']}")
+    events = client.get(f"/tasks/{created.json()['id']}/events")
+
+    assert created.status_code == 201
+    assert task.status_code == 200
+    assert task.json()["status"] == "failed"
+    assert task.json()["error"] == "Sensitive confirmation is not supported: 可能会下单"
+    assert [event["type"] for event in events.json()["events"]] == [
+        "task.created",
+        "task.started",
+        "gate.confirmation_required",
+        "task.failed",
+    ]
 
 
 def test_device_endpoint_reports_setup_failures_as_service_unavailable():
