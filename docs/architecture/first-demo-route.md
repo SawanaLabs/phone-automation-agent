@@ -29,8 +29,8 @@ updateAt: 2026-06-09
 3. The worker creates a task and starts the Open-AutoGLM loop against the ADB-connected phone.
 4. The phone may leave the Mobile Agent App because the worker launches Meituan or another target app.
 5. The worker records step events such as screenshot, model action, action result, gate, finish, or failure.
-6. The Mobile Agent App reconnects or polls for task state when foregrounded.
-7. Completion or a gate prompts the tester through the phone app, with notification-first coordination for important background events.
+6. The Mobile Agent App polls while active and reconciles task state when foregrounded.
+7. Completion or a gate is shown in the phone app through final status, screen summary, and recent events; notifications are deferred until the foreground refresh path is stable.
 
 ## API Shape To Preserve
 

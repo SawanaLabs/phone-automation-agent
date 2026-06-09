@@ -1,0 +1,33 @@
+{
+  "name": "@phone-automation/mobile",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "index.ts",
+  "dependencies": {
+    "@react-native-async-storage/async-storage": "2.2.0",
+    "expo": "~56.0.9",
+    "expo-status-bar": "~56.0.4",
+    "react": "19.2.3",
+    "react-native": "0.85.3"
+  },
+  "scripts": {
+    "dev": "expo start",
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "build": "expo export --platform android --output-dir dist",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "lint": "eslint .",
+    "format": "prettier --write \"**/*.{ts,tsx}\""
+  },
+  "private": true,
+  "devDependencies": {
+    "@types/react": "~19.2.2",
+    "@workspace/eslint-config": "workspace:^",
+    "eslint": "^9",
+    "typescript": "~6.0.3",
+    "vitest": "^4.1.8"
+  }
+}

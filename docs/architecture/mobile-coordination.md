@@ -18,17 +18,19 @@ updateAt: 2026-06-09
 
 ## Current Coordination Model
 
+- The first implemented mobile slice uses foreground refresh plus short polling while a task is active.
 - The first app should assume it can be backgrounded when the worker launches Meituan or another target app.
 - The worker is the source of truth for task state.
 - The app should reconcile state on foreground by asking the worker for the latest task state and recent events.
 - Foreground streaming is useful, but the first route should not depend on an always-on background socket.
-- Completion, confirmation, and takeover should use notifications or a simple foreground refresh path before investing in overlays.
+- Completion, confirmation, and takeover should use a simple foreground refresh path first; notifications are the next coordination slice after task creation and completion are stable.
 
 ## Confirmation And Takeover
 
 - Confirmation Gate means the worker pauses before a sensitive action and waits for an explicit app response.
 - Takeover means the tester temporarily handles a step directly on the phone, then returns to the app and marks takeover complete.
 - The first acceptance story should avoid gates. Add gates in the second demo story after task creation and completion are stable.
+- The current worker fails unsupported gates explicitly, so the first mobile app only needs to display the gate event and failure state.
 
 ## Overlay Boundary
 

@@ -5,6 +5,8 @@
   "scripts": {
     "build": "turbo build",
     "dev": "turbo dev",
+    "dev:mobile": "pnpm --dir apps/mobile start",
+    "dev:mobile:android": "pnpm --dir apps/mobile android",
     "dev:worker": "set -a; [ ! -f .env ] || . ./.env; [ ! -f .env.local ] || . ./.env.local; set +a; pnpm --dir apps/worker dev",
     "dev:worker:dry-run": "set -a; [ ! -f .env ] || . ./.env; [ ! -f .env.local ] || . ./.env.local; set +a; PHONE_AUTOMATION_WORKER_RUNNER=dry-run pnpm --dir apps/worker dev",
     "dev:worker:open-autoglm": "set -a; [ ! -f .env ] || . ./.env; [ ! -f .env.local ] || . ./.env.local; set +a; PHONE_AUTOMATION_WORKER_RUNNER=open-autoglm OPEN_AUTOGLM_ROOT=${OPEN_AUTOGLM_ROOT:-$(pwd)/../Open-AutoGLM} pnpm --dir apps/worker dev",
