@@ -10,6 +10,10 @@ shows the final task state and evidence.
 The project is demo-stage. The validated route is Android + Expo + Mac worker +
 Open-AutoGLM + ModelScope `ZhipuAI/AutoGLM-Phone-9B`.
 
+## Screenshot
+
+<img src="./docs/assets/mobile-home.png" alt="Phone Agent mobile app home screen" width="320" />
+
 ## Status
 
 - Validated: app-submitted end-to-end run on 2026-06-10.

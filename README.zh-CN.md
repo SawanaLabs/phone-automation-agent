@@ -9,6 +9,10 @@ Agent Runtime 通过 ADB 和 [Open-AutoGLM](https://github.com/zai-org/Open-Auto
 项目目前处于 demo 阶段。已验证路线是 Android + Expo + Mac worker + Open-AutoGLM +
 ModelScope `ZhipuAI/AutoGLM-Phone-9B`。
 
+## 截图
+
+<img src="./docs/assets/mobile-home.png" alt="Phone Agent 手机应用首页" width="320" />
+
 ## 状态
 
 - 已验证：2026-06-10 通过 App 提交的端到端运行。
