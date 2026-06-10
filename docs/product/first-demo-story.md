@@ -1,7 +1,7 @@
 ---
 title: First Demo Story
 description: Acceptance QA story for the first Mobile Agent App version of the Open-AutoGLM quickstart.
-updateAt: 2026-06-09
+updateAt: 2026-06-10
 ---
 
 # First Demo Story
@@ -35,6 +35,13 @@ The worker creates a task, uses the existing Open-AutoGLM ADB path to operate th
 - The app can show final task state after the phone returns from Meituan to the Mobile Agent App.
 - The tester can inspect at least the final status, final screenshot or screen summary, and recent action trace.
 - `apps/web` is not required for the story to pass.
+
+## Current QA Route
+
+- The app-submitted story passed on 2026-06-10 with a single Android phone, Expo mobile app, Mac worker, Open-AutoGLM, and the ModelScope hosted `ZhipuAI/AutoGLM-Phone-9B` endpoint.
+- Before running the ModelScope route, temporarily lower the Android logical size with `adb shell wm size 992x2048`; restore it with `adb shell wm size reset` after the run.
+- A passing run should show `Worker Online`, `NOH_AN00 · available`, a `finished` result in the Mobile Agent App, and Meituan left on the hotpot search results page.
+- Keep QA evidence under `artifacts/e2e/` when useful, but treat those files as session artifacts rather than durable docs.
 
 ## Non-Goals
 

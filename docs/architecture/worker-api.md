@@ -1,7 +1,7 @@
 ---
 title: Worker API
 description: Public API and runtime modes for the Python Agent Runtime.
-updateAt: 2026-06-09
+updateAt: 2026-06-10
 ---
 
 # Worker API
@@ -70,6 +70,19 @@ To run against the already validated local Open-AutoGLM checkout:
 
 ```bash
 pnpm dev:worker:open-autoglm
+```
+
+For the current ModelScope demo route, make sure the root `.env` contains the ModelScope endpoint and model, then temporarily lower the Android logical size before starting the task:
+
+```bash
+adb shell wm size 992x2048
+pnpm dev:worker:open-autoglm
+```
+
+Restore the phone after the run:
+
+```bash
+adb shell wm size reset
 ```
 
 To run the same mode for a real phone on the LAN:

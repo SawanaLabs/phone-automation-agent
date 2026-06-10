@@ -1,7 +1,7 @@
 ---
 title: Product Docs
 description: Map of product-level docs for demo stories and acceptance boundaries.
-updateAt: 2026-06-09
+updateAt: 2026-06-10
 ---
 
 # Product Docs
@@ -14,5 +14,5 @@ updateAt: 2026-06-09
 | File | Title | Description | Updated |
 | --- | --- | --- | --- |
 | ./DOCS.md | Product Domain Protocol | Product-level conventions for the mobile phone automation demo. | 2026-06-09 |
-| ./first-demo-story.md | First Demo Story | Acceptance QA story for the first Mobile Agent App version of the Open-AutoGLM quickstart. | 2026-06-09 |
+| ./first-demo-story.md | First Demo Story | Acceptance QA story for the first Mobile Agent App version of the Open-AutoGLM quickstart. | 2026-06-10 |
 <!-- END:docs-generated-catalog -->
