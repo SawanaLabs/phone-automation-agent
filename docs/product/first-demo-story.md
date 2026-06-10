@@ -41,7 +41,7 @@ The worker creates a task, uses the existing Open-AutoGLM ADB path to operate th
 - The app-submitted story passed on 2026-06-10 with a single Android phone, Expo mobile app, Mac worker, Open-AutoGLM, and the ModelScope hosted `ZhipuAI/AutoGLM-Phone-9B` endpoint.
 - Before running the ModelScope route, temporarily lower the Android logical size with `adb shell wm size 992x2048`; restore it with `adb shell wm size reset` after the run.
 - A passing run should show `Worker Online`, `NOH_AN00 · available`, a `finished` result in the Mobile Agent App, and Meituan left on the hotpot search results page.
-- Keep QA evidence under `artifacts/e2e/` when useful, but treat those files as session artifacts rather than durable docs.
+- Keep QA evidence in an OS temp directory by default. Only copy evidence into the repo when the user explicitly wants durable review artifacts.
 
 ## Non-Goals
 
