@@ -181,18 +181,25 @@ adb shell wm size
 
 ## 配置
 
-worker 使用的根目录 `.env` 值：
+根目录 `.env` 必填值：
 
-| 变量                             | 用途                                                |
-| -------------------------------- | --------------------------------------------------- |
-| `PHONE_AUTOMATION_WORKER_RUNNER` | `open-autoglm`、`dry-run` 或 `unconfigured`         |
-| `PHONE_AUTOMATION_WORKER_HOST`   | worker bind host，默认 `127.0.0.1`                  |
-| `PHONE_AUTOMATION_WORKER_PORT`   | worker 端口，默认 `8765`                            |
-| `OPEN_AUTOGLM_ROOT`              | 未安装 `phone_agent` 时的本地 Open-AutoGLM checkout |
-| `PHONE_AGENT_BASE_URL`           | OpenAI-compatible 模型 API base URL                 |
-| `PHONE_AGENT_MODEL`              | 模型名，例如 `ZhipuAI/AutoGLM-Phone-9B`             |
-| `PHONE_AGENT_API_KEY`            | 模型 provider API key                               |
-| `PHONE_AGENT_MAX_STEPS`          | 最大 Open-AutoGLM 步数，默认 `12`                   |
+| 变量                   | 用途                                    |
+| ---------------------- | --------------------------------------- |
+| `PHONE_AGENT_BASE_URL` | OpenAI-compatible 模型 API base URL     |
+| `PHONE_AGENT_MODEL`    | 模型名，例如 `ZhipuAI/AutoGLM-Phone-9B` |
+| `PHONE_AGENT_API_KEY`  | 模型 provider API key                   |
+
+可选 override：
+
+| 变量                           | 用途                                                 |
+| ------------------------------ | ---------------------------------------------------- |
+| `OPEN_AUTOGLM_ROOT`            | `phone_agent` 不可 import 时的 Open-AutoGLM 绝对路径 |
+| `PHONE_AGENT_MAX_STEPS`        | 最大 Open-AutoGLM 步数，默认 `12`                    |
+| `PHONE_AUTOMATION_WORKER_HOST` | worker bind host，默认 `127.0.0.1`                   |
+| `PHONE_AUTOMATION_WORKER_PORT` | worker 端口，默认 `8765`                             |
+
+Runner mode 通常由根目录 package scripts 选择，例如
+`pnpm dev:worker:open-autoglm`，不用写进 `.env`。
 
 如果真机和 Mac 在同一个 Wi-Fi 网络，使用：
 

@@ -185,18 +185,25 @@ adb shell wm size
 
 ## Configuration
 
-Root `.env` values used by the worker:
+Required root `.env` values:
 
-| Variable                         | Purpose                                                         |
-| -------------------------------- | --------------------------------------------------------------- |
-| `PHONE_AUTOMATION_WORKER_RUNNER` | `open-autoglm`, `dry-run`, or `unconfigured`                    |
-| `PHONE_AUTOMATION_WORKER_HOST`   | Worker bind host, defaults to `127.0.0.1`                       |
-| `PHONE_AUTOMATION_WORKER_PORT`   | Worker port, defaults to `8765`                                 |
-| `OPEN_AUTOGLM_ROOT`              | Local Open-AutoGLM checkout when `phone_agent` is not installed |
-| `PHONE_AGENT_BASE_URL`           | OpenAI-compatible model API base URL                            |
-| `PHONE_AGENT_MODEL`              | Model name, for example `ZhipuAI/AutoGLM-Phone-9B`              |
-| `PHONE_AGENT_API_KEY`            | Model provider API key                                          |
-| `PHONE_AGENT_MAX_STEPS`          | Max Open-AutoGLM steps, defaults to `12`                        |
+| Variable               | Purpose                                            |
+| ---------------------- | -------------------------------------------------- |
+| `PHONE_AGENT_BASE_URL` | OpenAI-compatible model API base URL               |
+| `PHONE_AGENT_MODEL`    | Model name, for example `ZhipuAI/AutoGLM-Phone-9B` |
+| `PHONE_AGENT_API_KEY`  | Model provider API key                             |
+
+Optional overrides:
+
+| Variable                       | Purpose                                                            |
+| ------------------------------ | ------------------------------------------------------------------ |
+| `OPEN_AUTOGLM_ROOT`            | Absolute path to Open-AutoGLM when `phone_agent` is not importable |
+| `PHONE_AGENT_MAX_STEPS`        | Max Open-AutoGLM steps, defaults to `12`                           |
+| `PHONE_AUTOMATION_WORKER_HOST` | Worker bind host, defaults to `127.0.0.1`                          |
+| `PHONE_AUTOMATION_WORKER_PORT` | Worker port, defaults to `8765`                                    |
+
+Runner mode is usually selected by the root package scripts, such as
+`pnpm dev:worker:open-autoglm`, instead of being written into `.env`.
 
 For a real phone on the same Wi-Fi network, use:
 
