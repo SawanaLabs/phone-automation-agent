@@ -8,6 +8,18 @@ This context defines the shared language for a demo-first mobile AI agent produc
 The phone-installed app that the tester uses to submit tasks, watch progress, and respond when the agent needs human judgment. In early demos it may delegate actual phone control to another runtime.
 _Avoid_: phone executor app, mobile client, pure remote control
 
+**Customer App Story**:
+The desired product story where a user installs an Android app on their own physical Android phone, enters an instruction, and starts automation of that same phone from the app without setting up a separate developer workstation runtime.
+_Avoid_: sending the current demo APK, worker-backed internal demo, web fallback story, cloud-device story
+
+**Android On-Device Executor**:
+The future Android-side runtime that captures phone state and performs actions on the user's same physical Android phone after the user grants the required Android privileges.
+_Avoid_: Mac worker, ADB-only worker, cloud device runner
+
+**Full Access Mode**:
+The first customer-story execution posture where, after explicit permission setup, the agent can continue routine automation without asking for approval before every step.
+_Avoid_: silent permission bypass, production safety policy, Play Store compliance story
+
 **Agent Runtime**:
 The long-running automation role that owns a task while it is running and drives a controlled phone through the best available control path.
 _Avoid_: backend, serverless API, web app

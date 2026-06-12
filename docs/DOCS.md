@@ -1,7 +1,7 @@
 ---
 title: Project Knowledge Protocol
 description: Repository-wide knowledge protocol for durable phone automation agent conventions.
-updateAt: 2026-06-09
+updateAt: 2026-06-12
 ---
 
 # Project Knowledge Protocol
@@ -10,6 +10,8 @@ updateAt: 2026-06-09
 
 - **Context Glossary**: `CONTEXT.md` is the canonical glossary for confirmed product terms; keep docs aligned with those terms.
 - **First Demo Route**: The confirmed first implementation path for proving the mobile app story without building an on-device executor first.
+- **Customer App Story**: The deliverable product story where an Android APK can automate the user's same physical phone without a manually run Mac worker.
+- **Android On-Device Executor**: The future Android-side runtime needed for the Customer App Story if execution moves onto the user's phone.
 - **Web Presence**: The browser surface may support presentation, downloads, and light management; it must not become the primary demo experience.
 
 ## Collaboration Conventions
@@ -22,7 +24,8 @@ updateAt: 2026-06-09
 
 ## Boundary Principles
 
-- `apps/mobile` is the product-facing phone app. It owns task entry, task review, status presentation, confirmations, and takeover prompts.
-- `apps/worker` is the Agent Runtime. It owns task execution, device access, Open-AutoGLM calls, event emission, and safety gates.
+- `apps/mobile` is the current worker-backed demo companion. It owns task entry, task review, status presentation, confirmations, and takeover prompts for the Demo Build.
+- `apps/worker` is the current Mac Agent Runtime. It owns task execution, device access, Open-AutoGLM calls, event emission, and safety gates for the Demo Build.
 - `apps/web` is auxiliary. It can host landing, download, and light management surfaces, but it cannot serve as the fallback product experience.
 - Open-AutoGLM should remain a thinly wrapped dependency during the first demo. Extracting or rewriting core automation code comes after the demo proves that pressure.
+- A future customer-facing Android app or Android On-Device Executor may belong in a new `apps/*` workspace until its responsibilities are proven distinct from the worker-backed demo companion.

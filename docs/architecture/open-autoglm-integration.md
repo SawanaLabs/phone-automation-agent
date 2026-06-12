@@ -1,7 +1,7 @@
 ---
 title: Open-AutoGLM Integration
 description: Durable integration boundaries for using Open-AutoGLM as the first automation engine.
-updateAt: 2026-06-10
+updateAt: 2026-06-12
 ---
 
 # Open-AutoGLM Integration
@@ -30,6 +30,18 @@ updateAt: 2026-06-10
 - The older BigModel `autoglm-phone` route is a historical success baseline, but hosted model behavior can drift. If it rejects `image_url` with `messages.content.type 参数非法，取值范围 ['text']`, treat that as a provider-route issue first and rerun the raw Open-AutoGLM handoff before blaming the worker.
 - Keep model and device setup explicit: missing API key, unreachable model endpoint, missing ADB device, missing ADB keyboard, or unsupported app mapping should fail clearly.
 - Keep secrets in env files and do not print or commit API keys.
+
+## Permission and Action Findings
+
+- Current Open-AutoGLM upstream main at `86f55382982fb054e8fc98ca80609dff8a2cdc3c` does not expose a first-class action for requesting Android AccessibilityService or other app privileges.
+- The default Chinese prompt in `/Users/openclaw/projects/Playground/Open-AutoGLM/phone_agent/config/prompts_zh.py` exposes 14 `do(...)` action names plus one `finish(...)` terminal action.
+- The 14 `do(...)` actions are `Launch`, `Tap`, `Type`, `Type_Name`, `Interact`, `Swipe`, `Note`, `Call_API`, `Long Press`, `Double Tap`, `Take_over`, `Back`, `Home`, and `Wait`.
+- `Tap` with a `message` field is still the `Tap` action; the field routes through the sensitive-operation confirmation callback and does not perform Android permission onboarding.
+- The Android handler in `/Users/openclaw/projects/Playground/Open-AutoGLM/phone_agent/actions/handler.py` and iOS handler in `/Users/openclaw/projects/Playground/Open-AutoGLM/phone_agent/actions/handler_ios.py` map those same action names to device operations and user-intervention callbacks.
+- `Take_over` and `Interact` signal human assistance or choice; they do not grant system privileges.
+- `Settings` maps to `com.android.settings`, so Open-AutoGLM can launch Android Settings and tap through screens while ADB is already available, but that is not a customer app permission-request mechanism.
+- The English prompt and README list a smaller visible surface, but `main.py` defaults to Chinese mode, so use the Chinese prompt plus handler mapping when describing current default capability.
+- For the Customer App Story, permission onboarding must be implemented in our Android app or Android On-Device Executor rather than delegated to Open-AutoGLM actions.
 
 ## External Baselines
 
