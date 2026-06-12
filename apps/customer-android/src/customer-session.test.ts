@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest"
 
 import { startCustomerTask } from "./customer-session"
+import { deriveDeviceAuthorityState } from "./device-authority"
+
+const readyAuthorityState = deriveDeviceAuthorityState({
+  accessibilityService: "enabled",
+  screenCapture: "granted",
+})
 
 describe("customer hosted session", () => {
   it("starts a hosted session and returns the terminal trace", async () => {
@@ -37,6 +43,7 @@ describe("customer hosted session", () => {
     }
 
     const session = await startCustomerTask({
+      authorityState: readyAuthorityState,
       runtimeUrl: " http://localhost:8787/ ",
       instruction: " 打开小红书搜索咖啡店，停在结果页 ",
       fetchImpl,
@@ -71,6 +78,7 @@ describe("customer hosted session", () => {
 
     await expect(
       startCustomerTask({
+        authorityState: readyAuthorityState,
         runtimeUrl: "http://localhost:8787",
         instruction: "   ",
         fetchImpl,
@@ -85,6 +93,7 @@ describe("customer hosted session", () => {
 
     await expect(
       startCustomerTask({
+        authorityState: readyAuthorityState,
         runtimeUrl: "http://localhost:8787",
         instruction: "检查当前页面",
         fetchImpl,
@@ -106,10 +115,31 @@ describe("customer hosted session", () => {
 
     await expect(
       startCustomerTask({
+        authorityState: readyAuthorityState,
         runtimeUrl: "http://localhost:8787",
         instruction: "检查当前页面",
         fetchImpl,
       })
     ).rejects.toThrow("Hosted runtime is unavailable.")
+  })
+
+  it("rejects before calling the runtime when Android authority is missing", async () => {
+    const fetchImpl: typeof fetch = async () => {
+      throw new Error("fetch should not be called")
+    }
+
+    await expect(
+      startCustomerTask({
+        authorityState: deriveDeviceAuthorityState({
+          accessibilityService: "disabled",
+          screenCapture: "missing",
+        }),
+        runtimeUrl: "http://localhost:8787",
+        instruction: "检查当前页面",
+        fetchImpl,
+      })
+    ).rejects.toThrow(
+      "Android permissions are required before starting a task: accessibility_service, screen_capture."
+    )
   })
 })

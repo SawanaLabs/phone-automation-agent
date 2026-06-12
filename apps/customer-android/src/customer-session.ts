@@ -1,3 +1,5 @@
+import type { DeviceAuthorityState } from "./device-authority"
+
 export type CustomerTaskStatus = "created" | "running" | "finished" | "failed"
 
 export type CustomerTask = {
@@ -21,16 +23,24 @@ export type CustomerSessionSnapshot = {
 }
 
 export type StartCustomerTaskInput = {
+  authorityState: DeviceAuthorityState
   runtimeUrl: string
   instruction: string
   fetchImpl?: typeof fetch
 }
 
 export async function startCustomerTask({
+  authorityState,
   runtimeUrl,
   instruction,
   fetchImpl = fetch,
 }: StartCustomerTaskInput): Promise<CustomerSessionSnapshot> {
+  if (!authorityState.canStartTask) {
+    throw new Error(
+      `Android permissions are required before starting a task: ${authorityState.missing.join(", ")}.`
+    )
+  }
+
   const normalizedInstruction = instruction.trim()
   if (!normalizedInstruction) {
     throw new Error("Instruction is required.")

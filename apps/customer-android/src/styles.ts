@@ -44,6 +44,69 @@ export const styles = StyleSheet.create({
     fontWeight: "800",
     letterSpacing: 0,
   },
+  sectionTitleRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+    justifyContent: "space-between",
+  },
+  authorityPill: {
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  authorityPillReady: {
+    backgroundColor: "#dff7eb",
+    borderColor: "#90d5ae",
+  },
+  authorityPillRequired: {
+    backgroundColor: "#fff4dc",
+    borderColor: "#e8c26b",
+  },
+  authorityPillText: {
+    fontSize: 12,
+    fontWeight: "800",
+    letterSpacing: 0,
+  },
+  authorityPillTextReady: {
+    color: "#166239",
+  },
+  authorityPillTextRequired: {
+    color: "#81540b",
+  },
+  authorityGrid: {
+    borderColor: "#d8e0ec",
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  authorityRow: {
+    alignItems: "center",
+    borderBottomColor: "#e3e9f2",
+    borderBottomWidth: 1,
+    flexDirection: "row",
+    gap: 12,
+    justifyContent: "space-between",
+    padding: 12,
+  },
+  authorityName: {
+    color: "#172033",
+    fontSize: 15,
+    fontWeight: "800",
+    letterSpacing: 0,
+  },
+  authorityValue: {
+    color: "#687386",
+    fontSize: 13,
+    letterSpacing: 0,
+    marginTop: 3,
+  },
+  buttonRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+  },
   input: {
     backgroundColor: "#ffffff",
     borderColor: "#cfd8e6",
@@ -73,6 +136,23 @@ export const styles = StyleSheet.create({
   },
   buttonDisabled: {
     opacity: 0.72,
+  },
+  secondaryButton: {
+    alignItems: "center",
+    backgroundColor: "#ffffff",
+    borderColor: "#b7c4d8",
+    borderRadius: 8,
+    borderWidth: 1,
+    justifyContent: "center",
+    minHeight: 40,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  secondaryButtonText: {
+    color: "#1d3558",
+    fontSize: 14,
+    fontWeight: "800",
+    letterSpacing: 0,
   },
   primaryButtonText: {
     color: "#ffffff",

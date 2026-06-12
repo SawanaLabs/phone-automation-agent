@@ -1,5 +1,5 @@
 import { StatusBar } from "expo-status-bar"
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -16,12 +16,23 @@ import {
   startCustomerTask,
   type CustomerSessionSnapshot,
 } from "./src/customer-session"
+import {
+  deriveDeviceAuthorityState,
+  type DeviceAuthoritySnapshot,
+  type DeviceAuthorityState,
+} from "./src/device-authority"
+import { createDeviceAuthorityGateway } from "./src/device-authority-gateway"
 import { describeError, visibleTraceEvents } from "./src/task-state"
 import { styles } from "./src/styles"
 
 const DEFAULT_RUNTIME_URL =
   process.env.EXPO_PUBLIC_CUSTOMER_RUNTIME_URL ?? "http://localhost:8787"
 const DEFAULT_INSTRUCTION = "打开小红书搜索咖啡店，停在结果页"
+const DEFAULT_AUTHORITY_SNAPSHOT: DeviceAuthoritySnapshot = {
+  accessibilityService: "disabled",
+  screenCapture: "missing",
+}
+const authorityGateway = createDeviceAuthorityGateway()
 
 export default function App() {
   const [runtimeUrl, setRuntimeUrl] = useState(DEFAULT_RUNTIME_URL)
@@ -29,17 +40,90 @@ export default function App() {
   const [session, setSession] = useState<CustomerSessionSnapshot | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [authoritySnapshot, setAuthoritySnapshot] =
+    useState(DEFAULT_AUTHORITY_SNAPSHOT)
+  const [authorityState, setAuthorityState] = useState(() =>
+    deriveDeviceAuthorityState(DEFAULT_AUTHORITY_SNAPSHOT)
+  )
 
   const traceEvents = useMemo(
     () => visibleTraceEvents(session?.events ?? []),
     [session]
   )
 
+  function applyAuthoritySnapshot(snapshot: DeviceAuthoritySnapshot) {
+    setAuthoritySnapshot(snapshot)
+    setAuthorityState((previousState) =>
+      deriveDeviceAuthorityState(snapshot, previousState.status)
+    )
+  }
+
+  useEffect(() => {
+    let isMounted = true
+    void authorityGateway
+      .getSnapshot()
+      .then((snapshot) => {
+        if (isMounted) {
+          applyAuthoritySnapshot(snapshot)
+        }
+      })
+      .catch((error) => {
+        if (isMounted) {
+          setErrorMessage(describeError(error))
+        }
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
+
+  async function refreshAuthority() {
+    setErrorMessage(null)
+    try {
+      applyAuthoritySnapshot(await authorityGateway.getSnapshot())
+    } catch (error) {
+      setErrorMessage(describeError(error))
+    }
+  }
+
+  async function handleOpenAccessibilitySettings() {
+    setErrorMessage(null)
+    try {
+      applyAuthoritySnapshot(await authorityGateway.openAccessibilitySettings())
+    } catch (error) {
+      setErrorMessage(describeError(error))
+    }
+  }
+
+  async function handleRequestScreenCapture() {
+    setErrorMessage(null)
+    try {
+      applyAuthoritySnapshot(await authorityGateway.requestScreenCapture())
+    } catch (error) {
+      setErrorMessage(describeError(error))
+    }
+  }
+
+  async function handleSimulatePermissionLoss() {
+    if (!authorityGateway.simulateScreenCaptureLoss) {
+      return
+    }
+
+    setErrorMessage(null)
+    try {
+      applyAuthoritySnapshot(await authorityGateway.simulateScreenCaptureLoss())
+    } catch (error) {
+      setErrorMessage(describeError(error))
+    }
+  }
+
   async function handleStartTask() {
     setIsSubmitting(true)
     setErrorMessage(null)
     try {
       const nextSession = await startCustomerTask({
+        authorityState,
         runtimeUrl,
         instruction,
       })
@@ -69,6 +153,102 @@ export default function App() {
           </View>
 
           <View style={styles.section}>
+            <View style={styles.sectionTitleRow}>
+              <Text style={styles.sectionTitle}>Setup</Text>
+              <View
+                style={[
+                  styles.authorityPill,
+                  authorityState.canStartTask
+                    ? styles.authorityPillReady
+                    : styles.authorityPillRequired,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.authorityPillText,
+                    authorityState.canStartTask
+                      ? styles.authorityPillTextReady
+                      : styles.authorityPillTextRequired,
+                  ]}
+                >
+                  {formatAuthorityStatus(authorityState.status)}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.authorityGrid}>
+              <View style={styles.authorityRow}>
+                <View>
+                  <Text style={styles.authorityName}>
+                    Accessibility Service
+                  </Text>
+                  <Text style={styles.authorityValue}>
+                    {authoritySnapshot.accessibilityService}
+                  </Text>
+                </View>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={handleOpenAccessibilitySettings}
+                  style={({ pressed }) => [
+                    styles.secondaryButton,
+                    pressed && styles.buttonPressed,
+                  ]}
+                >
+                  <Text style={styles.secondaryButtonText}>Open Settings</Text>
+                </Pressable>
+              </View>
+              <View style={styles.authorityRow}>
+                <View>
+                  <Text style={styles.authorityName}>Screen Capture</Text>
+                  <Text style={styles.authorityValue}>
+                    {authoritySnapshot.screenCapture}
+                  </Text>
+                </View>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={handleRequestScreenCapture}
+                  style={({ pressed }) => [
+                    styles.secondaryButton,
+                    pressed && styles.buttonPressed,
+                  ]}
+                >
+                  <Text style={styles.secondaryButtonText}>Grant Capture</Text>
+                </Pressable>
+              </View>
+            </View>
+            <View style={styles.buttonRow}>
+              <Pressable
+                accessibilityRole="button"
+                onPress={refreshAuthority}
+                style={({ pressed }) => [
+                  styles.secondaryButton,
+                  pressed && styles.buttonPressed,
+                ]}
+              >
+                <Text style={styles.secondaryButtonText}>Re-check</Text>
+              </Pressable>
+              {authorityGateway.simulateScreenCaptureLoss ? (
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={handleSimulatePermissionLoss}
+                  style={({ pressed }) => [
+                    styles.secondaryButton,
+                    pressed && styles.buttonPressed,
+                  ]}
+                >
+                  <Text style={styles.secondaryButtonText}>
+                    Simulate Lost Capture
+                  </Text>
+                </Pressable>
+              ) : null}
+            </View>
+            {authorityState.missing.length > 0 ? (
+              <Text style={styles.emptyText}>
+                Missing: {authorityState.missing.join(", ")}
+              </Text>
+            ) : null}
+          </View>
+
+          <View style={styles.section}>
             <Text style={styles.sectionTitle}>Runtime</Text>
             <TextInput
               accessibilityLabel="Hosted runtime URL"
@@ -95,12 +275,13 @@ export default function App() {
             />
             <Pressable
               accessibilityRole="button"
-              disabled={isSubmitting}
+              disabled={isSubmitting || !authorityState.canStartTask}
               onPress={handleStartTask}
               style={({ pressed }) => [
                 styles.primaryButton,
                 pressed && styles.buttonPressed,
-                isSubmitting && styles.buttonDisabled,
+                (isSubmitting || !authorityState.canStartTask) &&
+                  styles.buttonDisabled,
               ]}
             >
               {isSubmitting ? (
@@ -162,4 +343,16 @@ export default function App() {
       </KeyboardAvoidingView>
     </SafeAreaView>
   )
+}
+
+function formatAuthorityStatus(status: DeviceAuthorityState["status"]): string {
+  if (status === "ready") {
+    return "Ready"
+  }
+
+  if (status === "permission_lost") {
+    return "Permission Lost"
+  }
+
+  return "Setup Required"
 }
