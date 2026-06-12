@@ -43,6 +43,37 @@ class CustomerAutomationAccessibilityService : AccessibilityService() {
     dispatch(path, 0L, 80L, TapPoint(x, y), onComplete, onCancel)
   }
 
+  fun doubleTap(
+    x: Int,
+    y: Int,
+    onComplete: () -> Unit,
+    onCancel: () -> Unit
+  ) {
+    val firstTap = Path().apply {
+      moveTo(x.toFloat(), y.toFloat())
+    }
+    val secondTap = Path().apply {
+      moveTo(x.toFloat(), y.toFloat())
+    }
+    val gesture = GestureDescription.Builder()
+      .addStroke(GestureDescription.StrokeDescription(firstTap, 0L, 80L))
+      .addStroke(GestureDescription.StrokeDescription(secondTap, 160L, 80L))
+      .build()
+    dispatchGestureDescription(gesture, TapPoint(x, y), onComplete, onCancel)
+  }
+
+  fun longPress(
+    x: Int,
+    y: Int,
+    onComplete: () -> Unit,
+    onCancel: () -> Unit
+  ) {
+    val path = Path().apply {
+      moveTo(x.toFloat(), y.toFloat())
+    }
+    dispatch(path, 0L, 650L, TapPoint(x, y), onComplete, onCancel)
+  }
+
   fun swipe(
     startX: Int,
     startY: Int,
@@ -112,6 +143,15 @@ class CustomerAutomationAccessibilityService : AccessibilityService() {
       .addStroke(GestureDescription.StrokeDescription(path, startTimeMs, durationMs))
       .build()
 
+    dispatchGestureDescription(gesture, tapPoint, onComplete, onCancel)
+  }
+
+  private fun dispatchGestureDescription(
+    gesture: GestureDescription,
+    tapPoint: TapPoint?,
+    onComplete: () -> Unit,
+    onCancel: () -> Unit
+  ) {
     val accepted = dispatchGesture(
       gesture,
       object : GestureResultCallback() {

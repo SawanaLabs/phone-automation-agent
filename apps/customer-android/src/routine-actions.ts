@@ -31,6 +31,16 @@ export type RoutineAction =
     }
   | {
       _metadata: "do"
+      action: "Double Tap"
+      element: RelativePoint
+    }
+  | {
+      _metadata: "do"
+      action: "Long Press"
+      element: RelativePoint
+    }
+  | {
+      _metadata: "do"
       action: "Swipe"
       start: RelativePoint
       end: RelativePoint
@@ -61,6 +71,8 @@ export type RoutineAction =
 export type RoutineActionExecutor = {
   screen: ScreenSize
   tap: (point: PixelPoint) => Promise<void>
+  doubleTap: (point: PixelPoint) => Promise<void>
+  longPress: (point: PixelPoint) => Promise<void>
   swipe: (start: PixelPoint, end: PixelPoint) => Promise<void>
   back: () => Promise<void>
   home: () => Promise<void>
@@ -251,6 +263,16 @@ async function dispatchRoutineAction(
     return
   }
 
+  if (action.action === "Double Tap") {
+    await executor.doubleTap(convertRelativePoint(action.element, executor.screen))
+    return
+  }
+
+  if (action.action === "Long Press") {
+    await executor.longPress(convertRelativePoint(action.element, executor.screen))
+    return
+  }
+
   if (action.action === "Launch") {
     await executor.launchApp(normalizeRequiredString(action.app, "Launch app"))
     return
@@ -364,6 +386,10 @@ function createSnapshot(
 function describeRoutineAction(action: Exclude<RoutineAction, { _metadata: "finish" }>): string {
   if (action.action === "Tap") {
     return `Tap ${action.element.join(",")}`
+  }
+
+  if (action.action === "Double Tap" || action.action === "Long Press") {
+    return `${action.action} ${action.element.join(",")}`
   }
 
   if (action.action === "Launch") {

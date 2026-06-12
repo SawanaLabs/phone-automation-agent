@@ -19,6 +19,12 @@ function createRecordingExecutor(): RoutineActionExecutor & {
     async tap(point) {
       this.calls.push(`tap:${point.x},${point.y}`)
     },
+    async doubleTap(point) {
+      this.calls.push(`double-tap:${point.x},${point.y}`)
+    },
+    async longPress(point) {
+      this.calls.push(`long-press:${point.x},${point.y}`)
+    },
     async swipe(start, end) {
       this.calls.push(`swipe:${start.x},${start.y}->${end.x},${end.y}`)
     },
@@ -106,6 +112,27 @@ describe("routine actions", () => {
       "launch:com.android.settings",
       "type:coffee shop",
       "type:Sawana",
+    ])
+    expect(result.task.status).toBe("finished")
+  })
+
+  it("dispatches double tap and long press actions", async () => {
+    const executor = createRecordingExecutor()
+
+    const result = await runRoutineActionScript({
+      taskId: "customer_task_1",
+      instruction: "测试复杂手势",
+      actions: [
+        { _metadata: "do", action: "Double Tap", element: [500, 250] },
+        { _metadata: "do", action: "Long Press", element: [250, 500] },
+        { _metadata: "finish", message: "done" },
+      ],
+      executor,
+    })
+
+    expect(executor.calls).toEqual([
+      "double-tap:540,600",
+      "long-press:270,1200",
     ])
     expect(result.task.status).toBe("finished")
   })

@@ -4,7 +4,11 @@ import process from "node:process"
 const host = process.env.CUSTOMER_RUNTIME_HOST ?? "127.0.0.1"
 const port = Number(process.env.CUSTOMER_RUNTIME_PORT ?? "8787")
 const scenario = process.env.CUSTOMER_RUNTIME_SCENARIO ?? "routine-basic"
-const supportedScenarios = new Set(["routine-basic", "launch-type"])
+const supportedScenarios = new Set([
+  "routine-basic",
+  "launch-type",
+  "routine-contract",
+])
 const sessions = new Map()
 const stepRequests = []
 
@@ -183,6 +187,34 @@ function createScenarioAction(instruction, stepNumber) {
       {
         _metadata: "finish",
         message: `Finished hosted launch and text-entry customer task: ${instruction}`,
+      },
+    ])
+  }
+
+  if (scenario === "routine-contract") {
+    return actionAtStep(stepNumber, [
+      {
+        _metadata: "do",
+        action: "Launch",
+        app: "com.sawanalabs.phoneautomation.customer",
+      },
+      { _metadata: "do", action: "Tap", element: [500, 500] },
+      { _metadata: "do", action: "Type", text: "coffee shop" },
+      { _metadata: "do", action: "Type_Name", text: "Sawana" },
+      {
+        _metadata: "do",
+        action: "Swipe",
+        start: [500, 800],
+        end: [500, 200],
+      },
+      { _metadata: "do", action: "Double Tap", element: [500, 500] },
+      { _metadata: "do", action: "Long Press", element: [500, 500] },
+      { _metadata: "do", action: "Back" },
+      { _metadata: "do", action: "Home" },
+      { _metadata: "do", action: "Wait", duration: "1 seconds" },
+      {
+        _metadata: "finish",
+        message: `Finished hosted routine contract customer task: ${instruction}`,
       },
     ])
   }

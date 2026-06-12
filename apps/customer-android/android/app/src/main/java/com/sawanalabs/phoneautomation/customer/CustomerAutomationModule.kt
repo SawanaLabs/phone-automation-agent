@@ -123,6 +123,32 @@ class CustomerAutomationModule(
   }
 
   @ReactMethod
+  fun doubleTap(x: Double, y: Double, promise: Promise) {
+    val service = getServiceOrReject(promise) ?: return
+    service.doubleTap(
+      x.roundToInt(),
+      y.roundToInt(),
+      onComplete = { promise.resolve(null) },
+      onCancel = {
+        promise.reject("GESTURE_CANCELLED", "Double Tap gesture was cancelled.")
+      }
+    )
+  }
+
+  @ReactMethod
+  fun longPress(x: Double, y: Double, promise: Promise) {
+    val service = getServiceOrReject(promise) ?: return
+    service.longPress(
+      x.roundToInt(),
+      y.roundToInt(),
+      onComplete = { promise.resolve(null) },
+      onCancel = {
+        promise.reject("GESTURE_CANCELLED", "Long Press gesture was cancelled.")
+      }
+    )
+  }
+
+  @ReactMethod
   fun swipe(
     startX: Double,
     startY: Double,

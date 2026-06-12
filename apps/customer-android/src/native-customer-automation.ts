@@ -14,6 +14,8 @@ export type CustomerAutomationNativeModule = {
   requestScreenCapture: () => Promise<DeviceAuthoritySnapshot>
   captureScreenState: () => Promise<CustomerScreenState>
   tap: (x: number, y: number) => Promise<void>
+  doubleTap: (x: number, y: number) => Promise<void>
+  longPress: (x: number, y: number) => Promise<void>
   swipe: (
     startX: number,
     startY: number,
@@ -67,6 +69,14 @@ export function createNativeRoutineActionExecutor(
     async tap(point) {
       const roundedPoint = roundPixelPoint(point)
       await nativeModule.tap(roundedPoint.x, roundedPoint.y)
+    },
+    async doubleTap(point) {
+      const roundedPoint = roundPixelPoint(point)
+      await nativeModule.doubleTap(roundedPoint.x, roundedPoint.y)
+    },
+    async longPress(point) {
+      const roundedPoint = roundPixelPoint(point)
+      await nativeModule.longPress(roundedPoint.x, roundedPoint.y)
     },
     async swipe(start, end) {
       const roundedStart = roundPixelPoint(start)

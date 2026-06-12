@@ -219,6 +219,75 @@ describe("customer hosted session", () => {
     })
   })
 
+  it("normalizes the hosted runtime action before returning it", async () => {
+    const fetchImpl: typeof fetch = async () =>
+      new Response(
+        JSON.stringify({
+          action: {
+            _metadata: "do",
+            action: "Type_Name",
+            text: "Sawana",
+          },
+        }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }
+      )
+
+    const decision = await requestNextCustomerAction({
+      runtimeUrl: "localhost:8787",
+      taskId: "customer_task_1",
+      instruction: "输入姓名",
+      stepNumber: 1,
+      screen: {
+        frameBase64: "ZmFrZS1zY3JlZW4=",
+        frameMimeType: "image/png",
+        width: 1080,
+        height: 2400,
+      },
+      fetchImpl,
+    })
+
+    expect(decision.action).toEqual({
+      _metadata: "do",
+      action: "Type",
+      text: "Sawana",
+    })
+  })
+
+  it("rejects invalid hosted runtime actions", async () => {
+    const fetchImpl: typeof fetch = async () =>
+      new Response(
+        JSON.stringify({
+          action: {
+            _metadata: "do",
+            action: "Scroll",
+          },
+        }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }
+      )
+
+    await expect(
+      requestNextCustomerAction({
+        runtimeUrl: "localhost:8787",
+        taskId: "customer_task_1",
+        instruction: "检查当前页面",
+        stepNumber: 1,
+        screen: {
+          frameBase64: "ZmFrZS1zY3JlZW4=",
+          frameMimeType: "image/png",
+          width: 1080,
+          height: 2400,
+        },
+        fetchImpl,
+      })
+    ).rejects.toThrow("Unsupported Open-AutoGLM action: Scroll.")
+  })
+
   it("rejects before calling the runtime when the screen frame is missing", async () => {
     const fetchImpl: typeof fetch = async () => {
       throw new Error("fetch should not be called")

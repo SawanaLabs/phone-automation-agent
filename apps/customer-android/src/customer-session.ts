@@ -1,4 +1,5 @@
 import type { DeviceAuthorityState } from "./device-authority"
+import { normalizeOpenAutoGlmAction } from "./open-autoglm-action-contract"
 import type { RoutineAction } from "./routine-actions"
 
 export type CustomerTaskStatus =
@@ -154,7 +155,10 @@ export async function requestNextCustomerAction({
     throw new Error(await describeHttpError(response))
   }
 
-  return response.json() as Promise<CustomerActionDecision>
+  const body = (await response.json()) as { action?: unknown }
+  return {
+    action: normalizeOpenAutoGlmAction(body.action),
+  }
 }
 
 function assertScreenState(screen: CustomerScreenState) {

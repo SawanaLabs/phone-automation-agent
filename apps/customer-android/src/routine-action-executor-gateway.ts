@@ -33,6 +33,8 @@ function createDevelopmentRoutineActionExecutor(): RoutineActionExecutor {
   return {
     screen: getCurrentScreen(),
     async tap() {},
+    async doubleTap() {},
+    async longPress() {},
     async swipe() {},
     async back() {},
     async home() {},

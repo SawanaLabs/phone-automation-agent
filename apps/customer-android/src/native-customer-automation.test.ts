@@ -38,6 +38,8 @@ const readyNativeModule: CustomerAutomationNativeModule = {
     }
   },
   async tap() {},
+  async doubleTap() {},
+  async longPress() {},
   async swipe() {},
   async back() {},
   async home() {},
@@ -81,6 +83,12 @@ describe("customer automation native bridge", () => {
       async tap(x, y) {
         calls.push(`tap:${x},${y}`)
       },
+      async doubleTap(x, y) {
+        calls.push(`double-tap:${x},${y}`)
+      },
+      async longPress(x, y) {
+        calls.push(`long-press:${x},${y}`)
+      },
       async swipe(startX, startY, endX, endY) {
         calls.push(`swipe:${startX},${startY}->${endX},${endY}`)
       },
@@ -103,6 +111,8 @@ describe("customer automation native bridge", () => {
     })
 
     await executor.tap({ x: 540, y: 600 })
+    await executor.doubleTap({ x: 540, y: 600 })
+    await executor.longPress({ x: 270, y: 1200 })
     await executor.swipe({ x: 540, y: 1920 }, { x: 540, y: 480 })
     await executor.back()
     await executor.home()
@@ -111,6 +121,8 @@ describe("customer automation native bridge", () => {
 
     expect(calls).toEqual([
       "tap:540,600",
+      "double-tap:540,600",
+      "long-press:270,1200",
       "swipe:540,1920->540,480",
       "back",
       "home",
