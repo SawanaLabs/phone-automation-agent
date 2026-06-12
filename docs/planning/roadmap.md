@@ -98,6 +98,26 @@ Known risks:
 - Set the minimum Android version and first supported OEM/device target.
 - Define explicit out-of-scope items for the first issue: payment, login, captcha, irreversible account changes, Play Store compliance completion, and broad safety policy.
 
+## Implementation Issue Breakdown
+
+- Parent PRD: [#1 Customer App Story via hosted agent runtime](https://github.com/SawanaLabs/phone-automation-agent/issues/1).
+- Use `apps/customer-android` as the customer Android workspace name unless superseded by a later architecture decision.
+- TDD should happen inside each vertical slice: write one failing behavior test for the public contract, implement the minimum path, then refactor after green.
+- Physical-device slices may be Agent-verifiable Device QA when a connected Android phone is available. The implementation agent can install, run, screenshot, and operate the test device; the user remains responsible for final Customer App Story acceptance.
+
+Issue sequence:
+
+1. [#2 Create customer Android app with hosted session happy path](https://github.com/SawanaLabs/phone-automation-agent/issues/2)
+2. [#3 Gate task start behind Android permission readiness](https://github.com/SawanaLabs/phone-automation-agent/issues/3)
+3. [#4 Run scripted Tap Swipe Back Home Wait actions on the same phone](https://github.com/SawanaLabs/phone-automation-agent/issues/4)
+4. [#5 Add Launch and text entry routine actions](https://github.com/SawanaLabs/phone-automation-agent/issues/5)
+5. [#6 Upload screen state for per-step hosted decisions](https://github.com/SawanaLabs/phone-automation-agent/issues/6)
+6. [#7 Normalize Open-AutoGLM routine action contract](https://github.com/SawanaLabs/phone-automation-agent/issues/7)
+7. [#8 Connect hosted runtime to Open-AutoGLM-style agent loop](https://github.com/SawanaLabs/phone-automation-agent/issues/8)
+8. [#9 Handle human-in-the-loop pause actions](https://github.com/SawanaLabs/phone-automation-agent/issues/9)
+9. [#10 Represent runtime-local and unsupported actions explicitly](https://github.com/SawanaLabs/phone-automation-agent/issues/10)
+10. [#11 Pass first Customer App acceptance story without Mac worker](https://github.com/SawanaLabs/phone-automation-agent/issues/11)
+
 ## Update Triggers
 
 - Update this roadmap when Grooming selects the workspace name or first acceptance story.

@@ -12,6 +12,7 @@ updateAt: 2026-06-12
 - **Hosted Agent Runtime Route**: The customer-app route where the Android app observes and executes on the user's phone while a hosted backend runs the Open-AutoGLM-style agent loop and returns actions.
 - **Single-App Runtime Route**: The customer-app route where the Android app owns the agent loop and only calls a remote LLM API.
 - **Human-in-the-loop Pause**: A task state where automation pauses at a gate action and waits for the user to continue or stop instead of silently executing the action.
+- **Agent-verifiable Device QA**: A physical-device validation slice that an implementation agent can run on a connected Android phone, while the user remains the final Customer App Story acceptance judge.
 - **Grooming Issue**: The large implementation issue to write after Grooming resolves the first route, acceptance story, and boundaries.
 
 ## Collaboration Conventions
