@@ -132,6 +132,28 @@ describe("hosted agent runtime", () => {
     expect(modelCalls[0].prompt).toContain("Current package: com.android.settings")
   })
 
+  it("provides a scripted settings-return acceptance scenario", async () => {
+    const provider = createModelProviderFromEnv({
+      CUSTOMER_RUNTIME_MODEL_PROVIDER: "scripted",
+      CUSTOMER_RUNTIME_SCENARIO: "settings-return",
+    })
+
+    await expect(provider.complete({ stepNumber: 1 })).resolves.toBe(
+      'do(action="Launch", app="com.android.settings")'
+    )
+    await expect(provider.complete({ stepNumber: 2 })).resolves.toBe(
+      'do(action="Wait", duration="1 seconds")'
+    )
+    await expect(provider.complete({ stepNumber: 3 })).resolves.toBe(
+      'do(action="Back")'
+    )
+    await expect(
+      provider.complete({ stepNumber: 4, instruction: "打开设置后返回" })
+    ).resolves.toBe(
+      'finish(message="Finished settings return customer task: 打开设置后返回")'
+    )
+  })
+
   it("returns a terminal finish response from model output", async () => {
     const runtime = createHostedAgentRuntime({
       modelProvider: {

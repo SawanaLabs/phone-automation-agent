@@ -205,6 +205,7 @@ export function createScriptedModelProvider({ scenario = "routine-basic" } = {})
     "confirmation-pause",
     "runtime-local-actions",
     "unknown-action",
+    "settings-return",
   ])
   if (!supportedScenarios.has(scenario)) {
     throw new Error(`Unsupported CUSTOMER_RUNTIME_SCENARIO: ${scenario}`)
@@ -666,6 +667,15 @@ function createScenarioOutputs(scenario, instruction) {
 
   if (scenario === "unknown-action") {
     return ['do(action="Scroll", start=[500,800], end=[500,200])']
+  }
+
+  if (scenario === "settings-return") {
+    return [
+      'do(action="Launch", app="com.android.settings")',
+      'do(action="Wait", duration="1 seconds")',
+      'do(action="Back")',
+      `finish(message="Finished settings return customer task: ${instruction}")`,
+    ]
   }
 
   if (scenario === "takeover-pause") {
