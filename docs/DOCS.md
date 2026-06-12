@@ -12,6 +12,7 @@ updateAt: 2026-06-12
 - **First Demo Route**: The confirmed first implementation path for proving the mobile app story without building an on-device executor first.
 - **Customer App Story**: The deliverable product story where an Android APK can automate the user's same physical phone without a manually run Mac worker.
 - **Android On-Device Executor**: The future Android-side runtime needed for the Customer App Story if execution moves onto the user's phone.
+- **Customer App Roadmap**: The Planning domain roadmap that records route order, fallback conditions, and Grooming outputs for implementing the Customer App Story.
 - **Web Presence**: The browser surface may support presentation, downloads, and light management; it must not become the primary demo experience.
 
 ## Collaboration Conventions
@@ -29,3 +30,4 @@ updateAt: 2026-06-12
 - `apps/web` is auxiliary. It can host landing, download, and light management surfaces, but it cannot serve as the fallback product experience.
 - Open-AutoGLM should remain a thinly wrapped dependency during the first demo. Extracting or rewriting core automation code comes after the demo proves that pressure.
 - A future customer-facing Android app or Android On-Device Executor may belong in a new `apps/*` workspace until its responsibilities are proven distinct from the worker-backed demo companion.
+- `docs/planning` owns roadmap and Grooming sequencing; when a route becomes accepted architecture, promote the decision into Product and Architecture docs.

@@ -110,6 +110,10 @@ while IFS= read -r domain_dir; do
     .*) continue ;;
   esac
 
+  if ! find "$domain_dir" -maxdepth 1 -type f -name '*.md' -print -quit | grep -q .; then
+    continue
+  fi
+
   domain_index="$domain_dir/index.md"
   domain_docs="$domain_dir/DOCS.md"
 
