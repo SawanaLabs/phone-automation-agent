@@ -3,6 +3,7 @@ package com.sawanalabs.phoneautomation.customer
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
 import android.graphics.Path
+import android.graphics.Rect
 import android.os.Bundle
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
@@ -12,6 +13,8 @@ class CustomerAutomationAccessibilityService : AccessibilityService() {
     var current: CustomerAutomationAccessibilityService? = null
       private set
   }
+
+  private var lastTappedInput: AccessibilityNodeInfo? = null
 
   override fun onServiceConnected() {
     current = this
@@ -37,7 +40,7 @@ class CustomerAutomationAccessibilityService : AccessibilityService() {
     val path = Path().apply {
       moveTo(x.toFloat(), y.toFloat())
     }
-    dispatch(path, 0L, 80L, onComplete, onCancel)
+    dispatch(path, 0L, 80L, TapPoint(x, y), onComplete, onCancel)
   }
 
   fun swipe(
@@ -52,7 +55,7 @@ class CustomerAutomationAccessibilityService : AccessibilityService() {
       moveTo(startX.toFloat(), startY.toFloat())
       lineTo(endX.toFloat(), endY.toFloat())
     }
-    dispatch(path, 0L, 450L, onComplete, onCancel)
+    dispatch(path, 0L, 450L, null, onComplete, onCancel)
   }
 
   fun typeText(
@@ -66,8 +69,8 @@ class CustomerAutomationAccessibilityService : AccessibilityService() {
       return
     }
 
-    val focusedInput = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
-    if (focusedInput == null) {
+    val inputTarget = findInputTarget(root)
+    if (inputTarget == null) {
       onFailure("No focused input target is available for Type action.")
       return
     }
@@ -78,7 +81,7 @@ class CustomerAutomationAccessibilityService : AccessibilityService() {
         text
       )
     }
-    if (focusedInput.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, arguments)) {
+    if (inputTarget.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, arguments)) {
       onComplete()
       return
     }
@@ -90,6 +93,7 @@ class CustomerAutomationAccessibilityService : AccessibilityService() {
     path: Path,
     startTimeMs: Long,
     durationMs: Long,
+    tapPoint: TapPoint?,
     onComplete: () -> Unit,
     onCancel: () -> Unit
   ) {
@@ -101,6 +105,9 @@ class CustomerAutomationAccessibilityService : AccessibilityService() {
       gesture,
       object : GestureResultCallback() {
         override fun onCompleted(gestureDescription: GestureDescription?) {
+          if (tapPoint != null) {
+            rememberInputAt(tapPoint.x, tapPoint.y)
+          }
           onComplete()
         }
 
@@ -115,4 +122,72 @@ class CustomerAutomationAccessibilityService : AccessibilityService() {
       onCancel()
     }
   }
+
+  private fun rememberInputAt(x: Int, y: Int) {
+    val root = rootInActiveWindow
+    if (root == null) {
+      clearLastTappedInput()
+      return
+    }
+
+    val input = findEditableNodeAt(root, x, y)
+    if (input == null) {
+      clearLastTappedInput()
+      return
+    }
+
+    input.performAction(AccessibilityNodeInfo.ACTION_FOCUS)
+    lastTappedInput = input
+  }
+
+  private fun findInputTarget(root: AccessibilityNodeInfo): AccessibilityNodeInfo? {
+    val focusedInput = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
+    if (isUsableInput(focusedInput)) {
+      return focusedInput
+    }
+
+    val tappedInput = lastTappedInput
+    if (tappedInput != null && tappedInput.refresh() && isUsableInput(tappedInput)) {
+      return tappedInput
+    }
+
+    clearLastTappedInput()
+    return null
+  }
+
+  private fun findEditableNodeAt(
+    node: AccessibilityNodeInfo,
+    x: Int,
+    y: Int
+  ): AccessibilityNodeInfo? {
+    val bounds = Rect()
+    node.getBoundsInScreen(bounds)
+    if (!node.isVisibleToUser || !bounds.contains(x, y)) {
+      return null
+    }
+
+    for (index in 0 until node.childCount) {
+      val child = node.getChild(index) ?: continue
+      val editableChild = findEditableNodeAt(child, x, y)
+      if (editableChild != null) {
+        return editableChild
+      }
+    }
+
+    if (isUsableInput(node)) {
+      return node
+    }
+
+    return null
+  }
+
+  private fun isUsableInput(node: AccessibilityNodeInfo?): Boolean {
+    return node != null && node.isVisibleToUser && node.isEnabled && node.isEditable
+  }
+
+  private fun clearLastTappedInput() {
+    lastTappedInput = null
+  }
+
+  private data class TapPoint(val x: Int, val y: Int)
 }
