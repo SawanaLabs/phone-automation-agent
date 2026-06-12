@@ -1,6 +1,10 @@
-import { Linking, Platform } from "react-native"
+import { NativeModules, Platform } from "react-native"
 
 import type { DeviceAuthoritySnapshot } from "./device-authority"
+import {
+  createNativeDeviceAuthorityGateway,
+  requireCustomerAutomationNativeModule,
+} from "./native-customer-automation"
 
 export type DeviceAuthorityGateway = {
   getSnapshot: () => Promise<DeviceAuthoritySnapshot>
@@ -56,18 +60,7 @@ function createDevelopmentAuthorityGateway(): DeviceAuthorityGateway {
 }
 
 function createNativeAuthorityGateway(): DeviceAuthorityGateway {
-  return {
-    async getSnapshot() {
-      return SETUP_REQUIRED_SNAPSHOT
-    },
-    async openAccessibilitySettings() {
-      await Linking.openSettings()
-      return SETUP_REQUIRED_SNAPSHOT
-    },
-    async requestScreenCapture() {
-      throw new Error(
-        "Screen capture permission requires the native MediaProjection bridge."
-      )
-    },
-  }
+  return createNativeDeviceAuthorityGateway(
+    requireCustomerAutomationNativeModule(NativeModules)
+  )
 }

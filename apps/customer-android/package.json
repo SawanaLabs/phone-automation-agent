@@ -7,7 +7,7 @@
     "dev": "expo start",
     "dev:runtime": "node scripts/fake-hosted-runtime.mjs",
     "web": "expo start --web",
-    "android": "expo start --android",
+    "android": "expo run:android",
     "build": "expo export --platform android --output-dir dist",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",

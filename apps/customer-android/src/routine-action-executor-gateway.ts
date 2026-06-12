@@ -1,5 +1,9 @@
-import { Dimensions, Platform } from "react-native"
+import { Dimensions, NativeModules, Platform } from "react-native"
 
+import {
+  createNativeRoutineActionExecutor as createNativeRoutineActionExecutorFromModule,
+  requireCustomerAutomationNativeModule,
+} from "./native-customer-automation"
 import type { RoutineActionExecutor } from "./routine-actions"
 
 export function createRoutineActionExecutor(): RoutineActionExecutor {
@@ -11,7 +15,9 @@ export function createRoutineActionExecutor(): RoutineActionExecutor {
 }
 
 function getCurrentScreen() {
-  const { width, height } = Dimensions.get("window")
+  const { width, height } = Dimensions.get(
+    Platform.OS === "web" ? "window" : "screen"
+  )
   return {
     width,
     height,
@@ -34,30 +40,8 @@ function createDevelopmentRoutineActionExecutor(): RoutineActionExecutor {
 }
 
 function createNativeRoutineActionExecutor(): RoutineActionExecutor {
-  return {
-    screen: getCurrentScreen(),
-    async tap() {
-      throwMissingNativeBridge()
-    },
-    async swipe() {
-      throwMissingNativeBridge()
-    },
-    async back() {
-      throwMissingNativeBridge()
-    },
-    async home() {
-      throwMissingNativeBridge()
-    },
-    async wait(durationMs) {
-      await new Promise((resolve) => {
-        setTimeout(resolve, durationMs)
-      })
-    },
-  }
-}
-
-function throwMissingNativeBridge(): never {
-  throw new Error(
-    "Routine actions require the native Android AccessibilityService bridge."
+  return createNativeRoutineActionExecutorFromModule(
+    requireCustomerAutomationNativeModule(NativeModules),
+    getCurrentScreen()
   )
 }
