@@ -103,6 +103,7 @@ Known risks:
 - Parent PRD: [#1 Customer App Story via hosted agent runtime](https://github.com/SawanaLabs/phone-automation-agent/issues/1).
 - Use `apps/customer-android` as the customer Android workspace name unless superseded by a later architecture decision.
 - TDD should happen inside each vertical slice: write one failing behavior test for the public contract, implement the minimum path, then refactor after green.
+- Every implementation issue must include Browser Acceptance before it is considered complete: start the relevant local/dev surface, use Browser tooling to exercise the issue's user story against the actual developed product path, and record the result in the issue or PR.
 - Physical-device slices may be Agent-verifiable Device QA when a connected Android phone is available. The implementation agent can install, run, screenshot, and operate the test device; the user remains responsible for final Customer App Story acceptance.
 
 Issue sequence:

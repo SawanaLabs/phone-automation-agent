@@ -13,6 +13,7 @@ updateAt: 2026-06-12
 - **Single-App Runtime Route**: The customer-app route where the Android app owns the agent loop and only calls a remote LLM API.
 - **Human-in-the-loop Pause**: A task state where automation pauses at a gate action and waits for the user to continue or stop instead of silently executing the action.
 - **Agent-verifiable Device QA**: A physical-device validation slice that an implementation agent can run on a connected Android phone, while the user remains the final Customer App Story acceptance judge.
+- **Browser Acceptance**: A completion gate where the implementation agent uses Browser tooling to exercise the issue's user story against the actual developed surface and records the observed result before the issue is treated as complete.
 - **Grooming Issue**: The large implementation issue to write after Grooming resolves the first route, acceptance story, and boundaries.
 
 ## Collaboration Conventions
@@ -21,6 +22,8 @@ updateAt: 2026-06-12
 - Do not treat a planning note as an implementation issue until the user explicitly says Grooming is complete.
 - Record both acceptable routes when the user has not rejected either route; make the intended implementation order explicit.
 - Prefer the route that extends the current architecture when it can still satisfy the Customer App Story.
+- Every implementation issue completion must include Browser Acceptance based on that issue's user story, in addition to automated TDD tests.
+- Android/device slices still require Agent-verifiable Device QA when they claim same-phone execution; Browser Acceptance does not replace physical-device proof.
 
 ## Boundary Principles
 

@@ -1,0 +1,156 @@
+import { StyleSheet } from "react-native"
+
+export const styles = StyleSheet.create({
+  safeArea: {
+    backgroundColor: "#f7f8fb",
+    flex: 1,
+  },
+  keyboard: {
+    flex: 1,
+  },
+  content: {
+    gap: 18,
+    marginHorizontal: "auto",
+    maxWidth: 720,
+    padding: 20,
+    width: "100%",
+  },
+  header: {
+    gap: 6,
+    paddingTop: 8,
+  },
+  eyebrow: {
+    color: "#526176",
+    fontSize: 13,
+    fontWeight: "700",
+    letterSpacing: 0,
+    textTransform: "uppercase",
+  },
+  title: {
+    color: "#111827",
+    fontSize: 32,
+    fontWeight: "800",
+    letterSpacing: 0,
+  },
+  section: {
+    borderBottomColor: "#d9e0ea",
+    borderBottomWidth: 1,
+    gap: 12,
+    paddingBottom: 18,
+  },
+  sectionTitle: {
+    color: "#172033",
+    fontSize: 18,
+    fontWeight: "800",
+    letterSpacing: 0,
+  },
+  input: {
+    backgroundColor: "#ffffff",
+    borderColor: "#cfd8e6",
+    borderRadius: 8,
+    borderWidth: 1,
+    color: "#111827",
+    fontSize: 16,
+    lineHeight: 22,
+    minHeight: 48,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  taskInput: {
+    minHeight: 112,
+  },
+  primaryButton: {
+    alignItems: "center",
+    backgroundColor: "#2251c8",
+    borderRadius: 8,
+    justifyContent: "center",
+    minHeight: 48,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  buttonPressed: {
+    opacity: 0.82,
+  },
+  buttonDisabled: {
+    opacity: 0.72,
+  },
+  primaryButtonText: {
+    color: "#ffffff",
+    fontSize: 16,
+    fontWeight: "800",
+    letterSpacing: 0,
+  },
+  resultStack: {
+    gap: 8,
+  },
+  statusLine: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 8,
+  },
+  statusDot: {
+    borderRadius: 999,
+    height: 10,
+    width: 10,
+  },
+  statusFinished: {
+    backgroundColor: "#159b63",
+  },
+  statusRunning: {
+    backgroundColor: "#3563e9",
+  },
+  statusText: {
+    color: "#111827",
+    fontSize: 17,
+    fontWeight: "800",
+    letterSpacing: 0,
+  },
+  summaryText: {
+    color: "#24324a",
+    fontSize: 16,
+    lineHeight: 22,
+  },
+  taskIdText: {
+    color: "#687386",
+    fontSize: 12,
+    letterSpacing: 0,
+  },
+  emptyText: {
+    color: "#687386",
+    fontSize: 15,
+    letterSpacing: 0,
+  },
+  errorBox: {
+    backgroundColor: "#fee2e2",
+    borderColor: "#f0a7a7",
+    borderRadius: 8,
+    borderWidth: 1,
+    padding: 12,
+  },
+  errorText: {
+    color: "#8f1d1d",
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  traceList: {
+    gap: 8,
+  },
+  traceItem: {
+    borderColor: "#d8e0ec",
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: 4,
+    padding: 10,
+  },
+  traceType: {
+    color: "#526176",
+    fontSize: 12,
+    fontWeight: "800",
+    letterSpacing: 0,
+  },
+  traceMessage: {
+    color: "#172033",
+    fontSize: 15,
+    lineHeight: 20,
+  },
+})

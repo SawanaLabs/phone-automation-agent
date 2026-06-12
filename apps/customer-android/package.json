@@ -1,0 +1,34 @@
+{
+  "name": "@phone-automation/customer-android",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "index.ts",
+  "scripts": {
+    "dev": "expo start",
+    "dev:runtime": "node scripts/fake-hosted-runtime.mjs",
+    "web": "expo start --web",
+    "android": "expo start --android",
+    "build": "expo export --platform android --output-dir dist",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "format": "prettier --write \"**/*.{ts,tsx}\""
+  },
+  "dependencies": {
+    "@expo/metro-runtime": "~56.0.15",
+    "expo": "~56.0.9",
+    "expo-status-bar": "~56.0.4",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "react-native": "0.85.3",
+    "react-native-web": "^0.21.2"
+  },
+  "devDependencies": {
+    "@types/react": "~19.2.2",
+    "@workspace/eslint-config": "workspace:^",
+    "eslint": "^9",
+    "typescript": "~6.0.3",
+    "vitest": "^4.1.8"
+  },
+  "private": true
+}

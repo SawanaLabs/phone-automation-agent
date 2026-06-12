@@ -1,0 +1,16 @@
+{
+  "expo": {
+    "name": "Customer Phone Agent",
+    "slug": "customer-phone-agent",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "platforms": ["android", "web"],
+    "android": {
+      "package": "com.sawanalabs.phoneautomation.customer"
+    },
+    "web": {
+      "bundler": "metro"
+    }
+  }
+}

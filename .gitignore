@@ -25,6 +25,9 @@ dist
 # turbo
 .turbo
 
+# expo
+.expo/
+
 # python
 .venv/
 __pycache__/
