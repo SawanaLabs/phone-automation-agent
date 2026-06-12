@@ -1,4 +1,10 @@
-import type { CustomerSessionSnapshot, CustomerTaskEvent } from "./customer-session"
+import {
+  requestNextCustomerAction,
+  type CustomerActionResult,
+  type CustomerScreenState,
+  type CustomerSessionSnapshot,
+  type CustomerTaskEvent,
+} from "./customer-session"
 
 export type RelativePoint = [number, number]
 
@@ -72,6 +78,23 @@ export type RoutineActionScriptInput = {
   onEvent?: (event: CustomerTaskEvent) => void
 }
 
+export type ScreenStateCollector = {
+  capture: () => Promise<CustomerScreenState>
+}
+
+export type HostedRoutineActionLoopInput = {
+  taskId: string
+  instruction: string
+  runtimeUrl: string
+  executor: RoutineActionExecutor
+  screenStateCollector: ScreenStateCollector
+  fetchImpl?: typeof fetch
+  shouldStop?: () => boolean
+  onEvent?: (event: CustomerTaskEvent) => void
+  initialEvents?: CustomerTaskEvent[]
+  maxSteps?: number
+}
+
 export function convertRelativePoint(
   point: RelativePoint,
   screen: ScreenSize
@@ -126,6 +149,97 @@ export async function runRoutineActionScript({
   }
 
   throw new Error("Routine action script ended without finish.")
+}
+
+export async function runHostedRoutineActionLoop({
+  taskId,
+  instruction,
+  runtimeUrl,
+  executor,
+  screenStateCollector,
+  fetchImpl,
+  shouldStop = () => false,
+  onEvent,
+  initialEvents = [],
+  maxSteps = 50,
+}: HostedRoutineActionLoopInput): Promise<CustomerSessionSnapshot> {
+  const events: CustomerTaskEvent[] = [...initialEvents]
+  let lastActionResult: CustomerActionResult | null = null
+
+  for (let stepNumber = 1; stepNumber <= maxSteps; stepNumber += 1) {
+    if (shouldStop()) {
+      const event = createEvent(events, "task.stopped", "Task stopped by user.")
+      onEvent?.(event)
+      return createSnapshot(taskId, instruction, "stopped", null, events)
+    }
+
+    const screen = await screenStateCollector.capture()
+    const decision = await requestNextCustomerAction({
+      runtimeUrl,
+      taskId,
+      instruction,
+      stepNumber,
+      screen,
+      lastActionResult,
+      fetchImpl,
+    })
+    const action = decision.action
+
+    if (action._metadata === "finish") {
+      const event = createEvent(events, "task.finished", action.message)
+      onEvent?.(event)
+      return createSnapshot(taskId, instruction, "finished", action.message, events)
+    }
+
+    const actionEvent = createEvent(
+      events,
+      "step.action",
+      describeRoutineAction(action),
+      {
+        action,
+        stepNumber,
+        screen: {
+          width: screen.width,
+          height: screen.height,
+          currentPackage: screen.currentPackage ?? null,
+        },
+      }
+    )
+    onEvent?.(actionEvent)
+
+    lastActionResult = await dispatchHostedRoutineAction(action, executor)
+    const resultEvent = createEvent(
+      events,
+      "step.result",
+      lastActionResult.message,
+      { result: lastActionResult, stepNumber }
+    )
+    onEvent?.(resultEvent)
+  }
+
+  throw new Error(
+    `Hosted routine action loop exceeded ${maxSteps} steps without finish.`
+  )
+}
+
+async function dispatchHostedRoutineAction(
+  action: Exclude<RoutineAction, { _metadata: "finish" }>,
+  executor: RoutineActionExecutor
+): Promise<CustomerActionResult> {
+  try {
+    await dispatchRoutineAction(action, executor)
+    return {
+      status: "succeeded",
+      action: action.action,
+      message: `${action.action} completed.`,
+    }
+  } catch (error) {
+    return {
+      status: "failed",
+      action: action.action,
+      message: describeUnknownError(error),
+    }
+  }
 }
 
 async function dispatchRoutineAction(
@@ -203,6 +317,14 @@ function assertRelativeCoordinate(value: number) {
   if (!Number.isFinite(value) || value < 0 || value > 1000) {
     throw new Error(`Relative coordinate must be between 0 and 1000: ${value}`)
   }
+}
+
+function describeUnknownError(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message
+  }
+
+  return String(error)
 }
 
 function createEvent(

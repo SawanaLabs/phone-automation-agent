@@ -7,6 +7,9 @@ import android.content.Intent
 import android.media.projection.MediaProjectionManager
 import android.provider.Settings
 import android.text.TextUtils
+import android.util.DisplayMetrics
+import android.util.Log
+import android.view.WindowManager
 import android.accessibilityservice.AccessibilityService
 import com.facebook.react.bridge.ActivityEventListener
 import com.facebook.react.bridge.Arguments
@@ -21,7 +24,6 @@ import kotlin.math.roundToInt
 class CustomerAutomationModule(
   private val reactContext: ReactApplicationContext
 ) : ReactContextBaseJavaModule(reactContext) {
-  private var screenCaptureGranted = false
   private var pendingScreenCapturePromise: Promise? = null
 
   private val activityEventListener: ActivityEventListener =
@@ -32,28 +34,12 @@ class CustomerAutomationModule(
         resultCode: Int,
         data: Intent?
       ) {
-        if (requestCode != SCREEN_CAPTURE_REQUEST_CODE) {
-          return
-        }
-
-        val promise = pendingScreenCapturePromise ?: return
-        pendingScreenCapturePromise = null
-
-        if (resultCode == Activity.RESULT_OK && data != null) {
-          screenCaptureGranted = true
-          promise.resolve(createAuthoritySnapshot())
-          return
-        }
-
-        screenCaptureGranted = false
-        promise.reject(
-          "SCREEN_CAPTURE_DENIED",
-          "Screen capture permission was denied."
-        )
+        handleScreenCaptureActivityResult(requestCode, resultCode, data, "react-context")
       }
     }
 
   init {
+    activeModule = this
     reactContext.addActivityEventListener(activityEventListener)
   }
 
@@ -93,9 +79,33 @@ class CustomerAutomationModule(
       reactContext.getSystemService(Context.MEDIA_PROJECTION_SERVICE)
         as MediaProjectionManager
     pendingScreenCapturePromise = promise
+    Log.i(TAG, "Requesting screen capture permission.")
     activity.startActivityForResult(
       projectionManager.createScreenCaptureIntent(),
       SCREEN_CAPTURE_REQUEST_CODE
+    )
+  }
+
+  @ReactMethod
+  fun captureScreenState(promise: Promise) {
+    if (!CustomerScreenCaptureService.isCaptureReady()) {
+      promise.reject(
+        "SCREEN_CAPTURE_MISSING",
+        "Grant screen capture before requesting hosted decisions."
+      )
+      return
+    }
+
+    val metrics = getDisplayMetrics()
+    CustomerScreenCaptureService.captureFrame(
+      width = metrics.widthPixels,
+      height = metrics.heightPixels,
+      densityDpi = metrics.densityDpi,
+      timeoutMs = SCREEN_CAPTURE_TIMEOUT_MS,
+      onResult = { frame ->
+        promise.resolve(createScreenState(frame.width, frame.height, frame.frameBase64))
+      },
+      onError = { failure -> rejectScreenCapture(promise, failure) }
     )
   }
 
@@ -203,6 +213,73 @@ class CustomerAutomationModule(
     return reactContext.packageManager.getLaunchIntentForPackage(target)
   }
 
+  private fun handleScreenCaptureActivityResult(
+    requestCode: Int,
+    resultCode: Int,
+    data: Intent?,
+    source: String
+  ) {
+    if (requestCode != SCREEN_CAPTURE_REQUEST_CODE) {
+      return
+    }
+
+    Log.i(
+      TAG,
+      "Received screen capture result from $source: resultCode=$resultCode data=${data != null}"
+    )
+    val promise = pendingScreenCapturePromise ?: run {
+      Log.i(TAG, "Ignoring screen capture result because no promise is pending.")
+      return
+    }
+    pendingScreenCapturePromise = null
+
+    if (resultCode == Activity.RESULT_OK && data != null) {
+      CustomerScreenCaptureService.startProjection(
+        reactContext,
+        resultCode,
+        data
+      ) { failure ->
+        if (failure == null) {
+          promise.resolve(createAuthoritySnapshot())
+        } else {
+          rejectScreenCapture(promise, failure)
+        }
+      }
+      return
+    }
+
+    CustomerScreenCaptureService.stopProjection(reactContext)
+    promise.reject(
+      "SCREEN_CAPTURE_DENIED",
+      "Screen capture permission was denied."
+    )
+  }
+
+  private fun getDisplayMetrics(): DisplayMetrics {
+    val metrics = DisplayMetrics()
+    val windowManager =
+      reactContext.getSystemService(Context.WINDOW_SERVICE) as WindowManager
+    @Suppress("DEPRECATION")
+    windowManager.defaultDisplay.getRealMetrics(metrics)
+    return metrics
+  }
+
+  private fun createScreenState(
+    width: Int,
+    height: Int,
+    frameBase64: String
+  ): WritableMap {
+    val service = CustomerAutomationAccessibilityService.current
+    return Arguments.createMap().apply {
+      putString("frameBase64", frameBase64)
+      putString("frameMimeType", "image/jpeg")
+      putInt("width", width)
+      putInt("height", height)
+      putString("currentPackage", service?.currentPackageName())
+      putString("accessibilitySummary", service?.summarizeWindow())
+    }
+  }
+
   private fun getServiceOrReject(
     promise: Promise
   ): CustomerAutomationAccessibilityService? {
@@ -224,7 +301,18 @@ class CustomerAutomationModule(
         "accessibilityService",
         if (isAccessibilityServiceEnabled()) "enabled" else "disabled"
       )
-      putString("screenCapture", if (screenCaptureGranted) "granted" else "missing")
+      putString(
+        "screenCapture",
+        if (CustomerScreenCaptureService.isCaptureReady()) "granted" else "missing"
+      )
+    }
+  }
+
+  private fun rejectScreenCapture(promise: Promise, failure: CustomerScreenCaptureFailure) {
+    if (failure.cause == null) {
+      promise.reject(failure.code, failure.message)
+    } else {
+      promise.reject(failure.code, failure.message, failure.cause)
     }
   }
 
@@ -260,6 +348,22 @@ class CustomerAutomationModule(
   }
 
   companion object {
+    private const val TAG = "CustomerAutomation"
     private const val SCREEN_CAPTURE_REQUEST_CODE = 41031
+    private const val SCREEN_CAPTURE_TIMEOUT_MS = 1500L
+    private var activeModule: CustomerAutomationModule? = null
+
+    fun handleActivityResult(
+      requestCode: Int,
+      resultCode: Int,
+      data: Intent?
+    ) {
+      activeModule?.handleScreenCaptureActivityResult(
+        requestCode,
+        resultCode,
+        data,
+        "activity"
+      )
+    }
   }
 }

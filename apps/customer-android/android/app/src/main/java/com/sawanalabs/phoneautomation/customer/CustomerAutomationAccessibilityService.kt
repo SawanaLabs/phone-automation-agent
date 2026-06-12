@@ -89,6 +89,17 @@ class CustomerAutomationAccessibilityService : AccessibilityService() {
     onFailure("Focused input target rejected Type action.")
   }
 
+  fun currentPackageName(): String? {
+    return rootInActiveWindow?.packageName?.toString()
+  }
+
+  fun summarizeWindow(maxNodes: Int = 32): String? {
+    val root = rootInActiveWindow ?: return null
+    val nodes = mutableListOf<String>()
+    collectNodeSummary(root, nodes, maxNodes)
+    return nodes.joinToString("\n")
+  }
+
   private fun dispatch(
     path: Path,
     startTimeMs: Long,
@@ -120,6 +131,51 @@ class CustomerAutomationAccessibilityService : AccessibilityService() {
 
     if (!accepted) {
       onCancel()
+    }
+  }
+
+  private fun collectNodeSummary(
+    node: AccessibilityNodeInfo,
+    nodes: MutableList<String>,
+    maxNodes: Int
+  ) {
+    if (nodes.size >= maxNodes || !node.isVisibleToUser) {
+      return
+    }
+
+    val bounds = Rect()
+    node.getBoundsInScreen(bounds)
+    val parts = mutableListOf<String>()
+    parts.add(node.className?.toString() ?: "node")
+    addSummaryPart(parts, "text", node.text?.toString())
+    addSummaryPart(parts, "description", node.contentDescription?.toString())
+    addSummaryPart(parts, "viewId", node.viewIdResourceName)
+    if (node.isClickable) {
+      parts.add("clickable")
+    }
+    if (node.isEditable) {
+      parts.add("editable")
+    }
+    parts.add("bounds=${bounds.left},${bounds.top},${bounds.right},${bounds.bottom}")
+    nodes.add(parts.joinToString(" "))
+
+    for (index in 0 until node.childCount) {
+      val child = node.getChild(index) ?: continue
+      collectNodeSummary(child, nodes, maxNodes)
+      if (nodes.size >= maxNodes) {
+        return
+      }
+    }
+  }
+
+  private fun addSummaryPart(
+    parts: MutableList<String>,
+    label: String,
+    value: String?
+  ) {
+    val normalized = value?.trim()
+    if (!normalized.isNullOrEmpty()) {
+      parts.add("$label=${normalized.take(80)}")
     }
   }
 

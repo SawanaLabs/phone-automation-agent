@@ -1,11 +1,18 @@
 import type { DeviceAuthorityGateway } from "./device-authority-gateway"
 import type { DeviceAuthoritySnapshot } from "./device-authority"
-import type { PixelPoint, RoutineActionExecutor, ScreenSize } from "./routine-actions"
+import type { CustomerScreenState } from "./customer-session"
+import type {
+  PixelPoint,
+  RoutineActionExecutor,
+  ScreenSize,
+  ScreenStateCollector,
+} from "./routine-actions"
 
 export type CustomerAutomationNativeModule = {
   getAuthoritySnapshot: () => Promise<DeviceAuthoritySnapshot>
   openAccessibilitySettings: () => Promise<DeviceAuthoritySnapshot>
   requestScreenCapture: () => Promise<DeviceAuthoritySnapshot>
+  captureScreenState: () => Promise<CustomerScreenState>
   tap: (x: number, y: number) => Promise<void>
   swipe: (
     startX: number,
@@ -40,6 +47,14 @@ export function createNativeDeviceAuthorityGateway(
     getSnapshot: nativeModule.getAuthoritySnapshot,
     openAccessibilitySettings: nativeModule.openAccessibilitySettings,
     requestScreenCapture: nativeModule.requestScreenCapture,
+  }
+}
+
+export function createNativeScreenStateCollector(
+  nativeModule: CustomerAutomationNativeModule
+): ScreenStateCollector {
+  return {
+    capture: nativeModule.captureScreenState,
   }
 }
 

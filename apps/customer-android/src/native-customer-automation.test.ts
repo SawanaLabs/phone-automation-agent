@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest"
 import {
   createNativeDeviceAuthorityGateway,
   createNativeRoutineActionExecutor,
+  createNativeScreenStateCollector,
   requireCustomerAutomationNativeModule,
   type CustomerAutomationNativeModule,
 } from "./native-customer-automation"
@@ -26,6 +27,16 @@ const readyNativeModule: CustomerAutomationNativeModule = {
       screenCapture: "granted",
     }
   },
+  async captureScreenState() {
+    return {
+      frameBase64: "ZmFrZS1mcmFtZQ==",
+      frameMimeType: "image/png",
+      width: 1080,
+      height: 2400,
+      currentPackage: "com.android.settings",
+      accessibilitySummary: "Settings",
+    }
+  },
   async tap() {},
   async swipe() {},
   async back() {},
@@ -47,6 +58,19 @@ describe("customer automation native bridge", () => {
     await expect(gateway.getSnapshot()).resolves.toEqual({
       accessibilityService: "enabled",
       screenCapture: "granted",
+    })
+  })
+
+  it("captures native screen state for hosted decisions", async () => {
+    const collector = createNativeScreenStateCollector(readyNativeModule)
+
+    await expect(collector.capture()).resolves.toEqual({
+      frameBase64: "ZmFrZS1mcmFtZQ==",
+      frameMimeType: "image/png",
+      width: 1080,
+      height: 2400,
+      currentPackage: "com.android.settings",
+      accessibilitySummary: "Settings",
     })
   })
 

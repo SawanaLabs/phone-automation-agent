@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { startCustomerTask } from "./customer-session"
+import { requestNextCustomerAction, startCustomerTask } from "./customer-session"
 import { deriveDeviceAuthorityState } from "./device-authority"
 
 const readyAuthorityState = deriveDeviceAuthorityState({
@@ -140,6 +140,106 @@ describe("customer hosted session", () => {
       })
     ).rejects.toThrow(
       "Android permissions are required before starting a task: accessibility_service, screen_capture."
+    )
+  })
+
+  it("requests one hosted action with the latest screen state and last action result", async () => {
+    const fetchCalls: Array<{ url: string; init?: RequestInit }> = []
+    const fetchImpl: typeof fetch = async (url, init) => {
+      fetchCalls.push({ url: String(url), init })
+
+      return new Response(
+        JSON.stringify({
+          action: {
+            _metadata: "do",
+            action: "Tap",
+            element: [500, 250],
+          },
+        }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }
+      )
+    }
+
+    const decision = await requestNextCustomerAction({
+      runtimeUrl: "localhost:8787",
+      taskId: "customer_task_1",
+      instruction: "检查当前页面",
+      stepNumber: 2,
+      screen: {
+        frameBase64: "ZmFrZS1zY3JlZW4=",
+        frameMimeType: "image/png",
+        width: 1080,
+        height: 2400,
+        currentPackage: "com.android.settings",
+        accessibilitySummary: "Button Settings",
+      },
+      lastActionResult: {
+        status: "succeeded",
+        action: "Launch",
+        message: "Launch completed.",
+      },
+      fetchImpl,
+    })
+
+    expect(fetchCalls).toHaveLength(1)
+    expect(fetchCalls[0]).toMatchObject({
+      url: "http://localhost:8787/sessions/customer_task_1/steps",
+      init: {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          instruction: "检查当前页面",
+          source: "customer-android",
+          stepNumber: 2,
+          screen: {
+            frameBase64: "ZmFrZS1zY3JlZW4=",
+            frameMimeType: "image/png",
+            width: 1080,
+            height: 2400,
+            currentPackage: "com.android.settings",
+            accessibilitySummary: "Button Settings",
+          },
+          lastActionResult: {
+            status: "succeeded",
+            action: "Launch",
+            message: "Launch completed.",
+          },
+        }),
+      },
+    })
+    expect(decision.action).toEqual({
+      _metadata: "do",
+      action: "Tap",
+      element: [500, 250],
+    })
+  })
+
+  it("rejects before calling the runtime when the screen frame is missing", async () => {
+    const fetchImpl: typeof fetch = async () => {
+      throw new Error("fetch should not be called")
+    }
+
+    await expect(
+      requestNextCustomerAction({
+        runtimeUrl: "http://localhost:8787",
+        taskId: "customer_task_1",
+        instruction: "检查当前页面",
+        stepNumber: 1,
+        screen: {
+          frameBase64: "   ",
+          frameMimeType: "image/png",
+          width: 1080,
+          height: 2400,
+        },
+        fetchImpl,
+      })
+    ).rejects.toThrow(
+      "Screen frame is required before requesting the next action."
     )
   })
 })

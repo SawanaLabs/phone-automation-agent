@@ -29,10 +29,39 @@ export type CustomerSessionSnapshot = {
   actions?: RoutineAction[]
 }
 
+export type CustomerScreenState = {
+  frameBase64: string
+  frameMimeType: string
+  width: number
+  height: number
+  currentPackage?: string | null
+  accessibilitySummary?: string | null
+}
+
+export type CustomerActionResult = {
+  status: "succeeded" | "failed"
+  action: string
+  message: string
+}
+
+export type CustomerActionDecision = {
+  action: RoutineAction
+}
+
 export type StartCustomerTaskInput = {
   authorityState: DeviceAuthorityState
   runtimeUrl: string
   instruction: string
+  fetchImpl?: typeof fetch
+}
+
+export type RequestNextCustomerActionInput = {
+  runtimeUrl: string
+  taskId: string
+  instruction: string
+  stepNumber: number
+  screen: CustomerScreenState
+  lastActionResult?: CustomerActionResult | null
   fetchImpl?: typeof fetch
 }
 
@@ -74,6 +103,72 @@ export async function startCustomerTask({
   }
 
   return response.json() as Promise<CustomerSessionSnapshot>
+}
+
+export async function requestNextCustomerAction({
+  runtimeUrl,
+  taskId,
+  instruction,
+  stepNumber,
+  screen,
+  lastActionResult = null,
+  fetchImpl = fetch,
+}: RequestNextCustomerActionInput): Promise<CustomerActionDecision> {
+  const normalizedTaskId = taskId.trim()
+  if (!normalizedTaskId) {
+    throw new Error("Task id is required.")
+  }
+
+  const normalizedInstruction = instruction.trim()
+  if (!normalizedInstruction) {
+    throw new Error("Instruction is required.")
+  }
+
+  assertScreenState(screen)
+
+  let response: Response
+  try {
+    response = await fetchImpl(
+      `${normalizeRuntimeUrl(runtimeUrl)}/sessions/${encodeURIComponent(
+        normalizedTaskId
+      )}/steps`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          instruction: normalizedInstruction,
+          source: "customer-android",
+          stepNumber,
+          screen,
+          lastActionResult,
+        }),
+      }
+    )
+  } catch (error) {
+    throw new Error(`Hosted runtime request failed: ${describeError(error)}`)
+  }
+
+  if (!response.ok) {
+    throw new Error(await describeHttpError(response))
+  }
+
+  return response.json() as Promise<CustomerActionDecision>
+}
+
+function assertScreenState(screen: CustomerScreenState) {
+  if (!screen.frameBase64.trim()) {
+    throw new Error("Screen frame is required before requesting the next action.")
+  }
+
+  if (!Number.isFinite(screen.width) || screen.width <= 0) {
+    throw new Error(`Screen width must be positive: ${screen.width}.`)
+  }
+
+  if (!Number.isFinite(screen.height) || screen.height <= 0) {
+    throw new Error(`Screen height must be positive: ${screen.height}.`)
+  }
 }
 
 function normalizeRuntimeUrl(value: string): string {

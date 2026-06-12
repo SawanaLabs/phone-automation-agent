@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 
 import {
   convertRelativePoint,
+  runHostedRoutineActionLoop,
   runRoutineActionScript,
   type RoutineActionExecutor,
 } from "./routine-actions"
@@ -133,6 +134,90 @@ describe("routine actions", () => {
     expect(result.events.at(-1)).toMatchObject({
       type: "task.stopped",
       message: "Task stopped by user.",
+    })
+  })
+
+  it("uploads screen state for each hosted step and finishes on terminal action", async () => {
+    const executor = createRecordingExecutor()
+    const stepRequests: Array<Record<string, unknown>> = []
+    let captures = 0
+    const fetchImpl: typeof fetch = async (_url, init) => {
+      const body = JSON.parse(String(init?.body))
+      stepRequests.push(body)
+
+      if (body.stepNumber === 1) {
+        return new Response(
+          JSON.stringify({
+            action: {
+              _metadata: "do",
+              action: "Tap",
+              element: [500, 250],
+            },
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }
+        )
+      }
+
+      return new Response(
+        JSON.stringify({
+          action: {
+            _metadata: "finish",
+            message: "done",
+          },
+        }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }
+      )
+    }
+
+    const result = await runHostedRoutineActionLoop({
+      taskId: "customer_task_1",
+      instruction: "检查当前页面",
+      runtimeUrl: "http://localhost:8787",
+      executor,
+      fetchImpl,
+      screenStateCollector: {
+        async capture() {
+          captures += 1
+          return {
+            frameBase64: `frame-${captures}`,
+            frameMimeType: "image/png",
+            width: 1080,
+            height: 2400,
+            currentPackage: "com.android.settings",
+          }
+        },
+      },
+    })
+
+    expect(executor.calls).toEqual(["tap:540,600"])
+    expect(result.task.status).toBe("finished")
+    expect(result.task.summary).toBe("done")
+    expect(stepRequests).toHaveLength(2)
+    expect(stepRequests[0]).toMatchObject({
+      stepNumber: 1,
+      screen: {
+        frameBase64: "frame-1",
+        width: 1080,
+        height: 2400,
+      },
+      lastActionResult: null,
+    })
+    expect(stepRequests[1]).toMatchObject({
+      stepNumber: 2,
+      screen: {
+        frameBase64: "frame-2",
+      },
+      lastActionResult: {
+        status: "succeeded",
+        action: "Tap",
+        message: "Tap completed.",
+      },
     })
   })
 })

@@ -23,7 +23,8 @@ import {
 } from "./src/device-authority"
 import { createDeviceAuthorityGateway } from "./src/device-authority-gateway"
 import { createRoutineActionExecutor } from "./src/routine-action-executor-gateway"
-import { runRoutineActionScript } from "./src/routine-actions"
+import { runHostedRoutineActionLoop } from "./src/routine-actions"
+import { createScreenStateCollector } from "./src/screen-state-gateway"
 import { describeError, visibleTraceEvents } from "./src/task-state"
 import { styles } from "./src/styles"
 
@@ -36,6 +37,7 @@ const DEFAULT_AUTHORITY_SNAPSHOT: DeviceAuthoritySnapshot = {
 }
 const authorityGateway = createDeviceAuthorityGateway()
 const routineActionExecutor = createRoutineActionExecutor()
+const screenStateCollector = createScreenStateCollector()
 
 export default function App() {
   const [runtimeUrl, setRuntimeUrl] = useState(DEFAULT_RUNTIME_URL)
@@ -136,21 +138,21 @@ export default function App() {
         instruction,
       })
       setSession(nextSession)
-      if (nextSession.actions && nextSession.actions.length > 0) {
-        const finalSession = await runRoutineActionScript({
-          taskId: nextSession.task.id,
-          instruction: nextSession.task.instruction,
-          actions: nextSession.actions,
-          executor: routineActionExecutor,
-          shouldStop: () => stopRequestedRef.current,
-          onEvent: (event) => {
-            setSession((currentSession) =>
-              appendSessionEvent(currentSession ?? nextSession, event)
-            )
-          },
-        })
-        setSession(finalSession)
-      }
+      const finalSession = await runHostedRoutineActionLoop({
+        taskId: nextSession.task.id,
+        instruction: nextSession.task.instruction,
+        runtimeUrl,
+        executor: routineActionExecutor,
+        screenStateCollector,
+        initialEvents: nextSession.events,
+        shouldStop: () => stopRequestedRef.current,
+        onEvent: (event) => {
+          setSession((currentSession) =>
+            appendSessionEvent(currentSession ?? nextSession, event)
+          )
+        },
+      })
+      setSession(finalSession)
     } catch (error) {
       setSession(null)
       setErrorMessage(describeError(error))
