@@ -1,10 +1,11 @@
-import { Dimensions, NativeModules, Platform } from "react-native"
+import { Dimensions, NativeModules, PixelRatio, Platform } from "react-native"
 
 import {
   createNativeRoutineActionExecutor as createNativeRoutineActionExecutorFromModule,
   requireCustomerAutomationNativeModule,
 } from "./native-customer-automation"
 import type { RoutineActionExecutor } from "./routine-actions"
+import { createGestureScreenSize } from "./screen-metrics"
 
 export function createRoutineActionExecutor(): RoutineActionExecutor {
   if (Platform.OS === "web") {
@@ -18,10 +19,14 @@ function getCurrentScreen() {
   const { width, height } = Dimensions.get(
     Platform.OS === "web" ? "window" : "screen"
   )
-  return {
-    width,
-    height,
-  }
+  return createGestureScreenSize({
+    platform: Platform.OS === "web" ? "web" : "native",
+    pixelRatio: PixelRatio.get(),
+    screen: {
+      width,
+      height,
+    },
+  })
 }
 
 function createDevelopmentRoutineActionExecutor(): RoutineActionExecutor {

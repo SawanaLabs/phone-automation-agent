@@ -120,16 +120,16 @@ export const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   taskInput: {
-    minHeight: 112,
+    minHeight: 80,
   },
   primaryButton: {
     alignItems: "center",
     backgroundColor: "#2251c8",
     borderRadius: 8,
     justifyContent: "center",
-    minHeight: 48,
+    minHeight: 44,
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 10,
   },
   buttonPressed: {
     opacity: 0.82,
