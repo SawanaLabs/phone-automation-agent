@@ -200,6 +200,9 @@ export function createScriptedModelProvider({ scenario = "routine-basic" } = {})
     "routine-basic",
     "launch-type",
     "routine-contract",
+    "takeover-pause",
+    "interact-pause",
+    "confirmation-pause",
   ])
   if (!supportedScenarios.has(scenario)) {
     throw new Error(`Unsupported CUSTOMER_RUNTIME_SCENARIO: ${scenario}`)
@@ -245,11 +248,25 @@ function normalizeRoutineAction(args) {
         app: normalizeRequiredString(args.app, "Launch app"),
       }
     case "Tap":
+      return withOptionalMessage(
+        {
+          _metadata: "do",
+          action: "Tap",
+          element: requireRelativePoint(args.element, "Tap element"),
+        },
+        args.message
+      )
+    case "Take_over":
       return {
         _metadata: "do",
-        action: "Tap",
-        element: requireRelativePoint(args.element, "Tap element"),
+        action: "Take_over",
+        message: normalizeRequiredString(args.message, "Take_over message"),
       }
+    case "Interact":
+      return withOptionalMessage(
+        { _metadata: "do", action: "Interact" },
+        args.message
+      )
     case "Type":
     case "Type_Name":
       return {
@@ -605,12 +622,44 @@ function normalizeWaitDuration(value) {
   return duration
 }
 
+function withOptionalMessage(action, value) {
+  if (value === undefined || value === null) {
+    return action
+  }
+
+  return {
+    ...action,
+    message: normalizeRequiredString(value, "Action message"),
+  }
+}
+
 function isPlaceholderSecret(value) {
   const normalized = value.trim().toLowerCase()
   return ["change_me", "your-api-key", "placeholder", "todo"].includes(normalized)
 }
 
 function createScenarioOutputs(scenario, instruction) {
+  if (scenario === "takeover-pause") {
+    return [
+      'do(action="Take_over", message="请先完成登录")',
+      `finish(message="Finished after takeover: ${instruction}")`,
+    ]
+  }
+
+  if (scenario === "interact-pause") {
+    return [
+      'do(action="Interact", message="请选择目标项目")',
+      `finish(message="Finished after interaction: ${instruction}")`,
+    ]
+  }
+
+  if (scenario === "confirmation-pause") {
+    return [
+      'do(action="Tap", element=[500,500], message="确认点击提交按钮")',
+      `finish(message="Finished after confirmation: ${instruction}")`,
+    ]
+  }
+
   if (scenario === "launch-type") {
     return [
       'do(action="Launch", app="com.sawanalabs.phoneautomation.customer")',

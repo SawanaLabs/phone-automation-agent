@@ -27,6 +27,37 @@ describe("hosted agent runtime", () => {
 
     expect(
       parseOpenAutoGlmActionText(
+        'do(action="Tap", element=[500,250], message="确认点击提交按钮")'
+      )
+    ).toEqual({
+      _metadata: "do",
+      action: "Tap",
+      element: [500, 250],
+      message: "确认点击提交按钮",
+    })
+
+    expect(
+      parseOpenAutoGlmActionText(
+        'do(action="Take_over", message="请先完成登录")'
+      )
+    ).toEqual({
+      _metadata: "do",
+      action: "Take_over",
+      message: "请先完成登录",
+    })
+
+    expect(
+      parseOpenAutoGlmActionText(
+        'do(action="Interact", message="请选择目标项目")'
+      )
+    ).toEqual({
+      _metadata: "do",
+      action: "Interact",
+      message: "请选择目标项目",
+    })
+
+    expect(
+      parseOpenAutoGlmActionText(
         'do(action="Swipe", start=[500,800], end=[500,200])'
       )
     ).toEqual({

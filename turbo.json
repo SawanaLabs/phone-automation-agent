@@ -2,6 +2,8 @@
   "$schema": "https://turbo.build/schema.json",
   "globalEnv": [
     "CUSTOMER_RUNTIME_HOST",
+    "CUSTOMER_RUNTIME_MAX_STEPS",
+    "CUSTOMER_RUNTIME_MODEL_TIMEOUT_MS",
     "CUSTOMER_RUNTIME_PORT",
     "CUSTOMER_RUNTIME_SCENARIO"
   ],

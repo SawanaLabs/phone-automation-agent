@@ -21,11 +21,25 @@ export function normalizeOpenAutoGlmAction(input: unknown): RoutineAction {
         app: requireTrimmedString(action.app, "Launch app"),
       }
     case "Tap":
+      return withOptionalMessage(
+        {
+          _metadata: "do",
+          action: "Tap",
+          element: requireRelativePoint(action.element, "Tap element"),
+        },
+        action.message
+      )
+    case "Take_over":
       return {
         _metadata: "do",
-        action: "Tap",
-        element: requireRelativePoint(action.element, "Tap element"),
+        action: "Take_over",
+        message: requireTrimmedString(action.message, "Take_over message"),
       }
+    case "Interact":
+      return withOptionalMessage(
+        { _metadata: "do", action: "Interact" },
+        action.message
+      )
     case "Type":
     case "Type_Name":
       return {
@@ -94,6 +108,20 @@ function requirePresentText(value: unknown, label: string): string {
   }
 
   return value
+}
+
+function withOptionalMessage<T extends object>(
+  action: T,
+  value: unknown
+): T | (T & { message: string }) {
+  if (value === undefined || value === null) {
+    return action
+  }
+
+  return {
+    ...action,
+    message: requireTrimmedString(value, "Action message"),
+  }
 }
 
 function requireRelativePoint(value: unknown, label: string): RelativePoint {

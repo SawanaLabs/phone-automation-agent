@@ -175,6 +175,41 @@ export const styles = StyleSheet.create({
     fontWeight: "800",
     letterSpacing: 0,
   },
+  confirmButton: {
+    alignItems: "center",
+    backgroundColor: "#7c2d12",
+    borderRadius: 8,
+    justifyContent: "center",
+    minHeight: 44,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  confirmButtonText: {
+    color: "#ffffff",
+    fontSize: 16,
+    fontWeight: "800",
+    letterSpacing: 0,
+  },
+  pauseBox: {
+    backgroundColor: "#fff7ed",
+    borderColor: "#fdba74",
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: 10,
+    padding: 12,
+  },
+  pauseTitle: {
+    color: "#7c2d12",
+    fontSize: 14,
+    fontWeight: "800",
+    letterSpacing: 0,
+    textTransform: "uppercase",
+  },
+  pauseMessage: {
+    color: "#431407",
+    fontSize: 16,
+    lineHeight: 22,
+  },
   latestActionBox: {
     backgroundColor: "#eef4ff",
     borderColor: "#b7c7ec",
@@ -213,6 +248,12 @@ export const styles = StyleSheet.create({
   },
   statusRunning: {
     backgroundColor: "#3563e9",
+  },
+  statusPaused: {
+    backgroundColor: "#d97706",
+  },
+  statusStopped: {
+    backgroundColor: "#b42318",
   },
   statusText: {
     color: "#111827",

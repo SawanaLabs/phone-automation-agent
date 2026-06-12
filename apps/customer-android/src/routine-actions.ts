@@ -4,6 +4,7 @@ import {
   type CustomerScreenState,
   type CustomerSessionSnapshot,
   type CustomerTaskEvent,
+  type CustomerTaskPause,
 } from "./customer-session"
 
 export type RelativePoint = [number, number]
@@ -28,6 +29,7 @@ export type RoutineAction =
       _metadata: "do"
       action: "Tap"
       element: RelativePoint
+      message?: string
     }
   | {
       _metadata: "do"
@@ -62,6 +64,16 @@ export type RoutineAction =
       _metadata: "do"
       action: "Type" | "Type_Name"
       text: string
+    }
+  | {
+      _metadata: "do"
+      action: "Take_over"
+      message: string
+    }
+  | {
+      _metadata: "do"
+      action: "Interact"
+      message?: string
     }
   | {
       _metadata: "finish"
@@ -104,6 +116,8 @@ export type HostedRoutineActionLoopInput = {
   shouldStop?: () => boolean
   onEvent?: (event: CustomerTaskEvent) => void
   initialEvents?: CustomerTaskEvent[]
+  initialStepNumber?: number
+  initialLastActionResult?: CustomerActionResult | null
   maxSteps?: number
 }
 
@@ -173,12 +187,15 @@ export async function runHostedRoutineActionLoop({
   shouldStop = () => false,
   onEvent,
   initialEvents = [],
+  initialStepNumber = 1,
+  initialLastActionResult = null,
   maxSteps = 50,
 }: HostedRoutineActionLoopInput): Promise<CustomerSessionSnapshot> {
   const events: CustomerTaskEvent[] = [...initialEvents]
-  let lastActionResult: CustomerActionResult | null = null
+  let lastActionResult: CustomerActionResult | null = initialLastActionResult
 
-  for (let stepNumber = 1; stepNumber <= maxSteps; stepNumber += 1) {
+  for (let offset = 0; offset < maxSteps; offset += 1) {
+    const stepNumber = initialStepNumber + offset
     if (shouldStop()) {
       const event = createEvent(events, "task.stopped", "Task stopped by user.")
       onEvent?.(event)
@@ -201,6 +218,27 @@ export async function runHostedRoutineActionLoop({
       const event = createEvent(events, "task.finished", action.message)
       onEvent?.(event)
       return createSnapshot(taskId, instruction, "finished", action.message, events)
+    }
+
+    const pause = createPauseForAction(action)
+    if (pause) {
+      const event = createEvent(events, "task.paused", pause.message, {
+        pause,
+        stepNumber,
+      })
+      onEvent?.(event)
+      return createSnapshot(
+        taskId,
+        instruction,
+        pause.status,
+        pause.message,
+        events,
+        {
+          pause,
+          nextStepNumber: stepNumber + 1,
+          lastActionResult,
+        }
+      )
     }
 
     const actionEvent = createEvent(
@@ -232,6 +270,61 @@ export async function runHostedRoutineActionLoop({
   throw new Error(
     `Hosted routine action loop exceeded ${maxSteps} steps without finish.`
   )
+}
+
+export function createPauseContinueActionResult(
+  pause: CustomerTaskPause | null | undefined
+): CustomerActionResult {
+  if (!pause) {
+    throw new Error("A paused task is required before continuing.")
+  }
+
+  return {
+    status: "succeeded",
+    action: pause.action._metadata === "do" ? pause.action.action : "finish",
+    message:
+      pause.action._metadata === "do"
+        ? `User continued after ${pause.action.action}.`
+        : "User continued.",
+  }
+}
+
+export async function executeConfirmedPauseAction(
+  pause: CustomerTaskPause | null | undefined,
+  executor: RoutineActionExecutor
+): Promise<CustomerActionResult> {
+  if (
+    !pause ||
+    pause.status !== "confirmation_required" ||
+    pause.action._metadata !== "do" ||
+    pause.action.action !== "Tap"
+  ) {
+    throw new Error("A confirmation pause with a Tap action is required.")
+  }
+
+  await executor.tap(convertRelativePoint(pause.action.element, executor.screen))
+  return {
+    status: "succeeded",
+    action: "Tap",
+    message: "Tap completed.",
+  }
+}
+
+export function stopPausedRoutineActionSession(
+  session: CustomerSessionSnapshot
+): CustomerSessionSnapshot {
+  const events = [...session.events]
+  createEvent(events, "task.stopped", "Task stopped by user.")
+  return {
+    ...session,
+    task: {
+      ...session.task,
+      status: "stopped",
+      summary: null,
+    },
+    events,
+    pause: null,
+  }
 }
 
 async function dispatchHostedRoutineAction(
@@ -335,6 +428,36 @@ function parseWaitDurationMs(duration: string | undefined): number {
   return Math.round(value * 1000)
 }
 
+function createPauseForAction(
+  action: Exclude<RoutineAction, { _metadata: "finish" }>
+): CustomerTaskPause | null {
+  if (action.action === "Take_over") {
+    return {
+      status: "takeover_required",
+      action,
+      message: action.message,
+    }
+  }
+
+  if (action.action === "Interact") {
+    return {
+      status: "interaction_required",
+      action,
+      message: action.message ?? "User interaction required.",
+    }
+  }
+
+  if (action.action === "Tap" && action.message) {
+    return {
+      status: "confirmation_required",
+      action,
+      message: action.message,
+    }
+  }
+
+  return null
+}
+
 function assertRelativeCoordinate(value: number) {
   if (!Number.isFinite(value) || value < 0 || value > 1000) {
     throw new Error(`Relative coordinate must be between 0 and 1000: ${value}`)
@@ -370,7 +493,12 @@ function createSnapshot(
   instruction: string,
   status: CustomerSessionSnapshot["task"]["status"],
   summary: string | null,
-  events: CustomerTaskEvent[]
+  events: CustomerTaskEvent[],
+  options: {
+    pause?: CustomerTaskPause | null
+    nextStepNumber?: number
+    lastActionResult?: CustomerActionResult | null
+  } = {}
 ): CustomerSessionSnapshot {
   return {
     task: {
@@ -380,6 +508,9 @@ function createSnapshot(
       summary,
     },
     events,
+    pause: options.pause ?? null,
+    nextStepNumber: options.nextStepNumber,
+    lastActionResult: options.lastActionResult,
   }
 }
 

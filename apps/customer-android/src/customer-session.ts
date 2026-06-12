@@ -8,6 +8,9 @@ export type CustomerTaskStatus =
   | "finished"
   | "failed"
   | "stopped"
+  | "takeover_required"
+  | "interaction_required"
+  | "confirmation_required"
 
 export type CustomerTask = {
   id: string
@@ -28,6 +31,9 @@ export type CustomerSessionSnapshot = {
   task: CustomerTask
   events: CustomerTaskEvent[]
   actions?: RoutineAction[]
+  pause?: CustomerTaskPause | null
+  nextStepNumber?: number
+  lastActionResult?: CustomerActionResult | null
 }
 
 export type CustomerScreenState = {
@@ -42,6 +48,15 @@ export type CustomerScreenState = {
 export type CustomerActionResult = {
   status: "succeeded" | "failed"
   action: string
+  message: string
+}
+
+export type CustomerTaskPause = {
+  status: Extract<
+    CustomerTaskStatus,
+    "takeover_required" | "interaction_required" | "confirmation_required"
+  >
+  action: RoutineAction
   message: string
 }
 

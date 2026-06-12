@@ -15,6 +15,17 @@ describe("Open-AutoGLM routine action contract", () => {
           _metadata: "do",
           action: "Tap",
           element: [500, 250],
+          message: "确认点击提交按钮",
+        }),
+        normalizeOpenAutoGlmAction({
+          _metadata: "do",
+          action: "Take_over",
+          message: " 请先完成登录 ",
+        }),
+        normalizeOpenAutoGlmAction({
+          _metadata: "do",
+          action: "Interact",
+          message: "请选择目标项目",
         }),
         normalizeOpenAutoGlmAction({
           _metadata: "do",
@@ -62,7 +73,14 @@ describe("Open-AutoGLM routine action contract", () => {
       ]
     ).toEqual([
       { _metadata: "do", action: "Launch", app: "com.android.settings" },
-      { _metadata: "do", action: "Tap", element: [500, 250] },
+      {
+        _metadata: "do",
+        action: "Tap",
+        element: [500, 250],
+        message: "确认点击提交按钮",
+      },
+      { _metadata: "do", action: "Take_over", message: "请先完成登录" },
+      { _metadata: "do", action: "Interact", message: "请选择目标项目" },
       { _metadata: "do", action: "Type", text: "coffee shop" },
       { _metadata: "do", action: "Type", text: "Sawana" },
       {
