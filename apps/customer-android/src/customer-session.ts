@@ -1,6 +1,12 @@
 import type { DeviceAuthorityState } from "./device-authority"
+import type { RoutineAction } from "./routine-actions"
 
-export type CustomerTaskStatus = "created" | "running" | "finished" | "failed"
+export type CustomerTaskStatus =
+  | "created"
+  | "running"
+  | "finished"
+  | "failed"
+  | "stopped"
 
 export type CustomerTask = {
   id: string
@@ -20,6 +26,7 @@ export type CustomerTaskEvent = {
 export type CustomerSessionSnapshot = {
   task: CustomerTask
   events: CustomerTaskEvent[]
+  actions?: RoutineAction[]
 }
 
 export type StartCustomerTaskInput = {

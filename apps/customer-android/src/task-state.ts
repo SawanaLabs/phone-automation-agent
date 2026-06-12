@@ -8,7 +8,7 @@ export function visibleTraceEvents(
       (event) =>
         event.type.startsWith("task.") || event.type.startsWith("step.")
     )
-    .slice(-8)
+    .slice(-12)
     .reverse()
 }
 

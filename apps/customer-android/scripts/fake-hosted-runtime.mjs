@@ -29,8 +29,8 @@ const server = http.createServer(async (request, response) => {
       task: {
         id: `customer_task_${Date.now()}`,
         instruction,
-        status: "finished",
-        summary: `Finished scripted customer task: ${instruction}`,
+        status: "running",
+        summary: null,
         error: null,
       },
       events: [
@@ -40,13 +40,21 @@ const server = http.createServer(async (request, response) => {
           message: "Task started.",
           payload: {},
         },
+      ],
+      actions: [
+        { _metadata: "do", action: "Tap", element: [500, 500] },
         {
-          sequence: 2,
-          type: "task.finished",
+          _metadata: "do",
+          action: "Swipe",
+          start: [500, 800],
+          end: [500, 200],
+        },
+        { _metadata: "do", action: "Back" },
+        { _metadata: "do", action: "Home" },
+        { _metadata: "do", action: "Wait", duration: "3 seconds" },
+        {
+          _metadata: "finish",
           message: `Finished scripted customer task: ${instruction}`,
-          payload: {
-            scripted: true,
-          },
         },
       ],
     })

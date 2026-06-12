@@ -1,5 +1,5 @@
 import { StatusBar } from "expo-status-bar"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -14,6 +14,7 @@ import {
 
 import {
   startCustomerTask,
+  type CustomerTaskEvent,
   type CustomerSessionSnapshot,
 } from "./src/customer-session"
 import {
@@ -22,6 +23,8 @@ import {
   type DeviceAuthorityState,
 } from "./src/device-authority"
 import { createDeviceAuthorityGateway } from "./src/device-authority-gateway"
+import { createRoutineActionExecutor } from "./src/routine-action-executor-gateway"
+import { runRoutineActionScript } from "./src/routine-actions"
 import { describeError, visibleTraceEvents } from "./src/task-state"
 import { styles } from "./src/styles"
 
@@ -33,6 +36,7 @@ const DEFAULT_AUTHORITY_SNAPSHOT: DeviceAuthoritySnapshot = {
   screenCapture: "missing",
 }
 const authorityGateway = createDeviceAuthorityGateway()
+const routineActionExecutor = createRoutineActionExecutor()
 
 export default function App() {
   const [runtimeUrl, setRuntimeUrl] = useState(DEFAULT_RUNTIME_URL)
@@ -40,6 +44,7 @@ export default function App() {
   const [session, setSession] = useState<CustomerSessionSnapshot | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isTaskLoopRunning, setIsTaskLoopRunning] = useState(false)
   const [authoritySnapshot, setAuthoritySnapshot] =
     useState(DEFAULT_AUTHORITY_SNAPSHOT)
   const [authorityState, setAuthorityState] = useState(() =>
@@ -50,6 +55,8 @@ export default function App() {
     () => visibleTraceEvents(session?.events ?? []),
     [session]
   )
+  const latestEvent = session?.events.at(-1) ?? null
+  const stopRequestedRef = useRef(false)
 
   function applyAuthoritySnapshot(snapshot: DeviceAuthoritySnapshot) {
     setAuthoritySnapshot(snapshot)
@@ -120,7 +127,9 @@ export default function App() {
 
   async function handleStartTask() {
     setIsSubmitting(true)
+    setIsTaskLoopRunning(true)
     setErrorMessage(null)
+    stopRequestedRef.current = false
     try {
       const nextSession = await startCustomerTask({
         authorityState,
@@ -128,12 +137,32 @@ export default function App() {
         instruction,
       })
       setSession(nextSession)
+      if (nextSession.actions && nextSession.actions.length > 0) {
+        const finalSession = await runRoutineActionScript({
+          taskId: nextSession.task.id,
+          instruction: nextSession.task.instruction,
+          actions: nextSession.actions,
+          executor: routineActionExecutor,
+          shouldStop: () => stopRequestedRef.current,
+          onEvent: (event) => {
+            setSession((currentSession) =>
+              appendSessionEvent(currentSession ?? nextSession, event)
+            )
+          },
+        })
+        setSession(finalSession)
+      }
     } catch (error) {
       setSession(null)
       setErrorMessage(describeError(error))
     } finally {
       setIsSubmitting(false)
+      setIsTaskLoopRunning(false)
     }
+  }
+
+  function handleStopTask() {
+    stopRequestedRef.current = true
   }
 
   return (
@@ -275,12 +304,16 @@ export default function App() {
             />
             <Pressable
               accessibilityRole="button"
-              disabled={isSubmitting || !authorityState.canStartTask}
+              disabled={
+                isSubmitting || isTaskLoopRunning || !authorityState.canStartTask
+              }
               onPress={handleStartTask}
               style={({ pressed }) => [
                 styles.primaryButton,
                 pressed && styles.buttonPressed,
-                (isSubmitting || !authorityState.canStartTask) &&
+                (isSubmitting ||
+                  isTaskLoopRunning ||
+                  !authorityState.canStartTask) &&
                   styles.buttonDisabled,
               ]}
             >
@@ -290,10 +323,30 @@ export default function App() {
                 <Text style={styles.primaryButtonText}>Start Task</Text>
               )}
             </Pressable>
+            {isTaskLoopRunning ? (
+              <Pressable
+                accessibilityRole="button"
+                onPress={handleStopTask}
+                style={({ pressed }) => [
+                  styles.stopButton,
+                  pressed && styles.buttonPressed,
+                ]}
+              >
+                <Text style={styles.stopButtonText}>Stop Task</Text>
+              </Pressable>
+            ) : null}
           </View>
 
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Result</Text>
+            {latestEvent ? (
+              <View style={styles.latestActionBox}>
+                <Text style={styles.latestActionLabel}>Latest Action</Text>
+                <Text style={styles.latestActionText}>
+                  {latestEvent.message ?? latestEvent.type}
+                </Text>
+              </View>
+            ) : null}
             {session ? (
               <View style={styles.resultStack}>
                 <View style={styles.statusLine}>
@@ -355,4 +408,14 @@ function formatAuthorityStatus(status: DeviceAuthorityState["status"]): string {
   }
 
   return "Setup Required"
+}
+
+function appendSessionEvent(
+  session: CustomerSessionSnapshot,
+  event: CustomerTaskEvent
+): CustomerSessionSnapshot {
+  return {
+    ...session,
+    events: [...session.events, event],
+  }
 }
