@@ -153,6 +153,56 @@ class CustomerAutomationModule(
     promise.reject("GLOBAL_ACTION_FAILED", "Home action was rejected.")
   }
 
+  @ReactMethod
+  fun launchApp(app: String, promise: Promise) {
+    val target = app.trim()
+    if (target.isEmpty()) {
+      promise.reject("INVALID_LAUNCH_TARGET", "Launch app is required.")
+      return
+    }
+
+    try {
+      val intent = createLaunchIntent(target)
+      if (intent == null) {
+        promise.reject(
+          "LAUNCH_TARGET_NOT_FOUND",
+          "No launchable app found for target: $target."
+        )
+        return
+      }
+
+      intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+      reactContext.startActivity(intent)
+      promise.resolve(null)
+    } catch (error: Exception) {
+      promise.reject(
+        "LAUNCH_FAILED",
+        "Failed to launch app target: $target.",
+        error
+      )
+    }
+  }
+
+  @ReactMethod
+  fun typeText(text: String, promise: Promise) {
+    val service = getServiceOrReject(promise) ?: return
+    service.typeText(
+      text,
+      onComplete = { promise.resolve(null) },
+      onFailure = { message ->
+        promise.reject("NO_FOCUSED_INPUT_TARGET", message)
+      }
+    )
+  }
+
+  private fun createLaunchIntent(target: String): Intent? {
+    if (target.startsWith("intent:", ignoreCase = true) || target.contains("://")) {
+      return Intent.parseUri(target, Intent.URI_INTENT_SCHEME)
+    }
+
+    return reactContext.packageManager.getLaunchIntentForPackage(target)
+  }
+
   private fun getServiceOrReject(
     promise: Promise
   ): CustomerAutomationAccessibilityService? {

@@ -31,6 +31,8 @@ function createDevelopmentRoutineActionExecutor(): RoutineActionExecutor {
     async swipe() {},
     async back() {},
     async home() {},
+    async launchApp() {},
+    async typeText() {},
     async wait(durationMs) {
       await new Promise((resolve) => {
         setTimeout(resolve, durationMs)

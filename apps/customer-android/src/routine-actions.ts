@@ -15,6 +15,11 @@ export type PixelPoint = {
 export type RoutineAction =
   | {
       _metadata: "do"
+      action: "Launch"
+      app: string
+    }
+  | {
+      _metadata: "do"
       action: "Tap"
       element: RelativePoint
     }
@@ -38,6 +43,11 @@ export type RoutineAction =
       duration?: string
     }
   | {
+      _metadata: "do"
+      action: "Type" | "Type_Name"
+      text: string
+    }
+  | {
       _metadata: "finish"
       message: string
     }
@@ -48,6 +58,8 @@ export type RoutineActionExecutor = {
   swipe: (start: PixelPoint, end: PixelPoint) => Promise<void>
   back: () => Promise<void>
   home: () => Promise<void>
+  launchApp: (app: string) => Promise<void>
+  typeText: (text: string) => Promise<void>
   wait: (durationMs: number) => Promise<void>
 }
 
@@ -125,6 +137,16 @@ async function dispatchRoutineAction(
     return
   }
 
+  if (action.action === "Launch") {
+    await executor.launchApp(normalizeRequiredString(action.app, "Launch app"))
+    return
+  }
+
+  if (action.action === "Type" || action.action === "Type_Name") {
+    await executor.typeText(action.text)
+    return
+  }
+
   if (action.action === "Swipe") {
     await executor.swipe(
       convertRelativePoint(action.start, executor.screen),
@@ -143,7 +165,21 @@ async function dispatchRoutineAction(
     return
   }
 
-  await executor.wait(parseWaitDurationMs(action.duration))
+  if (action.action === "Wait") {
+    await executor.wait(parseWaitDurationMs(action.duration))
+    return
+  }
+
+  throw new Error(`Unsupported routine action: ${JSON.stringify(action)}`)
+}
+
+function normalizeRequiredString(value: string, label: string): string {
+  const trimmed = value.trim()
+  if (!trimmed) {
+    throw new Error(`${label} is required.`)
+  }
+
+  return trimmed
 }
 
 function parseWaitDurationMs(duration: string | undefined): number {
@@ -206,6 +242,14 @@ function createSnapshot(
 function describeRoutineAction(action: Exclude<RoutineAction, { _metadata: "finish" }>): string {
   if (action.action === "Tap") {
     return `Tap ${action.element.join(",")}`
+  }
+
+  if (action.action === "Launch") {
+    return `Launch ${action.app}`
+  }
+
+  if (action.action === "Type" || action.action === "Type_Name") {
+    return `${action.action} ${action.text.length} chars`
   }
 
   if (action.action === "Swipe") {

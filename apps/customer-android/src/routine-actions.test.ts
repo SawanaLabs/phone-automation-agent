@@ -27,6 +27,12 @@ function createRecordingExecutor(): RoutineActionExecutor & {
     async home() {
       this.calls.push("home")
     },
+    async launchApp(app) {
+      this.calls.push(`launch:${app}`)
+    },
+    async typeText(text) {
+      this.calls.push(`type:${text}`)
+    },
     async wait(durationMs) {
       this.calls.push(`wait:${durationMs}`)
     },
@@ -74,6 +80,33 @@ describe("routine actions", () => {
     expect(result.task.status).toBe("finished")
     expect(result.task.summary).toBe("done")
     expect(result.events.map((event) => event.type)).toContain("task.finished")
+  })
+
+  it("dispatches launch and text-entry actions in script order", async () => {
+    const executor = createRecordingExecutor()
+
+    const result = await runRoutineActionScript({
+      taskId: "customer_task_1",
+      instruction: "打开设置并输入咖啡店",
+      actions: [
+        {
+          _metadata: "do",
+          action: "Launch",
+          app: "com.android.settings",
+        },
+        { _metadata: "do", action: "Type", text: "coffee shop" },
+        { _metadata: "do", action: "Type_Name", text: "Sawana" },
+        { _metadata: "finish", message: "done" },
+      ],
+      executor,
+    })
+
+    expect(executor.calls).toEqual([
+      "launch:com.android.settings",
+      "type:coffee shop",
+      "type:Sawana",
+    ])
+    expect(result.task.status).toBe("finished")
   })
 
   it("stops before dispatching the next action when stop is requested", async () => {

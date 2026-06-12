@@ -1,6 +1,10 @@
 {
   "$schema": "https://turbo.build/schema.json",
-  "globalEnv": ["CUSTOMER_RUNTIME_HOST", "CUSTOMER_RUNTIME_PORT"],
+  "globalEnv": [
+    "CUSTOMER_RUNTIME_HOST",
+    "CUSTOMER_RUNTIME_PORT",
+    "CUSTOMER_RUNTIME_SCENARIO"
+  ],
   "ui": "tui",
   "tasks": {
     "build": {

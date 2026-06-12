@@ -30,6 +30,8 @@ const readyNativeModule: CustomerAutomationNativeModule = {
   async swipe() {},
   async back() {},
   async home() {},
+  async launchApp() {},
+  async typeText() {},
 }
 
 describe("customer automation native bridge", () => {
@@ -64,6 +66,12 @@ describe("customer automation native bridge", () => {
       async home() {
         calls.push("home")
       },
+      async launchApp(app) {
+        calls.push(`launch:${app}`)
+      },
+      async typeText(text) {
+        calls.push(`type:${text}`)
+      },
     }
     const executor = createNativeRoutineActionExecutor(nativeModule, {
       width: 1080,
@@ -74,12 +82,33 @@ describe("customer automation native bridge", () => {
     await executor.swipe({ x: 540, y: 1920 }, { x: 540, y: 480 })
     await executor.back()
     await executor.home()
+    await executor.launchApp("com.android.settings")
+    await executor.typeText("coffee shop")
 
     expect(calls).toEqual([
       "tap:540,600",
       "swipe:540,1920->540,480",
       "back",
       "home",
+      "launch:com.android.settings",
+      "type:coffee shop",
     ])
+  })
+
+  it("surfaces native text-entry failures", async () => {
+    const nativeModule: CustomerAutomationNativeModule = {
+      ...readyNativeModule,
+      async typeText() {
+        throw new Error("No focused input target is available for Type action.")
+      },
+    }
+    const executor = createNativeRoutineActionExecutor(nativeModule, {
+      width: 1080,
+      height: 2400,
+    })
+
+    await expect(executor.typeText("coffee shop")).rejects.toThrow(
+      "No focused input target is available for Type action."
+    )
   })
 })

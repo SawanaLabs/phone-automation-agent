@@ -3,7 +3,9 @@ package com.sawanalabs.phoneautomation.customer
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
 import android.graphics.Path
+import android.os.Bundle
 import android.view.accessibility.AccessibilityEvent
+import android.view.accessibility.AccessibilityNodeInfo
 
 class CustomerAutomationAccessibilityService : AccessibilityService() {
   companion object {
@@ -51,6 +53,37 @@ class CustomerAutomationAccessibilityService : AccessibilityService() {
       lineTo(endX.toFloat(), endY.toFloat())
     }
     dispatch(path, 0L, 450L, onComplete, onCancel)
+  }
+
+  fun typeText(
+    text: String,
+    onComplete: () -> Unit,
+    onFailure: (String) -> Unit
+  ) {
+    val root = rootInActiveWindow
+    if (root == null) {
+      onFailure("No active accessibility window is available for Type action.")
+      return
+    }
+
+    val focusedInput = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
+    if (focusedInput == null) {
+      onFailure("No focused input target is available for Type action.")
+      return
+    }
+
+    val arguments = Bundle().apply {
+      putCharSequence(
+        AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE,
+        text
+      )
+    }
+    if (focusedInput.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, arguments)) {
+      onComplete()
+      return
+    }
+
+    onFailure("Focused input target rejected Type action.")
   }
 
   private fun dispatch(
