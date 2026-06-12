@@ -29,6 +29,16 @@ describe("Open-AutoGLM routine action contract", () => {
         }),
         normalizeOpenAutoGlmAction({
           _metadata: "do",
+          action: "Note",
+          message: "页面显示三条结果",
+        }),
+        normalizeOpenAutoGlmAction({
+          _metadata: "do",
+          action: "Call_API",
+          instruction: "总结当前页面",
+        }),
+        normalizeOpenAutoGlmAction({
+          _metadata: "do",
           action: "Type",
           text: "coffee shop",
         }),
@@ -81,6 +91,8 @@ describe("Open-AutoGLM routine action contract", () => {
       },
       { _metadata: "do", action: "Take_over", message: "请先完成登录" },
       { _metadata: "do", action: "Interact", message: "请选择目标项目" },
+      { _metadata: "do", action: "Note", message: "页面显示三条结果" },
+      { _metadata: "do", action: "Call_API", instruction: "总结当前页面" },
       { _metadata: "do", action: "Type", text: "coffee shop" },
       { _metadata: "do", action: "Type", text: "Sawana" },
       {

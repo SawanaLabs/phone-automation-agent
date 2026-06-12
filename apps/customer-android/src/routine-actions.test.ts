@@ -251,6 +251,136 @@ describe("routine actions", () => {
     })
   })
 
+  it("records runtime-local actions without dispatching physical phone actions", async () => {
+    const executor = createRecordingExecutor()
+    const stepRequests: Array<Record<string, unknown>> = []
+    const fetchImpl: typeof fetch = async (_url, init) => {
+      const body = JSON.parse(String(init?.body))
+      stepRequests.push(body)
+
+      if (body.stepNumber === 1) {
+        return new Response(
+          JSON.stringify({
+            action: {
+              _metadata: "do",
+              action: "Note",
+              message: "页面显示三条结果",
+            },
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }
+        )
+      }
+
+      if (body.stepNumber === 2) {
+        return new Response(
+          JSON.stringify({
+            action: {
+              _metadata: "do",
+              action: "Call_API",
+              instruction: "总结当前页面",
+            },
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }
+        )
+      }
+
+      return new Response(
+        JSON.stringify({
+          action: {
+            _metadata: "finish",
+            message: "done",
+          },
+        }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }
+      )
+    }
+
+    const result = await runHostedRoutineActionLoop({
+      taskId: "customer_task_1",
+      instruction: "检查当前页面",
+      runtimeUrl: "http://localhost:8787",
+      executor,
+      fetchImpl,
+      screenStateCollector: {
+        async capture() {
+          return {
+            frameBase64: "frame",
+            frameMimeType: "image/png",
+            width: 1080,
+            height: 2400,
+          }
+        },
+      },
+    })
+
+    expect(executor.calls).toEqual([])
+    expect(result.task.status).toBe("finished")
+    expect(stepRequests).toHaveLength(3)
+    expect(stepRequests[1]).toMatchObject({
+      lastActionResult: {
+        status: "succeeded",
+        action: "Note",
+        message: "Note recorded: 页面显示三条结果",
+      },
+    })
+    expect(stepRequests[2]).toMatchObject({
+      lastActionResult: {
+        status: "unsupported",
+        action: "Call_API",
+        message:
+          "Call_API is a runtime-local action and is not implemented by this hosted runtime.",
+      },
+    })
+  })
+
+  it("returns a failed snapshot with trace when the hosted runtime rejects a step", async () => {
+    const executor = createRecordingExecutor()
+
+    const result = await runHostedRoutineActionLoop({
+      taskId: "customer_task_1",
+      instruction: "检查当前页面",
+      runtimeUrl: "http://localhost:8787",
+      executor,
+      fetchImpl: async () =>
+        new Response(
+          JSON.stringify({
+            detail: "Invalid model output.",
+          }),
+          {
+            status: 422,
+            headers: { "Content-Type": "application/json" },
+          }
+        ),
+      screenStateCollector: {
+        async capture() {
+          return {
+            frameBase64: "frame",
+            frameMimeType: "image/png",
+            width: 1080,
+            height: 2400,
+          }
+        },
+      },
+    })
+
+    expect(executor.calls).toEqual([])
+    expect(result.task.status).toBe("failed")
+    expect(result.task.summary).toBe("Invalid model output.")
+    expect(result.events.at(-1)).toMatchObject({
+      type: "task.failed",
+      message: "Invalid model output.",
+    })
+  })
+
   it("pauses takeover actions and continues with a new screen state", async () => {
     const executor = createRecordingExecutor()
     const stepRequests: Array<Record<string, unknown>> = []

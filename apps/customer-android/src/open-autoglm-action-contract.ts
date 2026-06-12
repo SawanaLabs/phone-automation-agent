@@ -40,6 +40,21 @@ export function normalizeOpenAutoGlmAction(input: unknown): RoutineAction {
         { _metadata: "do", action: "Interact" },
         action.message
       )
+    case "Note":
+      return {
+        _metadata: "do",
+        action: "Note",
+        message: requireTrimmedString(action.message, "Note message"),
+      }
+    case "Call_API":
+      return {
+        _metadata: "do",
+        action: "Call_API",
+        instruction: requireTrimmedString(
+          action.instruction,
+          "Call_API instruction"
+        ),
+      }
     case "Type":
     case "Type_Name":
       return {

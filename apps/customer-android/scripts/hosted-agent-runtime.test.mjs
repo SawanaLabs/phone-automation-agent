@@ -58,6 +58,26 @@ describe("hosted agent runtime", () => {
 
     expect(
       parseOpenAutoGlmActionText(
+        'do(action="Note", message="页面显示三条结果")'
+      )
+    ).toEqual({
+      _metadata: "do",
+      action: "Note",
+      message: "页面显示三条结果",
+    })
+
+    expect(
+      parseOpenAutoGlmActionText(
+        'do(action="Call_API", instruction="总结当前页面")'
+      )
+    ).toEqual({
+      _metadata: "do",
+      action: "Call_API",
+      instruction: "总结当前页面",
+    })
+
+    expect(
+      parseOpenAutoGlmActionText(
         'do(action="Swipe", start=[500,800], end=[500,200])'
       )
     ).toEqual({

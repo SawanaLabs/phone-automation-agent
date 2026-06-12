@@ -46,7 +46,7 @@ export type CustomerScreenState = {
 }
 
 export type CustomerActionResult = {
-  status: "succeeded" | "failed"
+  status: "succeeded" | "failed" | "unsupported"
   action: string
   message: string
 }

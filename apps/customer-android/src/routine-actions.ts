@@ -76,6 +76,16 @@ export type RoutineAction =
       message?: string
     }
   | {
+      _metadata: "do"
+      action: "Note"
+      message: string
+    }
+  | {
+      _metadata: "do"
+      action: "Call_API"
+      instruction: string
+    }
+  | {
       _metadata: "finish"
       message: string
     }
@@ -203,15 +213,24 @@ export async function runHostedRoutineActionLoop({
     }
 
     const screen = await screenStateCollector.capture()
-    const decision = await requestNextCustomerAction({
-      runtimeUrl,
-      taskId,
-      instruction,
-      stepNumber,
-      screen,
-      lastActionResult,
-      fetchImpl,
-    })
+    let decision
+    try {
+      decision = await requestNextCustomerAction({
+        runtimeUrl,
+        taskId,
+        instruction,
+        stepNumber,
+        screen,
+        lastActionResult,
+        fetchImpl,
+      })
+    } catch (error) {
+      const message = describeUnknownError(error)
+      const event = createEvent(events, "task.failed", message, { stepNumber })
+      onEvent?.(event)
+      return createSnapshot(taskId, instruction, "failed", message, events)
+    }
+
     const action = decision.action
 
     if (action._metadata === "finish") {
@@ -331,6 +350,27 @@ async function dispatchHostedRoutineAction(
   action: Exclude<RoutineAction, { _metadata: "finish" }>,
   executor: RoutineActionExecutor
 ): Promise<CustomerActionResult> {
+  if (action.action === "Note") {
+    return {
+      status: "succeeded",
+      action: "Note",
+      message: `Note recorded: ${normalizeRequiredString(
+        action.message,
+        "Note message"
+      )}`,
+    }
+  }
+
+  if (action.action === "Call_API") {
+    normalizeRequiredString(action.instruction, "Call_API instruction")
+    return {
+      status: "unsupported",
+      action: "Call_API",
+      message:
+        "Call_API is a runtime-local action and is not implemented by this hosted runtime.",
+    }
+  }
+
   try {
     await dispatchRoutineAction(action, executor)
     return {
@@ -537,6 +577,14 @@ function describeRoutineAction(action: Exclude<RoutineAction, { _metadata: "fini
 
   if (action.action === "Wait") {
     return `Wait ${action.duration ?? "1 seconds"}`
+  }
+
+  if (action.action === "Note") {
+    return `Note ${action.message.length} chars`
+  }
+
+  if (action.action === "Call_API") {
+    return `Call_API ${action.instruction.length} chars`
   }
 
   return action.action

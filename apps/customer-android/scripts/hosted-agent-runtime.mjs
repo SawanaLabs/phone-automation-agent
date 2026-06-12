@@ -203,6 +203,8 @@ export function createScriptedModelProvider({ scenario = "routine-basic" } = {})
     "takeover-pause",
     "interact-pause",
     "confirmation-pause",
+    "runtime-local-actions",
+    "unknown-action",
   ])
   if (!supportedScenarios.has(scenario)) {
     throw new Error(`Unsupported CUSTOMER_RUNTIME_SCENARIO: ${scenario}`)
@@ -267,6 +269,21 @@ function normalizeRoutineAction(args) {
         { _metadata: "do", action: "Interact" },
         args.message
       )
+    case "Note":
+      return {
+        _metadata: "do",
+        action: "Note",
+        message: normalizeRequiredString(args.message, "Note message"),
+      }
+    case "Call_API":
+      return {
+        _metadata: "do",
+        action: "Call_API",
+        instruction: normalizeRequiredString(
+          args.instruction,
+          "Call_API instruction"
+        ),
+      }
     case "Type":
     case "Type_Name":
       return {
@@ -639,6 +656,18 @@ function isPlaceholderSecret(value) {
 }
 
 function createScenarioOutputs(scenario, instruction) {
+  if (scenario === "runtime-local-actions") {
+    return [
+      'do(action="Note", message="页面显示三条结果")',
+      'do(action="Call_API", instruction="总结当前页面")',
+      `finish(message="Finished runtime-local action customer task: ${instruction}")`,
+    ]
+  }
+
+  if (scenario === "unknown-action") {
+    return ['do(action="Scroll", start=[500,800], end=[500,200])']
+  }
+
   if (scenario === "takeover-pause") {
     return [
       'do(action="Take_over", message="请先完成登录")',
