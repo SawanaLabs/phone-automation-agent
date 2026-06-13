@@ -1,7 +1,7 @@
 ---
 title: Customer App Roadmap
 description: Grooming roadmap for implementing the Customer App Story through hosted-agent and single-app routes.
-updateAt: 2026-06-12
+updateAt: 2026-06-13
 ---
 
 # Customer App Roadmap
@@ -19,6 +19,7 @@ updateAt: 2026-06-12
 - If the Hosted Agent Runtime Route cannot reach the first Customer App Story acceptance target, reassess the Single-App Runtime Route.
 - Keep the current `apps/mobile` as the worker-backed demo companion until a new customer app boundary is explicitly created.
 - Do not write the large implementation issue until Grooming is complete.
+- The first user-downloadable artifact should be an Alpha Sideload APK for internal QA, not an AAB, Play Store submission, public beta, or production release.
 
 ## Route 2 First: Hosted Agent Runtime Route
 
@@ -59,6 +60,15 @@ First validation checkpoints:
 - A hosted endpoint can return a normalized Open-AutoGLM-compatible action for one captured screen.
 - The app and backend can complete the first acceptance story without a Mac worker.
 
+First release checkpoints:
+
+- Build a signed Alpha Sideload APK that internal users can install directly on Android phones.
+- Publish the APK through GitHub Release.
+- Include release notes, install instructions, required permission setup, known limitations, commit hash, and checksum.
+- Publish the APK signature certificate fingerprint so users can distinguish the official Alpha APK from source-built or third-party APKs.
+- Keep the release keystore private; use debug keystore only for local development and temporary QA builds.
+- Treat AAB packaging, Play Store review, public distribution, and production support as out of scope until the MVP QA loop proves the product path.
+
 Fallback triggers:
 
 - Backend-directed actions cannot keep a stable enough session with the on-device executor.
@@ -95,6 +105,7 @@ Known risks:
 - Decide the phone-to-backend transport: HTTP polling, streaming HTTP, or WebSocket.
 - Define the hosted runtime contract: request shape, action response shape, session state, errors, and event logs.
 - Decide credential strategy: project-owned model credentials behind backend, user-provided model keys, or short-lived tokens.
+- Define the Alpha Sideload APK release contract: GitHub Release workflow, private release keystore, versioning, artifact name, checksum, signing certificate fingerprint, release notes, install instructions, and known limitations.
 - Set the minimum Android version and first supported OEM/device target.
 - Define explicit out-of-scope items for the first issue: payment, login, captcha, irreversible account changes, Play Store compliance completion, and broad safety policy.
 

@@ -36,6 +36,10 @@ _Avoid_: target device, test device
 An internal build optimized for proving the end-to-end phone task story with the least custom machinery that can work.
 _Avoid_: production app, release build, platform-complete app
 
+**Alpha Sideload APK**:
+The first MVP distribution artifact: an internally shared installable Android APK for proving the Customer App Story on real phones without app-store distribution or production stability commitments.
+_Avoid_: production release, beta app, Play Store build, AAB package
+
 **Acceptance QA Story**:
 The app-submitted end-to-end story that must pass before a Demo Build counts as working.
 _Avoid_: terminal smoke test, web-only demo, implementation milestone

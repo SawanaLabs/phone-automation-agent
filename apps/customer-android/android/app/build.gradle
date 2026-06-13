@@ -67,6 +67,25 @@ react {
  * Set this to true in release builds to optimize the app using [R8](https://developer.android.com/topic/performance/app-optimization/enable-app-optimization).
  */
 def enableMinifyInReleaseBuilds = (findProperty('android.enableMinifyInReleaseBuilds') ?: false).toBoolean()
+def customerReleaseSigningEnv = [
+    'CUSTOMER_ANDROID_RELEASE_STORE_FILE',
+    'CUSTOMER_ANDROID_RELEASE_STORE_PASSWORD',
+    'CUSTOMER_ANDROID_RELEASE_KEY_ALIAS',
+    'CUSTOMER_ANDROID_RELEASE_KEY_PASSWORD'
+]
+def missingCustomerReleaseSigningEnv = customerReleaseSigningEnv.findAll { key ->
+    def value = System.getenv(key)
+    value == null || value.trim().isEmpty()
+}
+def requestedCustomerReleaseBuild = gradle.startParameter.taskNames.any { taskName ->
+    taskName.toLowerCase().contains('release')
+}
+
+if (requestedCustomerReleaseBuild && missingCustomerReleaseSigningEnv.size() > 0) {
+    throw new GradleException(
+        "Official Alpha Sideload APK releases must use a project release keystore. Missing: ${missingCustomerReleaseSigningEnv.join(', ')}"
+    )
+}
 
 /**
  * The preferred build flavor of JavaScriptCore (JSC)
@@ -104,15 +123,22 @@ android {
             keyAlias 'androiddebugkey'
             keyPassword 'android'
         }
+        release {
+            def releaseStoreFile = System.getenv('CUSTOMER_ANDROID_RELEASE_STORE_FILE')
+            if (releaseStoreFile != null && !releaseStoreFile.trim().isEmpty()) {
+                storeFile file(releaseStoreFile)
+            }
+            storePassword System.getenv('CUSTOMER_ANDROID_RELEASE_STORE_PASSWORD')
+            keyAlias System.getenv('CUSTOMER_ANDROID_RELEASE_KEY_ALIAS')
+            keyPassword System.getenv('CUSTOMER_ANDROID_RELEASE_KEY_PASSWORD')
+        }
     }
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
         }
         release {
-            // Caution! In production, you need to generate your own keystore file.
-            // see https://reactnative.dev/docs/signed-apk-android.
-            signingConfig signingConfigs.debug
+            signingConfig signingConfigs.release
             def enableShrinkResources = findProperty('android.enableShrinkResourcesInReleaseBuilds') ?: 'false'
             shrinkResources enableShrinkResources.toBoolean()
             minifyEnabled enableMinifyInReleaseBuilds

@@ -9,6 +9,7 @@
     "web": "expo start --web",
     "android": "expo run:android",
     "build": "expo export --platform android --output-dir dist",
+    "release:alpha": "node scripts/release-alpha.mjs",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",

@@ -1,7 +1,7 @@
 ---
 title: Project Knowledge Protocol
 description: Repository-wide knowledge protocol for durable phone automation agent conventions.
-updateAt: 2026-06-12
+updateAt: 2026-06-13
 ---
 
 # Project Knowledge Protocol
@@ -11,6 +11,7 @@ updateAt: 2026-06-12
 - **Context Glossary**: `CONTEXT.md` is the canonical glossary for confirmed product terms; keep docs aligned with those terms.
 - **First Demo Route**: The confirmed first implementation path for proving the mobile app story without building an on-device executor first.
 - **Customer App Story**: The deliverable product story where an Android APK can automate the user's same physical phone without a manually run Mac worker.
+- **Alpha Sideload APK**: The first MVP distribution artifact for internal QA on real Android phones; it is an installable APK, not an app-store AAB or production release.
 - **Android On-Device Executor**: The future Android-side runtime needed for the Customer App Story if execution moves onto the user's phone.
 - **Customer App Roadmap**: The Planning domain roadmap that records route order, fallback conditions, and Grooming outputs for implementing the Customer App Story.
 - **Web Presence**: The browser surface may support presentation, downloads, and light management; it must not become the primary demo experience.

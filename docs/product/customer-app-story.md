@@ -1,7 +1,7 @@
 ---
 title: Customer App Story
 description: Product target and current gap for making phone automation usable as a customer-installed Android app.
-updateAt: 2026-06-12
+updateAt: 2026-06-13
 ---
 
 # Customer App Story
@@ -18,10 +18,12 @@ updateAt: 2026-06-12
   _Avoid_: treating the current demo APK as a standalone customer product, cloud-device story
 - **Full Access Mode**: The initial customer-story automation posture where, after explicit permission setup, the app proceeds with broad routine control instead of interrupting every action for approval.
   _Avoid_: silent permission bypass, complete safety framework before first runnable MVP
+- **Alpha Sideload APK**: The MVP QA distribution artifact that an internal user installs directly on their Android phone to validate the Customer App Story.
+  _Avoid_: production release, Play Store build, beta release, AAB package
 
 ## Expected Product Story
 
-- The user downloads and installs an Android app, such as an APK, on their own phone.
+- The user downloads and installs an Alpha Sideload APK on their own Android phone.
 - The user opens the app, enters a command, and starts the task from that app.
 - The app operates the same physical Android phone the user installed it on and shows progress, final state, and evidence.
 - This story is not satisfied by curl, terminal commands, web-only submission, or a setup that requires the customer to run a Mac developer worker manually.
@@ -31,6 +33,10 @@ updateAt: 2026-06-12
 
 - The current application is not ready to send to customers as a standalone app.
 - A build becomes deliverable only when the Customer App Story works from the installed Android app without manual Mac worker setup.
+- The first deliverable artifact is an Alpha Sideload APK for internal QA users, not a production app, public beta, Play Store listing, or AAB submission.
+- Internal users should download the first Alpha Sideload APK from GitHub Release.
+- The GitHub Release APK is the official Alpha APK. APKs built by users from the open-source repository are developer builds and may require uninstalling the official APK first because they use a different signing key.
+- The official Alpha APK must be signed with a project release keystore. The keystore and its passwords are private signing identity material and must never be committed or uploaded as release artifacts.
 - The current `apps/mobile` APK can demonstrate the UI and task protocol, but it cannot execute real automation alone.
 - The likely next product surface is a new customer-facing Android app or executor workspace under `apps/*`, while `apps/mobile` remains the worker-backed demo companion until we explicitly migrate it.
 
@@ -56,6 +62,8 @@ updateAt: 2026-06-12
 - A local companion worker is the shortest extension of the current architecture, but it still asks the customer to install and run a second runtime.
 - A cloud runtime or device fleet can simplify the phone app experience, but it no longer satisfies the Customer App Story unless the controlled device remains the user's same physical phone.
 - Until one route is chosen and implemented, describe the current build as an internal demo, not a customer-distributable product.
+- Once the Customer App Story path works, describe the first distributable build as an MVP Alpha Sideload APK for a small internal user group.
+- The repository can remain open source while the official release keystore remains private; source availability does not imply that third-party builds share the official APK signing identity.
 - If the on-device route is selected, create a dedicated app/executor boundary instead of mixing demo companion concerns with strong-permission execution concerns by default.
 
 ## Decision Records
