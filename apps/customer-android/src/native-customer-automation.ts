@@ -102,7 +102,7 @@ export function createNativeRoutineActionExecutor(
       await nativeModule.typeText(text)
     },
     async wait(durationMs) {
-      await nativeModule.wait(durationMs)
+      await delay(durationMs)
     },
   }
 }
@@ -112,4 +112,10 @@ export function roundPixelPoint(point: PixelPoint): PixelPoint {
     x: Math.round(point.x),
     y: Math.round(point.y),
   }
+}
+
+function delay(durationMs: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, durationMs)
+  })
 }

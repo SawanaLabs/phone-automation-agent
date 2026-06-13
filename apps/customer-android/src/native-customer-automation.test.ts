@@ -105,8 +105,8 @@ describe("customer automation native bridge", () => {
       async typeText(text) {
         calls.push(`type:${text}`)
       },
-      async wait(durationMs) {
-        calls.push(`wait:${durationMs}`)
+      async wait() {
+        throw new Error("native wait must not be used")
       },
     }
     const executor = createNativeRoutineActionExecutor(nativeModule, {
@@ -122,7 +122,7 @@ describe("customer automation native bridge", () => {
     await executor.home()
     await executor.launchApp("com.android.settings")
     await executor.typeText("coffee shop")
-    await executor.wait(1000)
+    await executor.wait(0)
 
     expect(calls).toEqual([
       "tap:540,600",
@@ -133,7 +133,6 @@ describe("customer automation native bridge", () => {
       "home",
       "launch:com.android.settings",
       "type:coffee shop",
-      "wait:1000",
     ])
   })
 
