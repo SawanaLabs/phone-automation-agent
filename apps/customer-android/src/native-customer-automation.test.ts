@@ -2,11 +2,13 @@ import { describe, expect, it } from "vitest"
 
 import {
   createNativeDeviceAuthorityGateway,
+  createNativeHostedTaskRunner,
   createNativeRoutineActionExecutor,
   createNativeScreenStateCollector,
   requireCustomerAutomationNativeModule,
   type CustomerAutomationNativeModule,
 } from "./native-customer-automation"
+import { deriveDeviceAuthorityState } from "./device-authority"
 
 const readyNativeModule: CustomerAutomationNativeModule = {
   async getAuthoritySnapshot() {
@@ -46,6 +48,17 @@ const readyNativeModule: CustomerAutomationNativeModule = {
   async launchApp() {},
   async typeText() {},
   async wait() {},
+  async runHostedTask() {
+    return {
+      task: {
+        id: "customer_task_1",
+        instruction: "检查当前页面",
+        status: "finished",
+        summary: "Done",
+      },
+      events: [],
+    }
+  },
 }
 
 describe("customer automation native bridge", () => {
@@ -75,6 +88,55 @@ describe("customer automation native bridge", () => {
       currentPackage: "com.android.settings",
       accessibilitySummary: "Settings",
     })
+  })
+
+  it("runs hosted tasks through the native Android loop", async () => {
+    const calls: string[] = []
+    const nativeModule: CustomerAutomationNativeModule = {
+      ...readyNativeModule,
+      async runHostedTask(runtimeUrl, instruction, maxSteps) {
+        calls.push(`${runtimeUrl}|${instruction}|${maxSteps}`)
+        return {
+          task: {
+            id: "customer_task_1",
+            instruction,
+            status: "finished",
+            summary: "Done",
+          },
+          events: [],
+        }
+      },
+    }
+    const runner = createNativeHostedTaskRunner(nativeModule)
+
+    const session = await runner.startTask({
+      authorityState: deriveDeviceAuthorityState({
+        accessibilityService: "enabled",
+        screenCapture: "granted",
+      }),
+      runtimeUrl: "http://localhost:8787",
+      instruction: " 检查当前页面 ",
+    })
+
+    expect(calls).toEqual(["http://localhost:8787|检查当前页面|50"])
+    expect(session.task.status).toBe("finished")
+  })
+
+  it("rejects native hosted tasks before Android permissions are granted", async () => {
+    const runner = createNativeHostedTaskRunner(readyNativeModule)
+
+    await expect(
+      runner.startTask({
+        authorityState: deriveDeviceAuthorityState({
+          accessibilityService: "disabled",
+          screenCapture: "missing",
+        }),
+        runtimeUrl: "http://localhost:8787",
+        instruction: "检查当前页面",
+      })
+    ).rejects.toThrow(
+      "Android permissions are required before starting a task: accessibility_service, screen_capture."
+    )
   })
 
   it("dispatches native routine actions with pixel coordinates", async () => {

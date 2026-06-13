@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
+  NativeModules,
   Platform,
   Pressable,
   ScrollView,
@@ -22,6 +23,10 @@ import {
   type DeviceAuthorityState,
 } from "./src/device-authority"
 import { createDeviceAuthorityGateway } from "./src/device-authority-gateway"
+import {
+  createNativeHostedTaskRunner,
+  requireCustomerAutomationNativeModule,
+} from "./src/native-customer-automation"
 import { createRoutineActionExecutor } from "./src/routine-action-executor-gateway"
 import {
   createPauseContinueActionResult,
@@ -43,6 +48,12 @@ const DEFAULT_AUTHORITY_SNAPSHOT: DeviceAuthoritySnapshot = {
 const authorityGateway = createDeviceAuthorityGateway()
 const routineActionExecutor = createRoutineActionExecutor()
 const screenStateCollector = createScreenStateCollector()
+const nativeHostedTaskRunner =
+  Platform.OS === "web"
+    ? null
+    : createNativeHostedTaskRunner(
+        requireCustomerAutomationNativeModule(NativeModules)
+      )
 
 export default function App() {
   const [runtimeUrl, setRuntimeUrl] = useState(DEFAULT_RUNTIME_URL)
@@ -138,6 +149,18 @@ export default function App() {
     setErrorMessage(null)
     stopRequestedRef.current = false
     try {
+      if (nativeHostedTaskRunner) {
+        setIsTaskLoopRunning(true)
+        setSession(
+          await nativeHostedTaskRunner.startTask({
+            authorityState,
+            runtimeUrl,
+            instruction,
+          })
+        )
+        return
+      }
+
       const nextSession = await startCustomerTask({
         authorityState,
         runtimeUrl,
@@ -150,6 +173,7 @@ export default function App() {
       setErrorMessage(describeError(error))
     } finally {
       setIsSubmitting(false)
+      setIsTaskLoopRunning(false)
     }
   }
 

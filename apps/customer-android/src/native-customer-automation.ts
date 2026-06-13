@@ -1,6 +1,10 @@
 import type { DeviceAuthorityGateway } from "./device-authority-gateway"
 import type { DeviceAuthoritySnapshot } from "./device-authority"
-import type { CustomerScreenState } from "./customer-session"
+import type {
+  CustomerScreenState,
+  CustomerSessionSnapshot,
+  StartCustomerTaskInput,
+} from "./customer-session"
 import type {
   PixelPoint,
   RoutineActionExecutor,
@@ -27,6 +31,17 @@ export type CustomerAutomationNativeModule = {
   launchApp: (app: string) => Promise<void>
   typeText: (text: string) => Promise<void>
   wait: (durationMs: number) => Promise<void>
+  runHostedTask: (
+    runtimeUrl: string,
+    instruction: string,
+    maxSteps: number
+  ) => Promise<CustomerSessionSnapshot>
+}
+
+export type HostedTaskRunner = {
+  startTask: (
+    input: Pick<StartCustomerTaskInput, "authorityState" | "runtimeUrl" | "instruction">
+  ) => Promise<CustomerSessionSnapshot>
 }
 
 type NativeModuleRegistry = {
@@ -58,6 +73,27 @@ export function createNativeScreenStateCollector(
 ): ScreenStateCollector {
   return {
     capture: nativeModule.captureScreenState,
+  }
+}
+
+export function createNativeHostedTaskRunner(
+  nativeModule: CustomerAutomationNativeModule
+): HostedTaskRunner {
+  return {
+    async startTask({ authorityState, runtimeUrl, instruction }) {
+      if (!authorityState.canStartTask) {
+        throw new Error(
+          `Android permissions are required before starting a task: ${authorityState.missing.join(", ")}.`
+        )
+      }
+
+      const normalizedInstruction = instruction.trim()
+      if (!normalizedInstruction) {
+        throw new Error("Instruction is required.")
+      }
+
+      return nativeModule.runHostedTask(runtimeUrl, normalizedInstruction, 50)
+    },
   }
 }
 
