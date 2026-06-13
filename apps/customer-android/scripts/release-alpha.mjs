@@ -67,6 +67,24 @@ export function extractApkSignerCertificateFingerprint(apksignerOutput) {
   return match[1].toUpperCase()
 }
 
+export function getAndroidVersionCode(env = process.env) {
+  const rawVersionCode = env.CUSTOMER_ANDROID_VERSION_CODE
+  if (rawVersionCode == null || String(rawVersionCode).trim() === "") {
+    throw new Error(
+      "CUSTOMER_ANDROID_VERSION_CODE must be set to a monotonically increasing positive integer."
+    )
+  }
+
+  const versionCode = String(rawVersionCode).trim()
+  if (!/^[1-9][0-9]*$/.test(versionCode)) {
+    throw new Error(
+      "CUSTOMER_ANDROID_VERSION_CODE must be a monotonically increasing positive integer."
+    )
+  }
+
+  return versionCode
+}
+
 export async function getAlphaReleaseMetadata({
   projectRoot = defaultProjectRoot(),
   env = process.env,
@@ -146,10 +164,15 @@ export async function createReleaseArtifacts({
   const androidDir = join(projectRoot, "android")
   const gradlew = process.platform === "win32" ? "gradlew.bat" : "./gradlew"
   const metadata = await getAlphaReleaseMetadata({ projectRoot, env })
+  const versionCode = getAndroidVersionCode(env)
+  const buildEnv = {
+    ...env,
+    CUSTOMER_ANDROID_VERSION_CODE: versionCode,
+  }
 
   await runCommand(gradlew, [":app:assembleRelease"], {
     cwd: androidDir,
-    env,
+    env: buildEnv,
     label: "Gradle release build",
   })
 
@@ -170,19 +193,23 @@ export async function createReleaseArtifacts({
   await copyFile(sourceApkPath, artifactPath)
 
   const sha256 = await writeSha256File(artifactPath, checksumPath)
-  const apksignerPath = await findApksigner({ env, androidDir })
+  const apksignerPath = await findApksigner({ env: buildEnv, androidDir })
   const apksignerResult = await runCommand(
     apksignerPath,
     ["verify", "--print-certs", artifactPath],
     {
       cwd: projectRoot,
-      env,
+      env: buildEnv,
       label: "APK signature verification",
     }
   )
   const certificateSha256Fingerprint =
     extractApkSignerCertificateFingerprint(apksignerResult.stdout)
-  const commitHash = await resolveCommitHash({ projectRoot, env, runCommand })
+  const commitHash = await resolveCommitHash({
+    projectRoot,
+    env: buildEnv,
+    runCommand,
+  })
 
   await writeFile(
     fingerprintPath,
@@ -196,6 +223,7 @@ export async function createReleaseArtifacts({
     releaseNotesPath,
     formatReleaseNotes({
       metadata,
+      versionCode,
       commitHash,
       sha256,
       certificateSha256Fingerprint,
@@ -210,6 +238,7 @@ export async function createReleaseArtifacts({
     sha256,
     certificateSha256Fingerprint,
     commitHash,
+    versionCode,
     metadata,
   }
 }
@@ -328,6 +357,7 @@ async function resolveCommitHash({ projectRoot, env, runCommand }) {
 
 function formatReleaseNotes({
   metadata,
+  versionCode,
   commitHash,
   sha256,
   certificateSha256Fingerprint,
@@ -365,6 +395,7 @@ Alpha Sideload APK for internal QA of the Customer App Story.
 ## Verification
 
 - Commit: \`${commitHash}\`
+- Android version code: \`${versionCode}\`
 - SHA-256: \`${sha256}\`
 - Signing certificate SHA-256 fingerprint: \`${certificateSha256Fingerprint}\`
 `

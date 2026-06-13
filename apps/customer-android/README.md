@@ -22,6 +22,7 @@ Keep the directory mode restricted to the local maintainer account.
 - `CUSTOMER_ANDROID_RELEASE_STORE_PASSWORD`
 - `CUSTOMER_ANDROID_RELEASE_KEY_ALIAS`
 - `CUSTOMER_ANDROID_RELEASE_KEY_PASSWORD`
+- `CUSTOMER_ANDROID_VERSION_CODE`
 
 The command runs the Android release build, copies the APK to
 `dist/alpha/customer-phone-agent-<version>-alpha.<n>.apk`, writes
@@ -30,6 +31,10 @@ The command runs the Android release build, copies the APK to
 `dist/alpha/RELEASE_NOTES.md`.
 
 Set `CUSTOMER_ANDROID_ALPHA_NUMBER` to override the default Alpha number `1`.
+Set `CUSTOMER_ANDROID_VERSION_CODE` to a monotonically increasing positive
+integer for every official Alpha APK. Android uses this value for upgrade
+eligibility, so a later official Alpha must use a higher value than the APK
+already installed on the phone.
 Set `CUSTOMER_ANDROID_RELEASE_COMMIT` when building an APK from a specific
 commit in CI or a release script.
 

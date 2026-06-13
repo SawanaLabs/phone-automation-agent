@@ -87,6 +87,23 @@ if (requestedCustomerReleaseBuild && missingCustomerReleaseSigningEnv.size() > 0
     )
 }
 
+def customerAndroidVersionCodeText = System.getenv('CUSTOMER_ANDROID_VERSION_CODE')
+if (customerAndroidVersionCodeText == null || customerAndroidVersionCodeText.trim().isEmpty()) {
+    if (requestedCustomerReleaseBuild) {
+        throw new GradleException(
+            "CUSTOMER_ANDROID_VERSION_CODE must be set to a monotonically increasing positive integer for release builds."
+        )
+    }
+    customerAndroidVersionCodeText = '1'
+}
+customerAndroidVersionCodeText = customerAndroidVersionCodeText.trim()
+if (!customerAndroidVersionCodeText.matches('[1-9][0-9]*')) {
+    throw new GradleException(
+        "CUSTOMER_ANDROID_VERSION_CODE must be a monotonically increasing positive integer."
+    )
+}
+def customerAndroidVersionCode = Integer.parseInt(customerAndroidVersionCodeText)
+
 /**
  * The preferred build flavor of JavaScriptCore (JSC)
  *
@@ -111,7 +128,7 @@ android {
         applicationId 'com.sawanalabs.phoneautomation.customer'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
+        versionCode customerAndroidVersionCode
         versionName "0.1.0"
 
         buildConfigField "String", "REACT_NATIVE_RELEASE_LEVEL", "\"${findProperty('reactNativeReleaseLevel') ?: 'stable'}\""

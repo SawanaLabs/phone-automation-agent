@@ -13,6 +13,11 @@ describe("Android release signing contract", () => {
     expect(buildGradle).toContain("CUSTOMER_ANDROID_RELEASE_STORE_PASSWORD")
     expect(buildGradle).toContain("CUSTOMER_ANDROID_RELEASE_KEY_ALIAS")
     expect(buildGradle).toContain("CUSTOMER_ANDROID_RELEASE_KEY_PASSWORD")
+    expect(buildGradle).toContain("CUSTOMER_ANDROID_VERSION_CODE")
+    expect(buildGradle).toContain("GradleException")
+    expect(buildGradle).toMatch(
+      /versionCode customerAndroidVersionCode/
+    )
     expect(buildGradle).toMatch(/buildTypes\s*\{[\s\S]*release\s*\{[\s\S]*signingConfig signingConfigs\.release/)
     expect(buildGradle).not.toMatch(/buildTypes\s*\{[\s\S]*release\s*\{[\s\S]*signingConfig signingConfigs\.debug/)
   })
@@ -35,6 +40,8 @@ describe("Android release signing contract", () => {
     expect(readme).toContain("CUSTOMER_ANDROID_RELEASE_STORE_PASSWORD")
     expect(readme).toContain("CUSTOMER_ANDROID_RELEASE_KEY_ALIAS")
     expect(readme).toContain("CUSTOMER_ANDROID_RELEASE_KEY_PASSWORD")
+    expect(readme).toContain("CUSTOMER_ANDROID_VERSION_CODE")
+    expect(readme).toContain("monotonically increasing")
     expect(readme).toContain("$HOME/.phone-automation-agent/customer-android-release")
     expect(readme).toContain("customer-phone-agent-<version>-alpha.<n>.apk")
     expect(readme).toContain("SHA256SUMS")

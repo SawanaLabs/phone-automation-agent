@@ -8,6 +8,7 @@ import {
   createReleaseArtifacts,
   findApksigner,
   getAlphaReleaseMetadata,
+  releaseAlpha,
   releaseApkRelativePath,
 } from "./release-alpha.mjs"
 
@@ -18,6 +19,7 @@ function withSigningEnv(overrides = {}) {
     CUSTOMER_ANDROID_RELEASE_STORE_PASSWORD: "store-password",
     CUSTOMER_ANDROID_RELEASE_KEY_ALIAS: "customer-alpha",
     CUSTOMER_ANDROID_RELEASE_KEY_PASSWORD: "key-password",
+    CUSTOMER_ANDROID_VERSION_CODE: "1",
     ...overrides,
   }
 }
@@ -68,6 +70,24 @@ describe("Alpha Sideload APK release", () => {
     expect(result.stderr).toContain("CUSTOMER_ANDROID_RELEASE_KEY_PASSWORD")
   })
 
+  it("fails fast when the Android version code is missing", async () => {
+    let stderr = ""
+    const result = await releaseAlpha({
+      env: withSigningEnv({
+        CUSTOMER_ANDROID_VERSION_CODE: undefined,
+      }),
+      stderr: { write: (message) => { stderr += message } },
+      stdout: { write: () => {} },
+      runCommand: async () => {
+        throw new Error("release build should not run without a version code")
+      },
+    })
+
+    expect(result.exitCode).toBe(1)
+    expect(stderr).toContain("CUSTOMER_ANDROID_VERSION_CODE")
+    expect(stderr).toContain("monotonically increasing")
+  })
+
   it("creates the APK, checksum, and signing fingerprint release artifacts", async () => {
     const projectRoot = await mkReleaseFixture()
     const sourceApkPath = join(projectRoot, releaseApkRelativePath)
@@ -89,9 +109,15 @@ describe("Alpha Sideload APK release", () => {
         env: withSigningEnv({
           CUSTOMER_ANDROID_APKSIGNER: apksignerPath,
           CUSTOMER_ANDROID_RELEASE_COMMIT: "abc123",
+          CUSTOMER_ANDROID_VERSION_CODE: "7",
         }),
         runCommand: async (command, args, options) => {
-          commandCalls.push({ command, args, cwd: options.cwd })
+          commandCalls.push({
+            command,
+            args,
+            cwd: options.cwd,
+            versionCode: options.env?.CUSTOMER_ANDROID_VERSION_CODE,
+          })
           if (args[0] === "verify") {
             return {
               stdout:
@@ -109,11 +135,13 @@ describe("Alpha Sideload APK release", () => {
           command: process.platform === "win32" ? "gradlew.bat" : "./gradlew",
           args: [":app:assembleRelease"],
           cwd: join(projectRoot, "android"),
+          versionCode: "7",
         },
         {
           command: apksignerPath,
           args: ["verify", "--print-certs", result.artifactPath],
           cwd: projectRoot,
+          versionCode: "7",
         },
       ])
       await expect(readFile(result.artifactPath, "utf8")).resolves.toBe(
@@ -136,6 +164,9 @@ describe("Alpha Sideload APK release", () => {
       )
       await expect(readFile(result.releaseNotesPath, "utf8")).resolves.toContain(
         "Required Android Permissions"
+      )
+      await expect(readFile(result.releaseNotesPath, "utf8")).resolves.toContain(
+        "Android version code: `7`"
       )
       expect(result.certificateSha256Fingerprint).toBe("AA:BB:CC:DD")
     } finally {
