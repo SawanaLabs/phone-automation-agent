@@ -25,10 +25,16 @@ updateAt: 2026-06-13
 ## Current Subdomain Docs
 
 - V0 uses `POST /sessions` to create a task session.
+- V0 uses `GET /sessions/{session_id}` to read the latest in-memory session snapshot.
 - V0 uses `POST /sessions/{session_id}/steps` for every decision turn after the APK captures current phone state.
 - The APK sends the user instruction, screenshot frame, dimensions, current package, accessibility summary, step number, and previous action result when available.
 - The API returns exactly one next action per step. The APK maps routine actions, pause actions, runtime-local actions, failures, and finish into local task state.
+- The API records every accepted step as a `step.decided` event, advances `nextStepNumber`, and updates task status when the returned action is terminal or requires user involvement.
+- `finish(message="...")` updates the task status to `finished` and records `task.finished`.
+- `_metadata: failed` updates the task status to `failed` and records `task.failed`.
+- `Take_over`, `Interact`, and sensitive `Tap` actions with `message` update the task status to `takeover_required`, `interaction_required`, or `confirmation_required` and record `task.paused`.
 - API-side model-provider failures and invalid model outputs are returned as a normalized failed outcome: `{"_metadata":"failed","message":"..."}` inside the step response `action` field. The APK must stop the hosted loop and show that message as task failure evidence.
+- The API enforces `CUSTOMER_ANDROID_API_MAX_STEPS` server-side. When the APK submits a step number greater than the limit, the API returns a normalized failed outcome without making a model-provider call.
 - The API maintains in-memory Agent Context so later steps can include prior model responses and action history while dropping old image payloads from stored context.
 - V0 session context lives in process memory. If the API restarts or loses the session, the task should fail clearly and require the APK to start a new session.
 - The APK executes routine actions locally and sends the resulting state back through the next step request.
@@ -37,7 +43,7 @@ updateAt: 2026-06-13
 
 ## Auth And Credentials
 
-- `POST /sessions` and `POST /sessions/{session_id}/steps` require `Authorization: Bearer <runtime_access_token>` in V0.
+- `POST /sessions`, `GET /sessions/{session_id}`, and `POST /sessions/{session_id}/steps` require `Authorization: Bearer <runtime_access_token>` in V0.
 - `apps/customer-android-api` validates the runtime token against one shared alpha environment variable such as `CUSTOMER_ANDROID_API_ACCESS_TOKEN`.
 - Model-provider credentials live only in `apps/customer-android-api` environment variables, such as `CUSTOMER_ANDROID_MODEL_API_KEY` or the provider-specific key chosen by implementation.
 - `apps/customer-android` configures the API URL and Runtime Access Token for alpha QA, but it must not include ModelScope, BigModel, OpenAI-compatible, or other provider API keys.
@@ -48,8 +54,8 @@ updateAt: 2026-06-13
 - **2026-06-13 session-step-contract**: Use customer-specific sessions and steps for the first runtime contract.
   Status: Accepted
   Context: Phone automation has real side effects between model decisions, so each turn must wait for APK execution and a fresh phone observation.
-  Decision: Start with `POST /sessions` and `POST /sessions/{session_id}/steps`.
-  Consequences: The first contract is simple to test, supports physical-device QA, and leaves streaming progress as a later enhancement.
+  Decision: Start with `POST /sessions`, `GET /sessions/{session_id}`, and `POST /sessions/{session_id}/steps`.
+  Consequences: The first contract is simple to test, supports physical-device QA, exposes the latest in-memory session snapshot for debugging and APK reconciliation, and leaves streaming progress as a later enhancement.
 
 - **2026-06-13 in-memory-session-store**: Use in-memory session storage for V0.
   Status: Accepted

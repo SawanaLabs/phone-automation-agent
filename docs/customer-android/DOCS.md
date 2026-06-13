@@ -15,7 +15,7 @@ Use this domain when working on the customer-installable Android APK, its paired
 - **Customer Step Agent**: The step-oriented Agent Engine inside `apps/customer-android-api` that consumes app-supplied phone state and returns the next normalized action, pause state, failure, or finish response.
 - **Customer Step**: One decision round where the Android app sends current phone state and the previous action result, then receives the next action, pause state, failure, or finish response.
 - **Customer Runtime Contract**: The request/response contract between `apps/customer-android` and `apps/customer-android-api`.
-- **Session-Step API**: The V0 Customer Runtime Contract shape using `POST /sessions` for task creation and `POST /sessions/{session_id}/steps` for each phone-state decision turn.
+- **Session-Step API**: The V0 Customer Runtime Contract shape using `POST /sessions` for task creation, `GET /sessions/{session_id}` for session snapshots, and `POST /sessions/{session_id}/steps` for each phone-state decision turn.
 - **In-Memory Session Store**: The V0 session storage posture where `apps/customer-android-api` keeps active task state inside the running process and fails clearly after process restart instead of persisting or restoring tasks.
 - **Runtime Access Token**: A revocable V0 bearer token accepted by `apps/customer-android-api` from the APK. The first internal alpha uses a single shared token, and the token must not be treated as a model-provider secret once distributed inside an APK.
 - **Agent Context**: The per-session model message history kept by `apps/customer-android-api` while the split phone task is running.
@@ -59,8 +59,8 @@ Use this domain when working on the customer-installable Android APK, its paired
 - **2026-06-13 customer-session-step-api**: Use a customer-specific session and step API for V0.
   Status: Accepted
   Context: The LangGraph Agent API shape is designed for AI SDK chat and graph streams, while phone automation needs a turn-by-turn loop around real phone actions.
-  Decision: Use `POST /sessions` plus `POST /sessions/{session_id}/steps` as the first Customer Runtime Contract.
-  Consequences: The APK can execute each action, capture the resulting phone state, and send that evidence into the next decision without adopting the LangGraph thread/run stream contract.
+  Decision: Use `POST /sessions`, `GET /sessions/{session_id}`, and `POST /sessions/{session_id}/steps` as the first Customer Runtime Contract.
+  Consequences: The APK can execute each action, capture the resulting phone state, query the latest session snapshot, and send evidence into the next decision without adopting the LangGraph thread/run stream contract.
 
 - **2026-06-13 customer-in-memory-session-store**: Keep V0 Customer Android API session state in process memory.
   Status: Accepted

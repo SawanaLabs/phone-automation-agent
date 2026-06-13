@@ -33,9 +33,9 @@ Open-AutoGLM + ModelScope `ZhipuAI/AutoGLM-Phone-9B`.
 - Explicit setup failures for missing model keys, missing devices, missing
   Open-AutoGLM source, and unsupported manual gates.
 
-## Demo Story
+## Worker-Backed Demo Story
 
-The first acceptance story is:
+The first worker-backed demo acceptance story is:
 
 ```text
 打开美团搜索附近的火锅店，不要下单，只停在搜索结果页
@@ -47,6 +47,23 @@ Passing signs:
 - The app lists at least one available Android device.
 - The submitted task reaches `finished`.
 - Meituan is left on the nearby hotpot search results page.
+
+## Customer Android MVP Story
+
+The Customer Android route is the current MVP direction for an installable APK
+without a Mac worker. Its first acceptance story is:
+
+```text
+打开小红书，搜索咖啡店，然后停一下
+```
+
+Passing signs:
+
+- The user starts from the installed `apps/customer-android` APK.
+- The APK connects to `apps/customer-android-api` with a Runtime Access Token.
+- The same phone is observed and controlled through Android-native permissions.
+- The task stops on a visible Xiaohongshu coffee-shop search/results state.
+- The app shows finished, paused, or clearly failed trace evidence.
 
 ## Architecture
 

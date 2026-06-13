@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8787
+DEFAULT_MAX_STEPS = 50
 
 
 @dataclass(frozen=True)
@@ -16,12 +17,14 @@ class CustomerAndroidApiSettings:
     runtime_access_token: str
     host: str = DEFAULT_HOST
     port: int = DEFAULT_PORT
+    max_steps: int = DEFAULT_MAX_STEPS
 
 
 def load_settings(
     *,
     load_env: bool = True,
     runtime_token_override: str | None = None,
+    max_steps_override: int | None = None,
 ) -> CustomerAndroidApiSettings:
     if load_env:
         load_project_env()
@@ -30,6 +33,7 @@ def load_settings(
         runtime_access_token=_required_runtime_access_token(runtime_token_override),
         host=_host(),
         port=_port(),
+        max_steps=_max_steps(max_steps_override),
     )
 
 
@@ -96,3 +100,26 @@ def _port() -> int:
         raise RuntimeError(f"CUSTOMER_ANDROID_API_PORT must be positive: {port}")
 
     return port
+
+
+def _max_steps(max_steps_override: int | None) -> int:
+    if max_steps_override is not None:
+        max_steps = max_steps_override
+    else:
+        value = os.getenv(
+            "CUSTOMER_ANDROID_API_MAX_STEPS",
+            str(DEFAULT_MAX_STEPS),
+        ).strip()
+        try:
+            max_steps = int(value)
+        except ValueError as error:
+            raise RuntimeError(
+                f"CUSTOMER_ANDROID_API_MAX_STEPS must be an integer: {value}"
+            ) from error
+
+    if max_steps <= 0:
+        raise RuntimeError(
+            f"CUSTOMER_ANDROID_API_MAX_STEPS must be positive: {max_steps}"
+        )
+
+    return max_steps

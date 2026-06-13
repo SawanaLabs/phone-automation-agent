@@ -387,6 +387,15 @@ class CustomerAutomationModule(
         return createNativeSessionSnapshot(taskId, instruction, "finished", message, events)
       }
 
+      if (action.optString("_metadata") == "failed") {
+        val message = action.optString("message").ifBlank {
+          "Hosted runtime returned a failed action."
+        }
+        Log.w(TAG, "Hosted task $taskId failed: $message")
+        appendNativeEvent(events, "task.failed", message)
+        return createNativeSessionSnapshot(taskId, instruction, "failed", message, events)
+      }
+
       val pauseStatus = nativePauseStatus(action)
       if (pauseStatus != null) {
         val message = nativePauseMessage(action)
@@ -766,7 +775,11 @@ class CustomerAutomationModule(
       putString("instruction", instruction)
       putString("status", status)
       putString("summary", summary)
-      putNull("error")
+      if (status == "failed") {
+        putString("error", summary)
+      } else {
+        putNull("error")
+      }
     }
     val eventArray = Arguments.createArray()
     events.forEach { event ->

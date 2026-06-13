@@ -21,8 +21,8 @@ updateAt: 2026-06-13
 ## Current Subdomain Docs
 
 - `apps/customer-android-api` is a Python/FastAPI app managed with `uv` and orchestrated from pnpm/Turborepo through `apps/customer-android-api/package.json`.
-- The API exposes `GET /healthz`, `POST /sessions`, and `POST /sessions/{session_id}/steps`.
-- `POST /sessions` and `POST /sessions/{session_id}/steps` require `Authorization: Bearer <CUSTOMER_ANDROID_API_ACCESS_TOKEN>`.
+- The API exposes `GET /healthz`, `POST /sessions`, `GET /sessions/{session_id}`, and `POST /sessions/{session_id}/steps`.
+- `POST /sessions`, `GET /sessions/{session_id}`, and `POST /sessions/{session_id}/steps` require `Authorization: Bearer <CUSTOMER_ANDROID_API_ACCESS_TOKEN>`.
 - The CLI entrypoint is `uv run python -m customer_android_api`.
 - The root scripts are:
   - `pnpm dev:customer-android-api` for local API development.
@@ -41,6 +41,7 @@ updateAt: 2026-06-13
 - Other optional API environment variables:
   - `CUSTOMER_ANDROID_API_HOST` defaults to `127.0.0.1`.
   - `CUSTOMER_ANDROID_API_PORT` defaults to `8787`.
+  - `CUSTOMER_ANDROID_API_MAX_STEPS` defaults to `50`.
   - `CUSTOMER_ANDROID_MODEL_MAX_TOKENS` defaults to `3000`.
   - `CUSTOMER_ANDROID_MODEL_TEMPERATURE` defaults to `0.0`.
   - `CUSTOMER_ANDROID_MODEL_TOP_P` defaults to `0.85`.
@@ -48,6 +49,8 @@ updateAt: 2026-06-13
 - The API loads `.env` from the repo root by default. `CUSTOMER_ANDROID_API_ENV_FILE` or `PHONE_AUTOMATION_ENV_FILE` can point at an explicit env file.
 - `apps/customer-android` now has separate Runtime URL and Runtime Access Token inputs. The token is sent to the API on session creation and every step request.
 - The native Android hosted loop also passes the Runtime Access Token into its HTTP requests, so real-device execution and web/dev fetch paths share the same auth contract.
+- The in-memory session snapshot records `task.started`, `step.decided`, and terminal or pause events. `finish(...)` marks the task `finished`, `_metadata: failed` marks it `failed`, and Human-in-the-loop actions mark it `takeover_required`, `interaction_required`, or `confirmation_required`.
+- If an APK continues past `CUSTOMER_ANDROID_API_MAX_STEPS`, the API returns `_metadata: failed` without calling the model provider and records that failed outcome in the session.
 
 ## Agent Context Behavior
 
@@ -61,6 +64,7 @@ updateAt: 2026-06-13
 - After each model call, the stored user message has image content removed before it is kept in context. This preserves text history while avoiding repeated image payload growth.
 - The model response is parsed through the API's Open-AutoGLM action parser, then returned to the APK as a normalized action.
 - The APK executes routine actions locally, pauses for human-in-the-loop actions, and sends the next phone observation back to the API.
+- Each accepted step is also recorded in the API session snapshot so `GET /sessions/{session_id}` can be used for debugging and APK-side reconciliation.
 
 ## Decision Records
 

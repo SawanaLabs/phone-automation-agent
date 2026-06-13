@@ -19,6 +19,16 @@ class FailingModelProvider:
         raise RuntimeError("provider unavailable")
 
 
+class CountingModelProvider:
+    def __init__(self, output: str) -> None:
+        self.output = output
+        self.calls = 0
+
+    def complete(self, request):
+        self.calls += 1
+        return self.output
+
+
 def test_apk_can_create_customer_session_with_alpha_token():
     client = TestClient(
         create_app(
@@ -93,6 +103,70 @@ def test_customer_session_creation_rejects_invalid_alpha_token():
 
     assert response.status_code == 401
     assert response.json() == {"detail": "Runtime access token is invalid."}
+
+
+def test_customer_session_snapshot_requires_alpha_bearer_token():
+    client = TestClient(
+        create_app(
+            runtime_token="test-alpha-token",
+            load_env=False,
+        )
+    )
+    created = client.post(
+        "/sessions",
+        headers={"Authorization": "Bearer test-alpha-token"},
+        json={
+            "instruction": "检查当前页面",
+            "source": "customer-android",
+        },
+    )
+
+    response = client.get(f"/sessions/{created.json()['task']['id']}")
+
+    assert response.status_code == 401
+    assert response.json() == {"detail": "Runtime access token is required."}
+
+
+def test_customer_session_snapshot_rejects_invalid_alpha_token():
+    client = TestClient(
+        create_app(
+            runtime_token="test-alpha-token",
+            load_env=False,
+        )
+    )
+    created = client.post(
+        "/sessions",
+        headers={"Authorization": "Bearer test-alpha-token"},
+        json={
+            "instruction": "检查当前页面",
+            "source": "customer-android",
+        },
+    )
+
+    response = client.get(
+        f"/sessions/{created.json()['task']['id']}",
+        headers={"Authorization": "Bearer wrong-token"},
+    )
+
+    assert response.status_code == 401
+    assert response.json() == {"detail": "Runtime access token is invalid."}
+
+
+def test_customer_session_snapshot_returns_missing_session_error():
+    client = TestClient(
+        create_app(
+            runtime_token="test-alpha-token",
+            load_env=False,
+        )
+    )
+
+    response = client.get(
+        "/sessions/missing-session",
+        headers={"Authorization": "Bearer test-alpha-token"},
+    )
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Session not found."}
 
 
 def test_app_factory_requires_runtime_token_when_no_override_and_env_disabled(
@@ -241,6 +315,482 @@ def test_customer_step_returns_next_open_autoglm_action_from_model_output():
         "action": "Launch",
         "app": "com.xingin.xhs",
     }
+
+
+def test_customer_session_snapshot_records_step_decisions_and_finish():
+    client = TestClient(
+        create_app(
+            runtime_token="test-alpha-token",
+            model_provider=FakeModelProvider('finish(message="已完成")'),
+            load_env=False,
+        )
+    )
+    created = client.post(
+        "/sessions",
+        headers={"Authorization": "Bearer test-alpha-token"},
+        json={
+            "instruction": "检查当前页面",
+            "source": "customer-android",
+        },
+    )
+    session_id = created.json()["task"]["id"]
+
+    response = client.post(
+        f"/sessions/{session_id}/steps",
+        headers={"Authorization": "Bearer test-alpha-token"},
+        json={
+            "instruction": "检查当前页面",
+            "source": "customer-android",
+            "stepNumber": 1,
+            "screen": {
+                "frameBase64": "ZmFrZS1zY3JlZW4=",
+                "frameMimeType": "image/png",
+                "width": 1080,
+                "height": 2400,
+                "currentPackage": "com.android.settings",
+            },
+            "lastActionResult": None,
+        },
+    )
+    snapshot = client.get(
+        f"/sessions/{session_id}",
+        headers={"Authorization": "Bearer test-alpha-token"},
+    )
+
+    assert response.status_code == 200
+    assert snapshot.status_code == 200
+    body = snapshot.json()
+    assert body["task"]["status"] == "finished"
+    assert body["task"]["summary"] == "已完成"
+    assert body["task"]["error"] is None
+    assert body["nextStepNumber"] == 2
+    assert body["events"][-2:] == [
+        {
+            "sequence": 2,
+            "type": "step.decided",
+            "message": "finish",
+            "payload": {
+                "stepNumber": 1,
+                "action": {"_metadata": "finish", "message": "已完成"},
+            },
+        },
+        {
+            "sequence": 3,
+            "type": "task.finished",
+            "message": "已完成",
+            "payload": {"stepNumber": 1},
+        },
+    ]
+
+
+def test_customer_step_enforces_server_side_max_steps():
+    model_provider = CountingModelProvider('do(action="Wait", duration="1 seconds")')
+    client = TestClient(
+        create_app(
+            runtime_token="test-alpha-token",
+            model_provider=model_provider,
+            max_steps=1,
+            load_env=False,
+        )
+    )
+    created = client.post(
+        "/sessions",
+        headers={"Authorization": "Bearer test-alpha-token"},
+        json={
+            "instruction": "检查当前页面",
+            "source": "customer-android",
+        },
+    )
+    session_id = created.json()["task"]["id"]
+
+    first_step = client.post(
+        f"/sessions/{session_id}/steps",
+        headers={"Authorization": "Bearer test-alpha-token"},
+        json={
+            "instruction": "检查当前页面",
+            "source": "customer-android",
+            "stepNumber": 1,
+            "screen": {
+                "frameBase64": "ZmFrZS1zY3JlZW4=",
+                "frameMimeType": "image/png",
+                "width": 1080,
+                "height": 2400,
+            },
+            "lastActionResult": None,
+        },
+    )
+    second_step = client.post(
+        f"/sessions/{session_id}/steps",
+        headers={"Authorization": "Bearer test-alpha-token"},
+        json={
+            "instruction": "检查当前页面",
+            "source": "customer-android",
+            "stepNumber": 2,
+            "screen": {
+                "frameBase64": "ZmFrZS1zY3JlZW4tMg==",
+                "frameMimeType": "image/png",
+                "width": 1080,
+                "height": 2400,
+            },
+            "lastActionResult": {
+                "status": "succeeded",
+                "action": "Wait",
+                "message": "Wait completed.",
+            },
+        },
+    )
+    snapshot = client.get(
+        f"/sessions/{session_id}",
+        headers={"Authorization": "Bearer test-alpha-token"},
+    )
+
+    assert first_step.status_code == 200
+    assert first_step.json()["action"] == {
+        "_metadata": "do",
+        "action": "Wait",
+        "duration": "1 seconds",
+    }
+    assert second_step.status_code == 200
+    assert second_step.json()["action"] == {
+        "_metadata": "failed",
+        "message": "Hosted routine action loop exceeded 1 steps without finish.",
+    }
+    assert model_provider.calls == 1
+    assert snapshot.json()["task"]["status"] == "failed"
+    assert snapshot.json()["task"]["error"] == (
+        "Hosted routine action loop exceeded 1 steps without finish."
+    )
+
+
+def test_customer_step_rejects_post_terminal_step_without_mutating_snapshot():
+    model_provider = CountingModelProvider('finish(message="已完成")')
+    client = TestClient(
+        create_app(
+            runtime_token="test-alpha-token",
+            model_provider=model_provider,
+            load_env=False,
+        )
+    )
+    created = client.post(
+        "/sessions",
+        headers={"Authorization": "Bearer test-alpha-token"},
+        json={
+            "instruction": "检查当前页面",
+            "source": "customer-android",
+        },
+    )
+    session_id = created.json()["task"]["id"]
+
+    first_step = client.post(
+        f"/sessions/{session_id}/steps",
+        headers={"Authorization": "Bearer test-alpha-token"},
+        json={
+            "instruction": "检查当前页面",
+            "source": "customer-android",
+            "stepNumber": 1,
+            "screen": {
+                "frameBase64": "ZmFrZS1zY3JlZW4=",
+                "frameMimeType": "image/png",
+                "width": 1080,
+                "height": 2400,
+            },
+            "lastActionResult": None,
+        },
+    )
+    second_step = client.post(
+        f"/sessions/{session_id}/steps",
+        headers={"Authorization": "Bearer test-alpha-token"},
+        json={
+            "instruction": "检查当前页面",
+            "source": "customer-android",
+            "stepNumber": 2,
+            "screen": {
+                "frameBase64": "ZmFrZS1zY3JlZW4tMg==",
+                "frameMimeType": "image/png",
+                "width": 1080,
+                "height": 2400,
+            },
+            "lastActionResult": {
+                "status": "succeeded",
+                "action": "finish",
+                "message": "done",
+            },
+        },
+    )
+    snapshot = client.get(
+        f"/sessions/{session_id}",
+        headers={"Authorization": "Bearer test-alpha-token"},
+    )
+
+    assert first_step.status_code == 200
+    assert second_step.status_code == 200
+    assert second_step.json()["action"] == {
+        "_metadata": "failed",
+        "message": "Session is already finished; no more steps are accepted.",
+    }
+    assert model_provider.calls == 1
+    body = snapshot.json()
+    assert body["task"]["status"] == "finished"
+    assert body["task"]["summary"] == "已完成"
+    assert len(body["events"]) == 3
+
+
+def test_customer_step_rejects_duplicate_step_without_model_call():
+    model_provider = CountingModelProvider('do(action="Wait", duration="1 seconds")')
+    client = TestClient(
+        create_app(
+            runtime_token="test-alpha-token",
+            model_provider=model_provider,
+            load_env=False,
+        )
+    )
+    created = client.post(
+        "/sessions",
+        headers={"Authorization": "Bearer test-alpha-token"},
+        json={
+            "instruction": "检查当前页面",
+            "source": "customer-android",
+        },
+    )
+    session_id = created.json()["task"]["id"]
+
+    first_step = client.post(
+        f"/sessions/{session_id}/steps",
+        headers={"Authorization": "Bearer test-alpha-token"},
+        json={
+            "instruction": "检查当前页面",
+            "source": "customer-android",
+            "stepNumber": 1,
+            "screen": {
+                "frameBase64": "ZmFrZS1zY3JlZW4=",
+                "frameMimeType": "image/png",
+                "width": 1080,
+                "height": 2400,
+            },
+            "lastActionResult": None,
+        },
+    )
+    duplicate_step = client.post(
+        f"/sessions/{session_id}/steps",
+        headers={"Authorization": "Bearer test-alpha-token"},
+        json={
+            "instruction": "检查当前页面",
+            "source": "customer-android",
+            "stepNumber": 1,
+            "screen": {
+                "frameBase64": "ZmFrZS1zY3JlZW4tZHVw",
+                "frameMimeType": "image/png",
+                "width": 1080,
+                "height": 2400,
+            },
+            "lastActionResult": None,
+        },
+    )
+
+    assert first_step.status_code == 200
+    assert duplicate_step.status_code == 200
+    assert duplicate_step.json()["action"] == {
+        "_metadata": "failed",
+        "message": "Expected step 2, got 1.",
+    }
+    assert model_provider.calls == 1
+
+
+def test_customer_step_rejects_skipped_step_without_model_call():
+    model_provider = CountingModelProvider('do(action="Wait", duration="1 seconds")')
+    client = TestClient(
+        create_app(
+            runtime_token="test-alpha-token",
+            model_provider=model_provider,
+            load_env=False,
+        )
+    )
+    created = client.post(
+        "/sessions",
+        headers={"Authorization": "Bearer test-alpha-token"},
+        json={
+            "instruction": "检查当前页面",
+            "source": "customer-android",
+        },
+    )
+    session_id = created.json()["task"]["id"]
+
+    response = client.post(
+        f"/sessions/{session_id}/steps",
+        headers={"Authorization": "Bearer test-alpha-token"},
+        json={
+            "instruction": "检查当前页面",
+            "source": "customer-android",
+            "stepNumber": 2,
+            "screen": {
+                "frameBase64": "ZmFrZS1zY3JlZW4tc2tpcA==",
+                "frameMimeType": "image/png",
+                "width": 1080,
+                "height": 2400,
+            },
+            "lastActionResult": None,
+        },
+    )
+    snapshot = client.get(
+        f"/sessions/{session_id}",
+        headers={"Authorization": "Bearer test-alpha-token"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["action"] == {
+        "_metadata": "failed",
+        "message": "Expected step 1, got 2.",
+    }
+    assert model_provider.calls == 0
+    assert snapshot.json()["task"]["status"] == "failed"
+    assert snapshot.json()["task"]["error"] == "Expected step 1, got 2."
+
+
+@pytest.mark.parametrize(
+    ("model_output", "expected_status", "expected_message"),
+    [
+        (
+            'do(action="Take_over", message="请先完成登录")',
+            "takeover_required",
+            "请先完成登录",
+        ),
+        (
+            'do(action="Interact", message="请选择目标")',
+            "interaction_required",
+            "请选择目标",
+        ),
+        (
+            'do(action="Tap", element=[500,500], message="确认下单")',
+            "confirmation_required",
+            "确认下单",
+        ),
+    ],
+)
+def test_customer_step_records_human_in_the_loop_pause_states(
+    model_output,
+    expected_status,
+    expected_message,
+):
+    client = TestClient(
+        create_app(
+            runtime_token="test-alpha-token",
+            model_provider=FakeModelProvider(model_output),
+            load_env=False,
+        )
+    )
+    created = client.post(
+        "/sessions",
+        headers={"Authorization": "Bearer test-alpha-token"},
+        json={
+            "instruction": "检查当前页面",
+            "source": "customer-android",
+        },
+    )
+    session_id = created.json()["task"]["id"]
+
+    response = client.post(
+        f"/sessions/{session_id}/steps",
+        headers={"Authorization": "Bearer test-alpha-token"},
+        json={
+            "instruction": "检查当前页面",
+            "source": "customer-android",
+            "stepNumber": 1,
+            "screen": {
+                "frameBase64": "ZmFrZS1zY3JlZW4=",
+                "frameMimeType": "image/png",
+                "width": 1080,
+                "height": 2400,
+            },
+            "lastActionResult": None,
+        },
+    )
+    snapshot = client.get(
+        f"/sessions/{session_id}",
+        headers={"Authorization": "Bearer test-alpha-token"},
+    )
+
+    assert response.status_code == 200
+    body = snapshot.json()
+    assert body["task"]["status"] == expected_status
+    assert body["task"]["summary"] == expected_message
+    assert body["task"]["error"] is None
+    assert body["events"][-1] == {
+        "sequence": 3,
+        "type": "task.paused",
+        "message": expected_message,
+        "payload": {"stepNumber": 1},
+    }
+
+
+def test_customer_step_clears_pause_summary_when_task_resumes_running():
+    class SequencedModelProvider:
+        def __init__(self) -> None:
+            self.outputs = [
+                'do(action="Take_over", message="请先完成登录")',
+                'do(action="Wait", duration="1 seconds")',
+            ]
+            self.calls = 0
+
+        def complete(self, request):
+            output = self.outputs[self.calls]
+            self.calls += 1
+            return output
+
+    client = TestClient(
+        create_app(
+            runtime_token="test-alpha-token",
+            model_provider=SequencedModelProvider(),
+            load_env=False,
+        )
+    )
+    created = client.post(
+        "/sessions",
+        headers={"Authorization": "Bearer test-alpha-token"},
+        json={
+            "instruction": "检查当前页面",
+            "source": "customer-android",
+        },
+    )
+    session_id = created.json()["task"]["id"]
+
+    for step_number, last_action_result in [
+        (1, None),
+        (
+            2,
+            {
+                "status": "succeeded",
+                "action": "Take_over",
+                "message": "User continued.",
+            },
+        ),
+    ]:
+        response = client.post(
+            f"/sessions/{session_id}/steps",
+            headers={"Authorization": "Bearer test-alpha-token"},
+            json={
+                "instruction": "检查当前页面",
+                "source": "customer-android",
+                "stepNumber": step_number,
+                "screen": {
+                    "frameBase64": f"ZmFrZS1zY3JlZW4t{step_number}",
+                    "frameMimeType": "image/png",
+                    "width": 1080,
+                    "height": 2400,
+                },
+                "lastActionResult": last_action_result,
+            },
+        )
+        assert response.status_code == 200
+
+    snapshot = client.get(
+        f"/sessions/{session_id}",
+        headers={"Authorization": "Bearer test-alpha-token"},
+    )
+
+    body = snapshot.json()
+    assert body["task"]["status"] == "running"
+    assert body["task"]["summary"] is None
+    assert body["task"]["error"] is None
 
 
 def test_customer_step_returns_failed_action_for_invalid_model_output():

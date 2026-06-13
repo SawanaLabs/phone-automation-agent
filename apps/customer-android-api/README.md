@@ -14,6 +14,12 @@ Required runtime env:
 
 - `CUSTOMER_ANDROID_API_ACCESS_TOKEN`
 
+Optional API env:
+
+- `CUSTOMER_ANDROID_API_HOST` defaults to `127.0.0.1`.
+- `CUSTOMER_ANDROID_API_PORT` defaults to `8787`.
+- `CUSTOMER_ANDROID_API_MAX_STEPS` defaults to `50`.
+
 Provider selection:
 
 - `CUSTOMER_ANDROID_MODEL_PROVIDER=scripted` is the default deterministic QA mode.

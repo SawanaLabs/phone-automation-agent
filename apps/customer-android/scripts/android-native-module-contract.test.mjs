@@ -14,6 +14,26 @@ describe("Android native module contract", () => {
     expect(moduleSource).toMatch(/@ReactMethod\s+fun runHostedTask\(/)
   })
 
+  it("handles failed hosted outcomes before reading routine action names", async () => {
+    const moduleSource = await readFile(
+      new URL(
+        "../android/app/src/main/java/com/sawanalabs/phoneautomation/customer/CustomerAutomationModule.kt",
+        import.meta.url
+      ),
+      "utf8"
+    )
+    const failedOutcomeIndex = moduleSource.indexOf(
+      'action.optString("_metadata") == "failed"'
+    )
+    const actionNameIndex = moduleSource.indexOf(
+      'val actionName = action.getString("action")'
+    )
+
+    expect(failedOutcomeIndex).toBeGreaterThan(-1)
+    expect(actionNameIndex).toBeGreaterThan(-1)
+    expect(failedOutcomeIndex).toBeLessThan(actionNameIndex)
+  })
+
   it("runs screen capture on a dedicated handler thread without continuous frame callbacks", async () => {
     const serviceSource = await readFile(
       new URL(

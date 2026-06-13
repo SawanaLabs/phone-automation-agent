@@ -58,6 +58,22 @@ updateAt: 2026-06-13
 - Android system permission screens still require explicit user consent. Full Access Mode is our task-execution posture after those grants.
 - Keep login, captcha, payment, account changes, and irreversible actions outside the first customer acceptance story unless the product scope changes.
 
+## First Customer Acceptance Story
+
+Use this as the primary Customer Android QA story unless a later product decision replaces it:
+
+```text
+打开小红书，搜索咖啡店，然后停一下
+```
+
+Passing signs:
+
+- The user starts from the installed Customer Android APK on their own Android phone.
+- The APK connects to `apps/customer-android-api` with the configured Runtime Access Token.
+- The APK captures current phone state, sends it to the API, receives normalized Open-AutoGLM-style actions, and executes routine actions on the same phone.
+- The task launches Xiaohongshu, searches for coffee shops, and stops on a visible search/results state without login, payment, captcha, posting, following, liking, ordering, or account mutation.
+- The app shows a finished, paused, or clearly failed final state with trace evidence. A scripted-provider run proves transport and local execution; a real-provider run is required before treating the agent behavior as accepted.
+
 ## Productization Implications
 
 - The closest route to the Customer App Story is an Android on-device executor, but it has serious permission, screenshot, input simulation, app compatibility, and safety constraints.
