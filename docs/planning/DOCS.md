@@ -1,7 +1,7 @@
 ---
 title: Planning Domain Protocol
 description: Planning-level conventions for roadmap, sequencing, and grooming outputs.
-updateAt: 2026-06-12
+updateAt: 2026-06-13
 ---
 
 # Planning Domain Protocol
@@ -14,11 +14,12 @@ updateAt: 2026-06-12
 - **Human-in-the-loop Pause**: A task state where automation pauses at a gate action and waits for the user to continue or stop instead of silently executing the action.
 - **Agent-verifiable Device QA**: A physical-device validation slice that an implementation agent can run on a connected Android phone, while the user remains the final Customer App Story acceptance judge.
 - **Browser Acceptance**: A completion gate where the implementation agent uses Browser tooling to exercise the issue's user story against the actual developed surface and records the observed result before the issue is treated as complete.
-- **Grooming Issue**: The large implementation issue to write after Grooming resolves the first route, acceptance story, and boundaries.
+- **Implementation Issue Sequence**: The ordered future issue list for delivering the selected route after Product, Architecture, and Customer Android domain decisions are documented.
 
 ## Collaboration Conventions
 
 - Keep planning docs focused on sequencing, route comparison, fallback conditions, and Grooming outputs.
+- Keep roadmaps focused on future work, planned order, fallback triggers, and unresolved planning items. When a roadmap item is completed or accepted as architecture, move the durable fact to the relevant domain doc and remove it from the roadmap.
 - Do not treat a planning note as an implementation issue until the user explicitly says Grooming is complete.
 - Record both acceptable routes when the user has not rejected either route; make the intended implementation order explicit.
 - Prefer the route that extends the current architecture when it can still satisfy the Customer App Story.

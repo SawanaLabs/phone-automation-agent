@@ -17,7 +17,7 @@ Use this domain when working on the customer-installable Android APK, its paired
 - **Customer Runtime Contract**: The request/response contract between `apps/customer-android` and `apps/customer-android-api`.
 - **Session-Step API**: The V0 Customer Runtime Contract shape using `POST /sessions` for task creation and `POST /sessions/{session_id}/steps` for each phone-state decision turn.
 - **In-Memory Session Store**: The V0 session storage posture where `apps/customer-android-api` keeps active task state inside the running process and fails clearly after process restart instead of persisting or restoring tasks.
-- **Runtime Access Token**: A revocable V0 bearer token accepted by `apps/customer-android-api` from the APK. It limits alpha access to the hosted runtime, but must not be treated as a model-provider secret once distributed inside an APK.
+- **Runtime Access Token**: A revocable V0 bearer token accepted by `apps/customer-android-api` from the APK. The first internal alpha uses a single shared token, and the token must not be treated as a model-provider secret once distributed inside an APK.
 
 ## Collaboration Conventions
 
@@ -33,7 +33,7 @@ Use this domain when working on the customer-installable Android APK, its paired
 - `apps/customer-android-api` decides the next action from uploaded phone state; it does not execute ADB actions or take over the role of the Android On-Device Executor.
 - `apps/worker` remains the experimental Mac/ADB worker for the first demo route. Do not fold customer execution into it by default.
 - Keep long-lived model-provider credentials behind the API for the hosted route. Do not ship them inside the APK.
-- Ship the APK with only the API URL and a lightweight Runtime Access Token for alpha distribution. Rotate or revoke that token when an internal build leaks or expires.
+- Ship the APK with only the API URL and a lightweight Runtime Access Token for alpha distribution. V0 uses one shared alpha bearer token; rotate or revoke that token when an internal build leaks or expires.
 - Extract shared packages only after real reuse pressure appears. Start with explicit contracts and focused tests before creating a broad core package.
 - Gate actions such as takeover, interaction, and confirmation should surface as pause states in the app, not as hidden backend waits.
 - Treat the customer API as a split of Open-AutoGLM `PhoneAgent`: the APK owns observation and execution, while the API owns decision, model calls, action parsing, and session state.

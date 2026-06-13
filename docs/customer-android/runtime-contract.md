@@ -20,6 +20,7 @@ updateAt: 2026-06-13
 - **Step Response**: The API's next normalized action, pause state, failure, or finish response.
 - **In-Memory Session Store**: V0 storage for active session context inside the running API process.
 - **Runtime Access Token**: A bearer token that the APK presents to `apps/customer-android-api` for alpha access to the hosted runtime.
+- **Single Alpha Token**: The V0 credential strategy where all internal alpha APKs use one shared Runtime Access Token.
 
 ## Current Subdomain Docs
 
@@ -36,7 +37,7 @@ updateAt: 2026-06-13
 ## Auth And Credentials
 
 - `POST /sessions` and `POST /sessions/{session_id}/steps` require `Authorization: Bearer <runtime_access_token>` in V0.
-- `apps/customer-android-api` validates the runtime token against an environment variable such as `CUSTOMER_ANDROID_API_ACCESS_TOKEN`.
+- `apps/customer-android-api` validates the runtime token against one shared alpha environment variable such as `CUSTOMER_ANDROID_API_ACCESS_TOKEN`.
 - Model-provider credentials live only in `apps/customer-android-api` environment variables, such as `CUSTOMER_ANDROID_MODEL_API_KEY` or the provider-specific key chosen by implementation.
 - `apps/customer-android` may store or configure the API URL and Runtime Access Token for alpha QA, but it must not include ModelScope, BigModel, OpenAI-compatible, or other provider API keys.
 - Treat a token embedded in an APK as recoverable by a motivated user. It is acceptable for internal alpha gating only because it can be rotated, revoked, rate-limited, and replaced by stronger controls later.
@@ -58,7 +59,7 @@ updateAt: 2026-06-13
 - **2026-06-13 runtime-token-auth**: Require a V0 runtime bearer token and keep model-provider keys server-side.
   Status: Accepted
   Context: The alpha delivery path is direct APK distribution to internal users, and a usable customer story needs a simple way to call the hosted runtime without exposing provider keys.
-  Decision: Require `Authorization: Bearer <runtime_access_token>` on session and step routes. Validate it in `apps/customer-android-api`; keep model-provider keys only in API environment variables.
+  Decision: Require `Authorization: Bearer <runtime_access_token>` on session and step routes. Validate one shared alpha token in `apps/customer-android-api`; keep model-provider keys only in API environment variables.
   Consequences: The first APK can be distributed for QA through GitHub releases while preserving the provider-key boundary. Stronger identity, attestation, quotas, and per-user token management remain later work.
 
 ## Update Triggers

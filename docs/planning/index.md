@@ -15,6 +15,6 @@ Use these docs when deciding implementation order, Grooming outputs, route compa
 <!-- BEGIN:docs-generated-catalog -->
 | File | Title | Description | Updated |
 | --- | --- | --- | --- |
-| ./DOCS.md | Planning Domain Protocol | Planning-level conventions for roadmap, sequencing, and grooming outputs. | 2026-06-12 |
-| ./roadmap.md | Customer App Roadmap | Grooming roadmap for implementing the Customer App Story through hosted-agent and single-app routes. | 2026-06-13 |
+| ./DOCS.md | Planning Domain Protocol | Planning-level conventions for roadmap, sequencing, and grooming outputs. | 2026-06-13 |
+| ./roadmap.md | Customer App Roadmap | Sequencing roadmap for implementing the Customer App Story through hosted-agent first and single-app fallback routes. | 2026-06-13 |
 <!-- END:docs-generated-catalog -->

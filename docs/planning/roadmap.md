@@ -1,6 +1,6 @@
 ---
 title: Customer App Roadmap
-description: Grooming roadmap for implementing the Customer App Story through hosted-agent and single-app routes.
+description: Sequencing roadmap for implementing the Customer App Story through hosted-agent first and single-app fallback routes.
 updateAt: 2026-06-13
 ---
 
@@ -8,34 +8,30 @@ updateAt: 2026-06-13
 
 ## Scope
 
-- Covers the implementation sequence for the Customer App Story after the worker-backed demo.
-- Records two acceptable routes: Hosted Agent Runtime first, Single-App Runtime as fallback or later convergence.
-- Main surfaces: `apps/customer-android`, `apps/customer-android-api`, Open-AutoGLM integration, Android AccessibilityService, MediaProjection, hosted model/runtime calls, and the future Grooming Issue.
+- Covers future implementation sequence for the Customer App Story after the worker-backed demo.
+- Records planned route order, fallback triggers, remaining Grooming items, and future implementation issue sequence.
+- Stable Customer Android runtime, action, auth, delivery, and QA details live in the Customer Android domain docs.
+- Main route docs:
+  - [Customer Android Runtime Boundary](../customer-android/runtime-boundary.md)
+  - [Customer Android Runtime Contract](../customer-android/runtime-contract.md)
+  - [Customer Android Action Handling](../customer-android/action-handling.md)
+  - [Customer Android Delivery](../customer-android/delivery.md)
 
-## Current Planning Position
+## Planned Direction
 
-- Both routes are acceptable product directions.
-- Implement the Hosted Agent Runtime Route first because it is the closest continuation of the current hosted-runtime shape.
-- The selected hosted backend workspace is `apps/customer-android-api`, paired with `apps/customer-android`. Keep `apps/worker` focused on the experimental Mac/ADB demo route.
-- If the Hosted Agent Runtime Route cannot reach the first Customer App Story acceptance target, reassess the Single-App Runtime Route.
-- Keep the current `apps/mobile` as the worker-backed demo companion until a new customer app boundary is explicitly created.
-- Do not write the large implementation issue until Grooming is complete.
-- The first user-downloadable artifact should be an Alpha Sideload APK for internal QA, not an AAB, Play Store submission, public beta, or production release.
+- Build the Hosted Agent Runtime Route first, following the Customer Android domain docs.
+- Keep the Single-App Runtime Route as the fallback or later convergence route.
+- Work toward an Alpha Sideload APK for internal QA.
+- Use [#1 Customer App Story via hosted agent runtime](https://github.com/SawanaLabs/phone-automation-agent/issues/1) as the parent PRD while completing the future issue sequence below.
 
 ## Route 2 First: Hosted Agent Runtime Route
 
 This is the preferred first implementation route.
 
-- Android app owns task entry, permission onboarding, screen observation, local action execution, progress display, and stop controls.
-- `apps/customer-android-api` owns the Open-AutoGLM-style agent loop, prompt/action parsing, LLM/model-provider calls, task session state, logs, and model credentials.
-- Android app sends current phone state to the backend, receives the next `do(...)` or `finish(...)` action, executes it locally, and repeats.
-- The controlled device remains the user's same physical Android phone, so this route can still satisfy the Customer App Story without a customer-run Mac worker.
-- The shared action contract should recognize the full default Chinese Open-AutoGLM action vocabulary: `Launch`, `Tap`, `Type`, `Type_Name`, `Interact`, `Swipe`, `Note`, `Call_API`, `Long Press`, `Double Tap`, `Take_over`, `Back`, `Home`, `Wait`, and `finish`.
-- The first Android executor should implement the routine physical actions: `Launch`, `Tap`, `Type`, `Type_Name`, `Swipe`, `Back`, `Home`, `Wait`, `Double Tap`, `Long Press`, and `finish`.
-- Gate and runtime-local actions should be represented explicitly rather than treated as unknown actions: `Take_over`, `Interact`, `Tap` with `message`, `Note`, and `Call_API`.
-- V0 gate actions should use a minimal Human-in-the-loop Pause UI, not a broad approval system: `Take_over` maps to `takeover_required`, `Interact` maps to `interaction_required`, and `Tap` with `message` maps to `confirmation_required`.
-- During a Human-in-the-loop Pause, the app shows the model-provided message or latest action, lets the user manually resolve the situation on the phone when needed, then offers Continue and Stop controls.
-- Routine physical actions remain Full Access after explicit Android permission setup; they should not ask for approval before every step in V0.
+- `apps/customer-android` owns task entry, Android permission readiness, screen observation, local action execution, progress display, stop controls, and Human-in-the-loop Pause UI.
+- `apps/customer-android-api` owns the Open-AutoGLM-style agent loop, prompt/action parsing, model-provider calls, task session state, logs, and model credentials.
+- The APK sends phone state to the API, receives one next outcome, executes or pauses locally, and repeats.
+- Auth, action mapping, delivery, and QA rules are maintained in Customer Android domain docs rather than duplicated here.
 
 Why first:
 
@@ -50,25 +46,6 @@ Known risks:
 - Screenshots and UI state may be sent to the hosted backend, so disclosure and privacy boundaries are product requirements.
 - The Android app still needs strong permission onboarding and must fail clearly when AccessibilityService or MediaProjection is unavailable.
 - Google Play distribution may be constrained by AccessibilityService automation policy; APK/internal distribution may be the first proof path.
-
-First validation checkpoints:
-
-- The Android app can detect whether its AccessibilityService is enabled.
-- The Android app can start a MediaProjection session and capture a screen frame.
-- The Android app can execute deterministic local actions: tap, swipe, back, home, wait, launch, and text input.
-- The hosted runtime and Android app can parse the full Open-AutoGLM default Chinese action vocabulary, even when some actions are routed to pause, fail, trace, or backend handling in the first version.
-- The app can enter `takeover_required`, `interaction_required`, and `confirmation_required` states, then either continue from the next captured screen state or stop the task clearly.
-- A hosted endpoint can return a normalized Open-AutoGLM-compatible action for one captured screen.
-- The app and backend can complete the first acceptance story without a Mac worker.
-
-First release checkpoints:
-
-- Build a signed Alpha Sideload APK that internal users can install directly on Android phones.
-- Publish the APK through GitHub Release.
-- Include release notes, install instructions, required permission setup, known limitations, commit hash, and checksum.
-- Publish the APK signature certificate fingerprint so users can distinguish the official Alpha APK from source-built or third-party APKs.
-- Keep the release keystore private; use debug keystore only for local development and temporary QA builds.
-- Treat AAB packaging, Play Store review, public distribution, and production support as out of scope until the MVP QA loop proves the product path.
 
 Fallback triggers:
 
@@ -99,14 +76,9 @@ Known risks:
 - Prompt and action-protocol updates may require app releases unless a remote config layer is added.
 - Debugging model-loop behavior on Android is slower than changing a hosted Python runtime.
 
-## Grooming Outputs Before Issue Creation
+## Remaining Grooming Items
 
-- Use `apps/customer-android` for the APK workspace and `apps/customer-android-api` for the paired hosted Agent Runtime.
 - Define the first acceptance story, likely a non-payment app task that stops before irreversible actions.
-- Use the Customer Android Session-Step API for V0: `POST /sessions` and `POST /sessions/{session_id}/steps`.
-- Define the hosted runtime request shape, action response shape, session state, errors, and event logs.
-- Decide credential strategy: project-owned model credentials behind backend, user-provided model keys, or short-lived tokens.
-- Define the Alpha Sideload APK release contract: GitHub Release workflow, private release keystore, versioning, artifact name, checksum, signing certificate fingerprint, release notes, install instructions, and known limitations.
 - Set the minimum Android version and first supported OEM/device target.
 - Define explicit out-of-scope items for the first issue: payment, login, captcha, irreversible account changes, Play Store compliance completion, and broad safety policy.
 
@@ -135,5 +107,5 @@ Issue sequence:
 
 - Update this roadmap when Grooming selects the first acceptance story or changes the customer app/API boundary.
 - Update this roadmap when the Hosted Agent Runtime Route is proven, blocked, or replaced.
-- Update this roadmap before writing the large Grooming Issue.
-- Update Product and Architecture docs if the roadmap turns into an accepted architecture decision.
+- Update this roadmap when remaining Grooming items change.
+- Remove completed roadmap items after moving any durable fact to the relevant domain doc.

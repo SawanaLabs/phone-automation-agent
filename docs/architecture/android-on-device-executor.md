@@ -1,7 +1,7 @@
 ---
 title: Android On-Device Executor
 description: Architecture boundary for moving the Customer App Story from Mac worker and ADB to an Android app with strong permissions.
-updateAt: 2026-06-12
+updateAt: 2026-06-13
 ---
 
 # Android On-Device Executor
@@ -42,13 +42,12 @@ updateAt: 2026-06-12
 - Do not call the current worker-backed `apps/mobile` APK deliverable for customers.
 - Use `apps/customer-android` for the customer-facing Android app and `apps/customer-android-api` for the paired hosted Agent Runtime.
 - Keep the executor boundary cohesive: permission onboarding, screen observation, action execution, task loop, and task status should be owned together or connected through an explicit internal API.
-- Keep model-provider secrets and routing explicit. If the model remains remote, define how customer credentials, project credentials, or a hosted relay are handled before calling it distributable.
+- Keep model-provider secrets and routing explicit. The hosted customer route keeps provider credentials in `apps/customer-android-api` and gates APK access with the Customer Android Runtime Contract.
 
 ## Open Questions
 
 - Whether the first customer MVP uses native Android/Kotlin directly, a React Native app with native modules, or a split app plus service package.
 - Whether screen understanding uses AccessibilityService node trees first, MediaProjection screenshots first, or both.
-- Whether Customer Android API credentials are project-owned, customer-provided, or issued through short-lived tokens.
 - Minimum supported Android version and OEM targets for the first acceptance device set.
 
 ## References

@@ -18,7 +18,7 @@ updateAt: 2026-06-12
 | File | Title | Description | Updated |
 | --- | --- | --- | --- |
 | ./DOCS.md | Architecture Domain Protocol | Architecture-level conventions and decisions for the phone automation agent demo. | 2026-06-12 |
-| ./android-on-device-executor.md | Android On-Device Executor | Architecture boundary for moving the Customer App Story from Mac worker and ADB to an Android app with strong permissions. | 2026-06-12 |
+| ./android-on-device-executor.md | Android On-Device Executor | Architecture boundary for moving the Customer App Story from Mac worker and ADB to an Android app with strong permissions. | 2026-06-13 |
 | ./first-demo-route.md | First Demo Route | Runtime shape for the first app-submitted phone automation demo. | 2026-06-09 |
 | ./mobile-coordination.md | Mobile Coordination | Coordination rules for the phone app while the worker controls the same phone. | 2026-06-09 |
 | ./open-autoglm-integration.md | Open-AutoGLM Integration | Durable integration boundaries for using Open-AutoGLM as the first automation engine. | 2026-06-12 |
