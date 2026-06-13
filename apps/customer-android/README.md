@@ -15,6 +15,9 @@ the repository, for example:
 
 Load the private env file in the release shell, then run the release command.
 Keep the directory mode restricted to the local maintainer account.
+Run maintainer release builds with JDK 17. The Android wrapper is pinned to
+Gradle 8.13, matching the Android Gradle Plugin 8.12 toolchain used by the
+current Expo/React Native app.
 
 `pnpm --dir apps/customer-android release:alpha` requires:
 

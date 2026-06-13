@@ -33,6 +33,15 @@ describe("Android release signing contract", () => {
     expect(gitignore).toContain("keystore.properties")
   })
 
+  it("pins the Android release build to the AGP-compatible Gradle runtime", async () => {
+    const wrapperProperties = await readFile(
+      new URL("../android/gradle/wrapper/gradle-wrapper.properties", import.meta.url),
+      "utf8"
+    )
+
+    expect(wrapperProperties).toContain("gradle-8.13-bin.zip")
+  })
+
   it("documents safe Alpha release signing configuration", async () => {
     const readme = await readFile(new URL("../README.md", import.meta.url), "utf8")
 
@@ -42,6 +51,8 @@ describe("Android release signing contract", () => {
     expect(readme).toContain("CUSTOMER_ANDROID_RELEASE_KEY_PASSWORD")
     expect(readme).toContain("CUSTOMER_ANDROID_VERSION_CODE")
     expect(readme).toContain("monotonically increasing")
+    expect(readme).toContain("JDK 17")
+    expect(readme).toContain("Gradle 8.13")
     expect(readme).toContain("$HOME/.phone-automation-agent/customer-android-release")
     expect(readme).toContain("customer-phone-agent-<version>-alpha.<n>.apk")
     expect(readme).toContain("SHA256SUMS")
