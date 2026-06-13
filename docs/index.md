@@ -13,6 +13,7 @@ Start with `docs/DOCS.md` for repository-wide conventions, then use the domain f
 - [Product](./product/index.md): Use for demo stories, acceptance QA, product boundaries, and non-goals.
 - [Architecture](./architecture/index.md): Use for runtime boundaries, mobile coordination, worker design, and Open-AutoGLM integration.
 - [Planning](./planning/index.md): Use for roadmap, sequencing, route comparison, and Grooming outputs.
+- [Customer Android](./customer-android/index.md): Use for the customer APK, paired hosted API, same-phone execution loop, and runtime contract.
 
 <!-- BEGIN:docs-generated-catalog -->
 | File | Title | Description | Updated |
@@ -25,6 +26,10 @@ Start with `docs/DOCS.md` for repository-wide conventions, then use the domain f
 | ./architecture/mobile-coordination.md | Mobile Coordination | Coordination rules for the phone app while the worker controls the same phone. | 2026-06-09 |
 | ./architecture/open-autoglm-integration.md | Open-AutoGLM Integration | Durable integration boundaries for using Open-AutoGLM as the first automation engine. | 2026-06-12 |
 | ./architecture/worker-api.md | Worker API | Public API and runtime modes for the Python Agent Runtime. | 2026-06-10 |
+| ./customer-android/DOCS.md | Customer Android Domain Protocol | Domain-level conventions for the customer Android app and paired API. | 2026-06-13 |
+| ./customer-android/index.md | Customer Android Docs | Map of customer Android app and API docs. | 2026-06-13 |
+| ./customer-android/runtime-boundary.md | Customer Android Runtime Boundary | Ownership boundary for the customer Android app, paired API, and reusable contracts. | 2026-06-13 |
+| ./customer-android/runtime-contract.md | Customer Android Runtime Contract | V0 sessions and steps contract between the Android APK and Customer Android API. | 2026-06-13 |
 | ./planning/DOCS.md | Planning Domain Protocol | Planning-level conventions for roadmap, sequencing, and grooming outputs. | 2026-06-12 |
 | ./planning/index.md | Planning Docs | Map of planning docs for roadmap, sequencing, and grooming outputs. | 2026-06-13 |
 | ./planning/roadmap.md | Customer App Roadmap | Grooming roadmap for implementing the Customer App Story through hosted-agent and single-app routes. | 2026-06-13 |

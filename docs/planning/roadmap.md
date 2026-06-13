@@ -10,12 +10,13 @@ updateAt: 2026-06-13
 
 - Covers the implementation sequence for the Customer App Story after the worker-backed demo.
 - Records two acceptable routes: Hosted Agent Runtime first, Single-App Runtime as fallback or later convergence.
-- Main surfaces: a future Android customer app under `apps/*`, Open-AutoGLM integration, Android AccessibilityService, MediaProjection, hosted model/runtime calls, and the future Grooming Issue.
+- Main surfaces: `apps/customer-android`, `apps/customer-android-api`, Open-AutoGLM integration, Android AccessibilityService, MediaProjection, hosted model/runtime calls, and the future Grooming Issue.
 
 ## Current Planning Position
 
 - Both routes are acceptable product directions.
-- Implement the Hosted Agent Runtime Route first because it is the closest continuation of the current `apps/mobile` plus `apps/worker` shape.
+- Implement the Hosted Agent Runtime Route first because it is the closest continuation of the current hosted-runtime shape.
+- The selected hosted backend workspace is `apps/customer-android-api`, paired with `apps/customer-android`. Keep `apps/worker` focused on the experimental Mac/ADB demo route.
 - If the Hosted Agent Runtime Route cannot reach the first Customer App Story acceptance target, reassess the Single-App Runtime Route.
 - Keep the current `apps/mobile` as the worker-backed demo companion until a new customer app boundary is explicitly created.
 - Do not write the large implementation issue until Grooming is complete.
@@ -26,7 +27,7 @@ updateAt: 2026-06-13
 This is the preferred first implementation route.
 
 - Android app owns task entry, permission onboarding, screen observation, local action execution, progress display, and stop controls.
-- Hosted backend owns Open-AutoGLM-style agent loop, prompt/action parsing, LLM/model-provider calls, task session state, logs, and model credentials.
+- `apps/customer-android-api` owns the Open-AutoGLM-style agent loop, prompt/action parsing, LLM/model-provider calls, task session state, logs, and model credentials.
 - Android app sends current phone state to the backend, receives the next `do(...)` or `finish(...)` action, executes it locally, and repeats.
 - The controlled device remains the user's same physical Android phone, so this route can still satisfy the Customer App Story without a customer-run Mac worker.
 - The shared action contract should recognize the full default Chinese Open-AutoGLM action vocabulary: `Launch`, `Tap`, `Type`, `Type_Name`, `Interact`, `Swipe`, `Note`, `Call_API`, `Long Press`, `Double Tap`, `Take_over`, `Back`, `Home`, `Wait`, and `finish`.
@@ -100,10 +101,10 @@ Known risks:
 
 ## Grooming Outputs Before Issue Creation
 
-- Choose the new app workspace name, such as `apps/customer-android` or `apps/customer-mobile`.
+- Use `apps/customer-android` for the APK workspace and `apps/customer-android-api` for the paired hosted Agent Runtime.
 - Define the first acceptance story, likely a non-payment app task that stops before irreversible actions.
-- Decide the phone-to-backend transport: HTTP polling, streaming HTTP, or WebSocket.
-- Define the hosted runtime contract: request shape, action response shape, session state, errors, and event logs.
+- Use the Customer Android Session-Step API for V0: `POST /sessions` and `POST /sessions/{session_id}/steps`.
+- Define the hosted runtime request shape, action response shape, session state, errors, and event logs.
 - Decide credential strategy: project-owned model credentials behind backend, user-provided model keys, or short-lived tokens.
 - Define the Alpha Sideload APK release contract: GitHub Release workflow, private release keystore, versioning, artifact name, checksum, signing certificate fingerprint, release notes, install instructions, and known limitations.
 - Set the minimum Android version and first supported OEM/device target.
@@ -132,7 +133,7 @@ Issue sequence:
 
 ## Update Triggers
 
-- Update this roadmap when Grooming selects the workspace name or first acceptance story.
+- Update this roadmap when Grooming selects the first acceptance story or changes the customer app/API boundary.
 - Update this roadmap when the Hosted Agent Runtime Route is proven, blocked, or replaced.
 - Update this roadmap before writing the large Grooming Issue.
 - Update Product and Architecture docs if the roadmap turns into an accepted architecture decision.

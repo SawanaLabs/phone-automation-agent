@@ -8,8 +8,8 @@ updateAt: 2026-06-12
 
 ## Scope
 
-- Covers the future Android-side runtime needed for the Customer App Story.
-- Main surfaces: a future customer-facing Android app or executor under `apps/*`, Android AccessibilityService, MediaProjection, foreground service behavior, model API access, and the task loop.
+- Covers the Android-side runtime needed for the Customer App Story.
+- Main surfaces: `apps/customer-android`, `apps/customer-android-api`, Android AccessibilityService, MediaProjection, foreground service behavior, model API access, and the task loop.
 - Excludes the current `apps/worker` Mac runtime except as a comparison point.
 
 ## Domain Language
@@ -40,16 +40,15 @@ updateAt: 2026-06-12
 ## App Boundary
 
 - Do not call the current worker-backed `apps/mobile` APK deliverable for customers.
-- Prefer a new `apps/*` workspace for the customer-facing Android app or on-device executor until its responsibilities stabilize.
+- Use `apps/customer-android` for the customer-facing Android app and `apps/customer-android-api` for the paired hosted Agent Runtime.
 - Keep the executor boundary cohesive: permission onboarding, screen observation, action execution, task loop, and task status should be owned together or connected through an explicit internal API.
 - Keep model-provider secrets and routing explicit. If the model remains remote, define how customer credentials, project credentials, or a hosted relay are handled before calling it distributable.
 
 ## Open Questions
 
-- Exact app workspace name, such as `apps/customer-android`, `apps/customer-mobile`, or another name.
 - Whether the first customer MVP uses native Android/Kotlin directly, a React Native app with native modules, or a split app plus service package.
 - Whether screen understanding uses AccessibilityService node trees first, MediaProjection screenshots first, or both.
-- Whether model calls use a hosted project backend, customer-provided API keys, or on-device/local inference.
+- Whether Customer Android API credentials are project-owned, customer-provided, or issued through short-lived tokens.
 - Minimum supported Android version and OEM targets for the first acceptance device set.
 
 ## References

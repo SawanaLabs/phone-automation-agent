@@ -10,7 +10,7 @@ updateAt: 2026-06-13
 
 - Covers the gap between the current internal demo and the desired customer-installable Android app story.
 - Main surfaces: `apps/mobile`, `apps/worker`, ADB, Open-AutoGLM, model provider credentials, and the local worker connection.
-- Also covers the product boundary for a future Android app or Android On-Device Executor that may live in a new `apps/*` workspace.
+- Also covers the selected customer boundary: `apps/customer-android`, `apps/customer-android-api`, and the Android On-Device Executor.
 
 ## Domain Language
 
@@ -20,6 +20,8 @@ updateAt: 2026-06-13
   _Avoid_: silent permission bypass, complete safety framework before first runnable MVP
 - **Alpha Sideload APK**: The MVP QA distribution artifact that an internal user installs directly on their Android phone to validate the Customer App Story.
   _Avoid_: production release, Play Store build, beta release, AAB package
+- **Customer Android API**: The customer-story hosted Agent Runtime paired with `apps/customer-android`.
+  _Avoid_: folding customer execution into the experimental Mac worker route
 
 ## Expected Product Story
 
@@ -38,7 +40,7 @@ updateAt: 2026-06-13
 - The GitHub Release APK is the official Alpha APK. APKs built by users from the open-source repository are developer builds and may require uninstalling the official APK first because they use a different signing key.
 - The official Alpha APK must be signed with a project release keystore. The keystore and its passwords are private signing identity material and must never be committed or uploaded as release artifacts.
 - The current `apps/mobile` APK can demonstrate the UI and task protocol, but it cannot execute real automation alone.
-- The likely next product surface is a new customer-facing Android app or executor workspace under `apps/*`, while `apps/mobile` remains the worker-backed demo companion until we explicitly migrate it.
+- The selected customer product pair is `apps/customer-android` plus `apps/customer-android-api`, while `apps/mobile` remains the worker-backed demo companion until we explicitly migrate it.
 
 ## Current Demo Reality
 
@@ -61,10 +63,11 @@ updateAt: 2026-06-13
 - The closest route to the Customer App Story is an Android on-device executor, but it has serious permission, screenshot, input simulation, app compatibility, and safety constraints.
 - A local companion worker is the shortest extension of the current architecture, but it still asks the customer to install and run a second runtime.
 - A cloud runtime or device fleet can simplify the phone app experience, but it no longer satisfies the Customer App Story unless the controlled device remains the user's same physical phone.
-- Until one route is chosen and implemented, describe the current build as an internal demo, not a customer-distributable product.
+- Until the selected customer route works end to end, describe the current build as an internal demo, not a customer-distributable product.
 - Once the Customer App Story path works, describe the first distributable build as an MVP Alpha Sideload APK for a small internal user group.
 - The repository can remain open source while the official release keystore remains private; source availability does not imply that third-party builds share the official APK signing identity.
 - If the on-device route is selected, create a dedicated app/executor boundary instead of mixing demo companion concerns with strong-permission execution concerns by default.
+- The selected hosted route uses a dedicated Customer Android API boundary instead of extending `apps/worker` by default.
 
 ## Decision Records
 

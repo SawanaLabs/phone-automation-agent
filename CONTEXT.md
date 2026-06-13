@@ -16,6 +16,10 @@ _Avoid_: sending the current demo APK, worker-backed internal demo, web fallback
 The future Android-side runtime that captures phone state and performs actions on the user's same physical Android phone after the user grants the required Android privileges.
 _Avoid_: Mac worker, ADB-only worker, cloud device runner
 
+**Customer Android API**:
+The customer-story hosted Agent Runtime paired with the customer Android app. It owns customer task sessions, action decisions, model-facing automation state, and runtime logs while the Android On-Device Executor owns same-phone observation and action execution.
+_Avoid_: demo worker extension, Mac worker route, web fallback
+
 **Full Access Mode**:
 The first customer-story execution posture where, after explicit permission setup, the agent can continue routine automation without asking for approval before every step.
 _Avoid_: silent permission bypass, production safety policy, Play Store compliance story
