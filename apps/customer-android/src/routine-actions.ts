@@ -89,6 +89,12 @@ export type RoutineAction =
       _metadata: "finish"
       message: string
     }
+  | {
+      _metadata: "failed"
+      message: string
+    }
+
+type ExecutableRoutineAction = Extract<RoutineAction, { _metadata: "do" }>
 
 export type RoutineActionExecutor = {
   screen: ScreenSize
@@ -120,6 +126,7 @@ export type HostedRoutineActionLoopInput = {
   taskId: string
   instruction: string
   runtimeUrl: string
+  runtimeAccessToken: string
   executor: RoutineActionExecutor
   screenStateCollector: ScreenStateCollector
   fetchImpl?: typeof fetch
@@ -168,6 +175,12 @@ export async function runRoutineActionScript({
       return createSnapshot(taskId, instruction, "finished", action.message, events)
     }
 
+    if (action._metadata === "failed") {
+      const event = createEvent(events, "task.failed", action.message)
+      onEvent?.(event)
+      return createSnapshot(taskId, instruction, "failed", action.message, events)
+    }
+
     const actionEvent = createEvent(
       events,
       "step.action",
@@ -191,6 +204,7 @@ export async function runHostedRoutineActionLoop({
   taskId,
   instruction,
   runtimeUrl,
+  runtimeAccessToken,
   executor,
   screenStateCollector,
   fetchImpl,
@@ -218,6 +232,7 @@ export async function runHostedRoutineActionLoop({
       screen = await screenStateCollector.capture()
       decision = await requestNextCustomerAction({
         runtimeUrl,
+        runtimeAccessToken,
         taskId,
         instruction,
         stepNumber,
@@ -238,6 +253,14 @@ export async function runHostedRoutineActionLoop({
       const event = createEvent(events, "task.finished", action.message)
       onEvent?.(event)
       return createSnapshot(taskId, instruction, "finished", action.message, events)
+    }
+
+    if (action._metadata === "failed") {
+      const event = createEvent(events, "task.failed", action.message, {
+        stepNumber,
+      })
+      onEvent?.(event)
+      return createSnapshot(taskId, instruction, "failed", action.message, events)
     }
 
     const pause = createPauseForAction(action)
@@ -348,7 +371,7 @@ export function stopPausedRoutineActionSession(
 }
 
 async function dispatchHostedRoutineAction(
-  action: Exclude<RoutineAction, { _metadata: "finish" }>,
+  action: ExecutableRoutineAction,
   executor: RoutineActionExecutor
 ): Promise<CustomerActionResult> {
   if (action.action === "Note") {
@@ -389,7 +412,7 @@ async function dispatchHostedRoutineAction(
 }
 
 async function dispatchRoutineAction(
-  action: Exclude<RoutineAction, { _metadata: "finish" }>,
+  action: ExecutableRoutineAction,
   executor: RoutineActionExecutor
 ): Promise<void> {
   if (action.action === "Tap") {
@@ -470,7 +493,7 @@ function parseWaitDurationMs(duration: string | undefined): number {
 }
 
 function createPauseForAction(
-  action: Exclude<RoutineAction, { _metadata: "finish" }>
+  action: ExecutableRoutineAction
 ): CustomerTaskPause | null {
   if (action.action === "Take_over") {
     return {
@@ -555,7 +578,7 @@ function createSnapshot(
   }
 }
 
-function describeRoutineAction(action: Exclude<RoutineAction, { _metadata: "finish" }>): string {
+function describeRoutineAction(action: ExecutableRoutineAction): string {
   if (action.action === "Tap") {
     return `Tap ${action.element.join(",")}`
   }

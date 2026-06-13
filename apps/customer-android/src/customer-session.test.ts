@@ -9,7 +9,7 @@ const readyAuthorityState = deriveDeviceAuthorityState({
 })
 
 describe("customer hosted session", () => {
-  it("starts a hosted session and returns the terminal trace", async () => {
+  it("starts a hosted session with the alpha bearer token and returns the terminal trace", async () => {
     const fetchCalls: Array<{ url: string; init?: RequestInit }> = []
     const fetchImpl: typeof fetch = async (url, init) => {
       fetchCalls.push({ url: String(url), init })
@@ -45,6 +45,7 @@ describe("customer hosted session", () => {
     const session = await startCustomerTask({
       authorityState: readyAuthorityState,
       runtimeUrl: " http://localhost:8787/ ",
+      runtimeAccessToken: " alpha-token ",
       instruction: " 打开小红书搜索咖啡店，停在结果页 ",
       fetchImpl,
     })
@@ -56,6 +57,7 @@ describe("customer hosted session", () => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Authorization: "Bearer alpha-token",
         },
         body: JSON.stringify({
           instruction: "打开小红书搜索咖啡店，停在结果页",
@@ -80,10 +82,27 @@ describe("customer hosted session", () => {
       startCustomerTask({
         authorityState: readyAuthorityState,
         runtimeUrl: "http://localhost:8787",
+        runtimeAccessToken: "alpha-token",
         instruction: "   ",
         fetchImpl,
       })
     ).rejects.toThrow("Instruction is required.")
+  })
+
+  it("throws before calling the runtime when the alpha token is empty", async () => {
+    const fetchImpl: typeof fetch = async () => {
+      throw new Error("fetch should not be called")
+    }
+
+    await expect(
+      startCustomerTask({
+        authorityState: readyAuthorityState,
+        runtimeUrl: "http://localhost:8787",
+        runtimeAccessToken: "   ",
+        instruction: "检查当前页面",
+        fetchImpl,
+      })
+    ).rejects.toThrow("Runtime access token is required.")
   })
 
   it("describes network failures from the hosted runtime", async () => {
@@ -95,6 +114,7 @@ describe("customer hosted session", () => {
       startCustomerTask({
         authorityState: readyAuthorityState,
         runtimeUrl: "http://localhost:8787",
+        runtimeAccessToken: "alpha-token",
         instruction: "检查当前页面",
         fetchImpl,
       })
@@ -117,6 +137,7 @@ describe("customer hosted session", () => {
       startCustomerTask({
         authorityState: readyAuthorityState,
         runtimeUrl: "http://localhost:8787",
+        runtimeAccessToken: "alpha-token",
         instruction: "检查当前页面",
         fetchImpl,
       })
@@ -135,6 +156,7 @@ describe("customer hosted session", () => {
           screenCapture: "missing",
         }),
         runtimeUrl: "http://localhost:8787",
+        runtimeAccessToken: "alpha-token",
         instruction: "检查当前页面",
         fetchImpl,
       })
@@ -165,6 +187,7 @@ describe("customer hosted session", () => {
 
     const decision = await requestNextCustomerAction({
       runtimeUrl: "localhost:8787",
+      runtimeAccessToken: "alpha-token",
       taskId: "customer_task_1",
       instruction: "检查当前页面",
       stepNumber: 2,
@@ -191,6 +214,7 @@ describe("customer hosted session", () => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Authorization: "Bearer alpha-token",
         },
         body: JSON.stringify({
           instruction: "检查当前页面",
@@ -237,6 +261,7 @@ describe("customer hosted session", () => {
 
     const decision = await requestNextCustomerAction({
       runtimeUrl: "localhost:8787",
+      runtimeAccessToken: "alpha-token",
       taskId: "customer_task_1",
       instruction: "输入姓名",
       stepNumber: 1,
@@ -274,6 +299,7 @@ describe("customer hosted session", () => {
     await expect(
       requestNextCustomerAction({
         runtimeUrl: "localhost:8787",
+        runtimeAccessToken: "alpha-token",
         taskId: "customer_task_1",
         instruction: "检查当前页面",
         stepNumber: 1,
@@ -296,6 +322,7 @@ describe("customer hosted session", () => {
     await expect(
       requestNextCustomerAction({
         runtimeUrl: "http://localhost:8787",
+        runtimeAccessToken: "alpha-token",
         taskId: "customer_task_1",
         instruction: "检查当前页面",
         stepNumber: 1,

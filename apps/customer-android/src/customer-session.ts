@@ -67,12 +67,14 @@ export type CustomerActionDecision = {
 export type StartCustomerTaskInput = {
   authorityState: DeviceAuthorityState
   runtimeUrl: string
+  runtimeAccessToken: string
   instruction: string
   fetchImpl?: typeof fetch
 }
 
 export type RequestNextCustomerActionInput = {
   runtimeUrl: string
+  runtimeAccessToken: string
   taskId: string
   instruction: string
   stepNumber: number
@@ -84,6 +86,7 @@ export type RequestNextCustomerActionInput = {
 export async function startCustomerTask({
   authorityState,
   runtimeUrl,
+  runtimeAccessToken,
   instruction,
   fetchImpl = fetch,
 }: StartCustomerTaskInput): Promise<CustomerSessionSnapshot> {
@@ -97,6 +100,8 @@ export async function startCustomerTask({
   if (!normalizedInstruction) {
     throw new Error("Instruction is required.")
   }
+  const normalizedRuntimeAccessToken =
+    normalizeRuntimeAccessToken(runtimeAccessToken)
 
   let response: Response
   try {
@@ -104,6 +109,7 @@ export async function startCustomerTask({
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        Authorization: `Bearer ${normalizedRuntimeAccessToken}`,
       },
       body: JSON.stringify({
         instruction: normalizedInstruction,
@@ -123,6 +129,7 @@ export async function startCustomerTask({
 
 export async function requestNextCustomerAction({
   runtimeUrl,
+  runtimeAccessToken,
   taskId,
   instruction,
   stepNumber,
@@ -140,6 +147,8 @@ export async function requestNextCustomerAction({
     throw new Error("Instruction is required.")
   }
 
+  const normalizedRuntimeAccessToken =
+    normalizeRuntimeAccessToken(runtimeAccessToken)
   assertScreenState(screen)
 
   let response: Response
@@ -152,6 +161,7 @@ export async function requestNextCustomerAction({
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Authorization: `Bearer ${normalizedRuntimeAccessToken}`,
         },
         body: JSON.stringify({
           instruction: normalizedInstruction,
@@ -196,6 +206,15 @@ function normalizeRuntimeUrl(value: string): string {
     ? trimmed
     : `http://${trimmed}`
   return withScheme.replace(/\/+$/, "")
+}
+
+function normalizeRuntimeAccessToken(value: string): string {
+  const trimmed = value.trim()
+  if (!trimmed) {
+    throw new Error("Runtime access token is required.")
+  }
+
+  return trimmed
 }
 
 function describeError(error: unknown): string {

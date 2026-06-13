@@ -12,6 +12,13 @@ export function normalizeOpenAutoGlmAction(input: unknown): RoutineAction {
     }
   }
 
+  if (action._metadata === "failed") {
+    return {
+      _metadata: "failed",
+      message: requireTrimmedString(action.message, "Failure message"),
+    }
+  }
+
   const actionName = requireTrimmedString(action.action, "Action name")
   switch (actionName) {
     case "Launch":

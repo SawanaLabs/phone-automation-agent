@@ -18,12 +18,15 @@ Use this domain when working on the customer-installable Android APK, its paired
 - **Session-Step API**: The V0 Customer Runtime Contract shape using `POST /sessions` for task creation and `POST /sessions/{session_id}/steps` for each phone-state decision turn.
 - **In-Memory Session Store**: The V0 session storage posture where `apps/customer-android-api` keeps active task state inside the running process and fails clearly after process restart instead of persisting or restoring tasks.
 - **Runtime Access Token**: A revocable V0 bearer token accepted by `apps/customer-android-api` from the APK. The first internal alpha uses a single shared token, and the token must not be treated as a model-provider secret once distributed inside an APK.
+- **Agent Context**: The per-session model message history kept by `apps/customer-android-api` while the split phone task is running.
 
 ## Collaboration Conventions
 
 - Start customer Android implementation work from this domain, then use Product docs for delivery boundaries, Architecture docs for lower-level Android and Open-AutoGLM constraints, and Planning docs for issue order.
 - Keep customer-story work paired across `apps/customer-android` and `apps/customer-android-api` unless the issue is explicitly app-only or API-only.
 - Use `uv` for the Python API environment and dependency work.
+- Use JDK 17 for `apps/customer-android` Android Gradle work. Keep local machine paths such as `sdk.dir` and `org.gradle.java.home` in ignored `apps/customer-android/android/local.properties`.
+- Start the hosted customer API through `pnpm dev:customer-android-api` or `pnpm dev:customer-android-api:lan`; keep model-provider credentials in the API env, not the APK.
 - Test the narrow public contract first: session creation, step request/response shape, action normalization, pause states, and failure surfaces.
 - Every issue that claims a working customer path still needs Browser Acceptance and real connected-device QA when same-phone execution is involved.
 

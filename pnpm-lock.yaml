@@ -67,6 +67,8 @@ importers:
         specifier: ^4.1.8
         version: 4.1.8(@types/node@20.19.41)(vite@8.0.16(@types/node@20.19.41)(jiti@2.7.0)(terser@5.48.0)(yaml@2.9.0))
 
+  apps/customer-android-api: {}
+
   apps/mobile:
     dependencies:
       '@react-native-async-storage/async-storage':

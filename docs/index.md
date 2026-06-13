@@ -28,6 +28,7 @@ Start with `docs/DOCS.md` for repository-wide conventions, then use the domain f
 | ./architecture/worker-api.md | Worker API | Public API and runtime modes for the Python Agent Runtime. | 2026-06-10 |
 | ./customer-android/DOCS.md | Customer Android Domain Protocol | Domain-level conventions for the customer Android app and paired API. | 2026-06-13 |
 | ./customer-android/action-handling.md | Customer Android Action Handling | V0 Open-AutoGLM action vocabulary, routine executor scope, and pause-state mapping for the customer Android route. | 2026-06-13 |
+| ./customer-android/agent-engine.md | Customer Android Agent Engine | Runtime shape, environment contract, and session context behavior for apps/customer-android-api. | 2026-06-13 |
 | ./customer-android/delivery.md | Customer Android Delivery | Alpha APK distribution, validation checkpoints, and QA gates for the customer Android route. | 2026-06-13 |
 | ./customer-android/index.md | Customer Android Docs | Map of customer Android app and API docs. | 2026-06-13 |
 | ./customer-android/runtime-boundary.md | Customer Android Runtime Boundary | Ownership boundary for the customer Android app, paired API, and reusable contracts. | 2026-06-13 |

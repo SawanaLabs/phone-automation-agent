@@ -27,6 +27,7 @@ updateAt: 2026-06-13
 - Include release notes, install instructions, required permission setup, known limitations, commit hash, checksum, and APK signature certificate fingerprint.
 - Sign the Official Alpha APK with a project release keystore. Keep the release keystore and passwords out of git, issues, release assets, and docs.
 - Source-built APKs are Developer Builds. They may require uninstalling the Official Alpha APK first because Android requires matching package name and signing identity for upgrades.
+- Build and verify `apps/customer-android` with JDK 17. Keep the local JDK path in ignored `apps/customer-android/android/local.properties` as `org.gradle.java.home=<java_home -v 17 output>`.
 - The first customer path must complete without a manually run Mac worker.
 - Every issue that claims a working customer path must include Browser Acceptance.
 - Physical-device slices that claim same-phone execution must also include Agent-verifiable Device QA when a connected Android phone is available.
@@ -40,6 +41,7 @@ updateAt: 2026-06-13
 - The app can enter `takeover_required`, `interaction_required`, and `confirmation_required` states, then either continue from the next captured screen state or stop the task clearly.
 - The hosted endpoint can return a normalized Open-AutoGLM-compatible action for one captured screen.
 - The app and backend can complete the first Customer App acceptance story without a Mac worker.
+- `cd apps/customer-android/android && ./gradlew --version` reports JDK 17 before running APK build or device QA.
 
 ## Out Of Scope For First Alpha
 

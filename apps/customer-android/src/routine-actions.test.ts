@@ -209,6 +209,7 @@ describe("routine actions", () => {
       taskId: "customer_task_1",
       instruction: "检查当前页面",
       runtimeUrl: "http://localhost:8787",
+      runtimeAccessToken: "alpha-token",
       executor,
       fetchImpl,
       screenStateCollector: {
@@ -308,6 +309,7 @@ describe("routine actions", () => {
       taskId: "customer_task_1",
       instruction: "检查当前页面",
       runtimeUrl: "http://localhost:8787",
+      runtimeAccessToken: "alpha-token",
       executor,
       fetchImpl,
       screenStateCollector: {
@@ -349,6 +351,7 @@ describe("routine actions", () => {
       taskId: "customer_task_1",
       instruction: "检查当前页面",
       runtimeUrl: "http://localhost:8787",
+      runtimeAccessToken: "alpha-token",
       executor,
       fetchImpl: async () =>
         new Response(
@@ -381,6 +384,53 @@ describe("routine actions", () => {
     })
   })
 
+  it("returns a failed snapshot when the hosted runtime returns a failed outcome", async () => {
+    const executor = createRecordingExecutor()
+
+    const result = await runHostedRoutineActionLoop({
+      taskId: "customer_task_1",
+      instruction: "检查当前页面",
+      runtimeUrl: "http://localhost:8787",
+      runtimeAccessToken: "alpha-token",
+      executor,
+      fetchImpl: async () =>
+        new Response(
+          JSON.stringify({
+            action: {
+              _metadata: "failed",
+              message:
+                "Invalid model output: Model output must contain do(...) or finish(...).",
+            },
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }
+        ),
+      screenStateCollector: {
+        async capture() {
+          return {
+            frameBase64: "frame",
+            frameMimeType: "image/png",
+            width: 1080,
+            height: 2400,
+          }
+        },
+      },
+    })
+
+    expect(executor.calls).toEqual([])
+    expect(result.task.status).toBe("failed")
+    expect(result.task.summary).toBe(
+      "Invalid model output: Model output must contain do(...) or finish(...)."
+    )
+    expect(result.events.at(-1)).toMatchObject({
+      type: "task.failed",
+      message:
+        "Invalid model output: Model output must contain do(...) or finish(...).",
+    })
+  })
+
   it("returns a failed snapshot before contacting the runtime when screen capture fails", async () => {
     const executor = createRecordingExecutor()
     let runtimeCalls = 0
@@ -389,6 +439,7 @@ describe("routine actions", () => {
       taskId: "customer_task_1",
       instruction: "检查当前页面",
       runtimeUrl: "http://localhost:8787",
+      runtimeAccessToken: "alpha-token",
       executor,
       fetchImpl: async () => {
         runtimeCalls += 1
@@ -477,6 +528,7 @@ describe("routine actions", () => {
       taskId: "customer_task_1",
       instruction: "检查当前页面",
       runtimeUrl: "http://localhost:8787",
+      runtimeAccessToken: "alpha-token",
       executor,
       fetchImpl,
       screenStateCollector,
@@ -494,6 +546,7 @@ describe("routine actions", () => {
       taskId: paused.task.id,
       instruction: paused.task.instruction,
       runtimeUrl: "http://localhost:8787",
+      runtimeAccessToken: "alpha-token",
       executor,
       fetchImpl,
       screenStateCollector,
@@ -536,6 +589,7 @@ describe("routine actions", () => {
       taskId: "customer_task_1",
       instruction: "检查当前页面",
       runtimeUrl: "http://localhost:8787",
+      runtimeAccessToken: "alpha-token",
       executor,
       fetchImpl,
       screenStateCollector: {
@@ -579,6 +633,7 @@ describe("routine actions", () => {
       taskId: "customer_task_1",
       instruction: "检查当前页面",
       runtimeUrl: "http://localhost:8787",
+      runtimeAccessToken: "alpha-token",
       executor,
       fetchImpl,
       screenStateCollector: {

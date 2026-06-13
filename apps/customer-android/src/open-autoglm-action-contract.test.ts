@@ -80,6 +80,10 @@ describe("Open-AutoGLM routine action contract", () => {
           _metadata: "finish",
           message: " done ",
         }),
+        normalizeOpenAutoGlmAction({
+          _metadata: "failed",
+          message: " Invalid model output. ",
+        }),
       ]
     ).toEqual([
       { _metadata: "do", action: "Launch", app: "com.android.settings" },
@@ -107,6 +111,7 @@ describe("Open-AutoGLM routine action contract", () => {
       { _metadata: "do", action: "Double Tap", element: [500, 500] },
       { _metadata: "do", action: "Long Press", element: [200, 700] },
       { _metadata: "finish", message: "done" },
+      { _metadata: "failed", message: "Invalid model output." },
     ])
   })
 
@@ -158,6 +163,12 @@ describe("Open-AutoGLM routine action contract", () => {
         _metadata: "finish",
       })
     ).toThrow("Finish message is required.")
+
+    expect(() =>
+      normalizeOpenAutoGlmAction({
+        _metadata: "failed",
+      })
+    ).toThrow("Failure message is required.")
   })
 
   it("rejects invalid wait durations", () => {

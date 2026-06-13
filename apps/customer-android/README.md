@@ -2,6 +2,38 @@
 
 This app is the Android customer-facing APK for the Customer App Story.
 
+## Local Android Runtime
+
+Use JDK 17 for local Android Gradle builds. The wrapper is pinned to Gradle 8.13,
+matching the Android Gradle Plugin 8.12 toolchain used by the current
+Expo/React Native app.
+
+On macOS with Homebrew:
+
+```bash
+brew install openjdk@17
+mkdir -p "$HOME/Library/Java/JavaVirtualMachines"
+ln -sfn "$(brew --prefix openjdk@17)/libexec/openjdk.jdk" \
+  "$HOME/Library/Java/JavaVirtualMachines/openjdk-17.jdk"
+/usr/libexec/java_home -v 17
+```
+
+Keep the project-local Gradle runtime in `android/local.properties`, which is
+ignored by git:
+
+```properties
+sdk.dir=/path/to/android/sdk
+org.gradle.java.home=/absolute/path/to/jdk17/Contents/Home
+```
+
+Verify the runtime before Android work:
+
+```bash
+cd apps/customer-android/android
+./gradlew --version
+./gradlew :app:compileDebugKotlin
+```
+
 ## Alpha Sideload APK
 
 Official Alpha APKs must be signed with the maintainer-owned release keystore.
@@ -15,9 +47,7 @@ the repository, for example:
 
 Load the private env file in the release shell, then run the release command.
 Keep the directory mode restricted to the local maintainer account.
-Run maintainer release builds with JDK 17. The Android wrapper is pinned to
-Gradle 8.13, matching the Android Gradle Plugin 8.12 toolchain used by the
-current Expo/React Native app.
+Run maintainer release builds with JDK 17.
 
 `pnpm --dir apps/customer-android release:alpha` requires:
 

@@ -23,6 +23,7 @@ updateAt: 2026-06-13
 
 - `apps/customer-android` owns task entry, permission readiness, MediaProjection screen frames, AccessibilityService state, routine action execution, human-in-the-loop pause UI, progress display, and final result evidence.
 - `apps/customer-android-api` owns customer task sessions, per-step state, prompt construction, model-provider calls, Open-AutoGLM-style response parsing, action normalization, pause/failure states, and runtime logs.
+- The first `apps/customer-android-api` implementation keeps Agent Context in memory, uses an OpenAI-compatible model provider, and exposes the Session-Step API directly to the APK.
 - The first API should consume phone state supplied by the APK. It should not call Open-AutoGLM `PhoneAgent.step()` as a black box because that method captures screenshots and executes actions through its own device layer.
 - Treat the customer route as a split `PhoneAgent`: observe and execute are Android app responsibilities; decide and maintain agent context are API responsibilities.
 - Prefer reusing Open-AutoGLM prompt, model client behavior, response parsing, and action parsing before rewriting the agent loop in TypeScript.

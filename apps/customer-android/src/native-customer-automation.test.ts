@@ -94,8 +94,10 @@ describe("customer automation native bridge", () => {
     const calls: string[] = []
     const nativeModule: CustomerAutomationNativeModule = {
       ...readyNativeModule,
-      async runHostedTask(runtimeUrl, instruction, maxSteps) {
-        calls.push(`${runtimeUrl}|${instruction}|${maxSteps}`)
+      async runHostedTask(runtimeUrl, runtimeAccessToken, instruction, maxSteps) {
+        calls.push(
+          `${runtimeUrl}|${runtimeAccessToken}|${instruction}|${maxSteps}`
+        )
         return {
           task: {
             id: "customer_task_1",
@@ -115,10 +117,13 @@ describe("customer automation native bridge", () => {
         screenCapture: "granted",
       }),
       runtimeUrl: "http://localhost:8787",
+      runtimeAccessToken: "alpha-token",
       instruction: " 检查当前页面 ",
     })
 
-    expect(calls).toEqual(["http://localhost:8787|检查当前页面|50"])
+    expect(calls).toEqual([
+      "http://localhost:8787|alpha-token|检查当前页面|50",
+    ])
     expect(session.task.status).toBe("finished")
   })
 
@@ -132,6 +137,7 @@ describe("customer automation native bridge", () => {
           screenCapture: "missing",
         }),
         runtimeUrl: "http://localhost:8787",
+        runtimeAccessToken: "alpha-token",
         instruction: "检查当前页面",
       })
     ).rejects.toThrow(

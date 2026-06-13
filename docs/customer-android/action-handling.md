@@ -17,6 +17,7 @@ updateAt: 2026-06-13
 - **Routine Action**: A direct phone operation the APK can execute after explicit permission setup.
 - **Pause Action**: A model action that must pause the task and show a user-visible Continue or Stop path.
 - **Runtime-Local Action**: A model action that belongs to backend trace, note, summary, or unsupported handling instead of physical Android input.
+- **Failed Outcome**: A normalized API outcome that tells the APK to stop the hosted loop and show a failure message.
 - **Human-in-the-loop Pause**: The app state where automation stops at a gate action and waits for user resolution, Continue, or Stop.
 
 ## Current Subdomain Docs
@@ -31,6 +32,7 @@ updateAt: 2026-06-13
   - `Tap` with `message` maps to `confirmation_required`.
 - During a Human-in-the-loop Pause, the app shows the model-provided message or latest action, lets the user manually resolve the situation on the same phone when needed, then offers Continue and Stop controls.
 - `Note` and `Call_API` are Runtime-Local Actions in V0. They should be represented as explicit trace, note, summary, no-op, or unsupported outcomes instead of being treated as parser failures.
+- `_metadata: "failed"` is not an Open-AutoGLM phone action. It is the customer runtime's normalized failure outcome for invalid model output or model-provider failures.
 - Routine physical actions run in Full Access Mode after explicit Android permission setup. They should not ask for approval before every step in V0.
 
 ## Decision Records

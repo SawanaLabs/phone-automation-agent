@@ -40,6 +40,8 @@ import { styles } from "./src/styles"
 
 const DEFAULT_RUNTIME_URL =
   process.env.EXPO_PUBLIC_CUSTOMER_RUNTIME_URL ?? "http://localhost:8787"
+const DEFAULT_RUNTIME_ACCESS_TOKEN =
+  process.env.EXPO_PUBLIC_CUSTOMER_RUNTIME_ACCESS_TOKEN ?? ""
 const DEFAULT_INSTRUCTION = "打开小红书搜索咖啡店，停在结果页"
 const DEFAULT_AUTHORITY_SNAPSHOT: DeviceAuthoritySnapshot = {
   accessibilityService: "disabled",
@@ -57,6 +59,9 @@ const nativeHostedTaskRunner =
 
 export default function App() {
   const [runtimeUrl, setRuntimeUrl] = useState(DEFAULT_RUNTIME_URL)
+  const [runtimeAccessToken, setRuntimeAccessToken] = useState(
+    DEFAULT_RUNTIME_ACCESS_TOKEN
+  )
   const [instruction, setInstruction] = useState(DEFAULT_INSTRUCTION)
   const [session, setSession] = useState<CustomerSessionSnapshot | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
@@ -155,6 +160,7 @@ export default function App() {
           await nativeHostedTaskRunner.startTask({
             authorityState,
             runtimeUrl,
+            runtimeAccessToken,
             instruction,
           })
         )
@@ -164,6 +170,7 @@ export default function App() {
       const nextSession = await startCustomerTask({
         authorityState,
         runtimeUrl,
+        runtimeAccessToken,
         instruction,
       })
       setSession(nextSession)
@@ -246,6 +253,7 @@ export default function App() {
         taskId: baseSession.task.id,
         instruction: baseSession.task.instruction,
         runtimeUrl,
+        runtimeAccessToken,
         executor: routineActionExecutor,
         screenStateCollector,
         initialEvents: baseSession.events,
@@ -390,6 +398,17 @@ export default function App() {
               placeholderTextColor="#6b7280"
               style={styles.input}
               value={runtimeUrl}
+            />
+            <TextInput
+              accessibilityLabel="Hosted runtime access token"
+              autoCapitalize="none"
+              autoCorrect={false}
+              onChangeText={setRuntimeAccessToken}
+              placeholder="alpha runtime token"
+              placeholderTextColor="#6b7280"
+              secureTextEntry
+              style={styles.input}
+              value={runtimeAccessToken}
             />
           </View>
 

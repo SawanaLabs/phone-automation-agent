@@ -33,6 +33,7 @@ export type CustomerAutomationNativeModule = {
   wait: (durationMs: number) => Promise<void>
   runHostedTask: (
     runtimeUrl: string,
+    runtimeAccessToken: string,
     instruction: string,
     maxSteps: number
   ) => Promise<CustomerSessionSnapshot>
@@ -40,7 +41,10 @@ export type CustomerAutomationNativeModule = {
 
 export type HostedTaskRunner = {
   startTask: (
-    input: Pick<StartCustomerTaskInput, "authorityState" | "runtimeUrl" | "instruction">
+    input: Pick<
+      StartCustomerTaskInput,
+      "authorityState" | "runtimeUrl" | "runtimeAccessToken" | "instruction"
+    >
   ) => Promise<CustomerSessionSnapshot>
 }
 
@@ -80,7 +84,12 @@ export function createNativeHostedTaskRunner(
   nativeModule: CustomerAutomationNativeModule
 ): HostedTaskRunner {
   return {
-    async startTask({ authorityState, runtimeUrl, instruction }) {
+    async startTask({
+      authorityState,
+      runtimeUrl,
+      runtimeAccessToken,
+      instruction,
+    }) {
       if (!authorityState.canStartTask) {
         throw new Error(
           `Android permissions are required before starting a task: ${authorityState.missing.join(", ")}.`
@@ -92,7 +101,17 @@ export function createNativeHostedTaskRunner(
         throw new Error("Instruction is required.")
       }
 
-      return nativeModule.runHostedTask(runtimeUrl, normalizedInstruction, 50)
+      const normalizedRuntimeAccessToken = runtimeAccessToken.trim()
+      if (!normalizedRuntimeAccessToken) {
+        throw new Error("Runtime access token is required.")
+      }
+
+      return nativeModule.runHostedTask(
+        runtimeUrl,
+        normalizedRuntimeAccessToken,
+        normalizedInstruction,
+        50
+      )
     },
   }
 }

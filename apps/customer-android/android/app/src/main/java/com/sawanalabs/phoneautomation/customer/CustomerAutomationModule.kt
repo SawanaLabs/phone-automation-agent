@@ -261,6 +261,7 @@ class CustomerAutomationModule(
   @ReactMethod
   fun runHostedTask(
     runtimeUrl: String,
+    runtimeAccessToken: String,
     instruction: String,
     maxSteps: Double,
     promise: Promise
@@ -268,6 +269,12 @@ class CustomerAutomationModule(
     val normalizedRuntimeUrl = normalizeRuntimeUrl(runtimeUrl)
     if (normalizedRuntimeUrl == null) {
       promise.reject("INVALID_RUNTIME_URL", "Hosted runtime URL is required.")
+      return
+    }
+
+    val normalizedRuntimeAccessToken = runtimeAccessToken.trim()
+    if (normalizedRuntimeAccessToken.isEmpty()) {
+      promise.reject("INVALID_RUNTIME_ACCESS_TOKEN", "Runtime access token is required.")
       return
     }
 
@@ -302,6 +309,7 @@ class CustomerAutomationModule(
       try {
         val snapshot = runHostedTaskLoop(
           runtimeUrl = normalizedRuntimeUrl,
+          runtimeAccessToken = normalizedRuntimeAccessToken,
           instruction = normalizedInstruction,
           maxSteps = maxSteps.roundToInt()
         )
@@ -320,11 +328,13 @@ class CustomerAutomationModule(
 
   private fun runHostedTaskLoop(
     runtimeUrl: String,
+    runtimeAccessToken: String,
     instruction: String,
     maxSteps: Int
   ): WritableMap {
     val startResponse = postJson(
       "$runtimeUrl/sessions",
+      runtimeAccessToken,
       JSONObject()
         .put("instruction", instruction)
         .put("source", "customer-android")
@@ -354,6 +364,7 @@ class CustomerAutomationModule(
       val decision = try {
         postJson(
           "$runtimeUrl/sessions/${encodeUrlPath(taskId)}/steps",
+          runtimeAccessToken,
           JSONObject()
             .put("instruction", instruction)
             .put("source", "customer-android")
@@ -667,7 +678,7 @@ class CustomerAutomationModule(
     }
   }
 
-  private fun postJson(url: String, body: JSONObject): JSONObject {
+  private fun postJson(url: String, runtimeAccessToken: String, body: JSONObject): JSONObject {
     val connection = URL(url).openConnection() as HttpURLConnection
     try {
       connection.requestMethod = "POST"
@@ -675,6 +686,7 @@ class CustomerAutomationModule(
       connection.readTimeout = HOSTED_RUNTIME_TIMEOUT_MS
       connection.doOutput = true
       connection.setRequestProperty("Content-Type", "application/json")
+      connection.setRequestProperty("Authorization", "Bearer $runtimeAccessToken")
       connection.outputStream.use { output ->
         output.write(body.toString().toByteArray(Charsets.UTF_8))
       }
