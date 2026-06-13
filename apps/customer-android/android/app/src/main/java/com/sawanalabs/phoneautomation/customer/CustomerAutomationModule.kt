@@ -333,16 +333,23 @@ class CustomerAutomationModule(
     val taskId = task.getString("id")
     val events = mutableListOf<NativeTaskEvent>()
     appendNativeEvent(events, "task.started", "Task started.")
+    Log.i(TAG, "Hosted task started: $taskId")
 
     var lastActionResult: NativeActionResult? = null
     for (stepNumber in 1..maxSteps) {
+      Log.i(TAG, "Hosted task $taskId step $stepNumber capture start.")
       val screen = try {
         captureScreenStateJsonBlocking()
       } catch (error: Exception) {
         val message = error.message ?: "Failed to capture screen state."
+        Log.w(TAG, "Hosted task $taskId step $stepNumber capture failed: $message", error)
         appendNativeEvent(events, "task.failed", message)
         return createNativeSessionSnapshot(taskId, instruction, "failed", message, events)
       }
+      Log.i(
+        TAG,
+        "Hosted task $taskId step $stepNumber captured package=${screen.optString("currentPackage")}"
+      )
 
       val decision = try {
         postJson(
@@ -356,6 +363,7 @@ class CustomerAutomationModule(
         )
       } catch (error: Exception) {
         val message = error.message ?: "Hosted runtime request failed."
+        Log.w(TAG, "Hosted task $taskId step $stepNumber decision failed: $message", error)
         appendNativeEvent(events, "task.failed", message)
         return createNativeSessionSnapshot(taskId, instruction, "failed", message, events)
       }
@@ -363,6 +371,7 @@ class CustomerAutomationModule(
       val action = decision.getJSONObject("action")
       if (action.optString("_metadata") == "finish") {
         val message = action.getString("message")
+        Log.i(TAG, "Hosted task $taskId finished: $message")
         appendNativeEvent(events, "task.finished", message)
         return createNativeSessionSnapshot(taskId, instruction, "finished", message, events)
       }
@@ -375,8 +384,13 @@ class CustomerAutomationModule(
       }
 
       val actionName = action.getString("action")
+      Log.i(TAG, "Hosted task $taskId step $stepNumber action=$actionName.")
       appendNativeEvent(events, "step.action", "$actionName requested.")
       lastActionResult = dispatchHostedActionNative(action)
+      Log.i(
+        TAG,
+        "Hosted task $taskId step $stepNumber result=${lastActionResult.status}: ${lastActionResult.message}"
+      )
       appendNativeEvent(events, "step.result", lastActionResult.message)
     }
 
@@ -459,6 +473,10 @@ class CustomerAutomationModule(
       "Type", "Type_Name" -> typeTextBlocking(action.getString("text"))
       "Wait" -> Thread.sleep(parseWaitDurationMs(action.optString("duration", "1 seconds")))
       else -> throw IllegalStateException("Unsupported routine action: $actionName")
+    }
+
+    if (actionName != "Wait") {
+      Thread.sleep(ACTION_SETTLE_MS)
     }
   }
 
@@ -921,6 +939,7 @@ class CustomerAutomationModule(
     private const val SCREEN_CAPTURE_REQUEST_CODE = 41031
     private const val SCREEN_CAPTURE_TIMEOUT_MS = 1500L
     private const val NATIVE_ACTION_TIMEOUT_MS = 6000L
+    private const val ACTION_SETTLE_MS = 700L
     private const val HOSTED_RUNTIME_TIMEOUT_MS = 30000
     private var activeModule: CustomerAutomationModule? = null
 

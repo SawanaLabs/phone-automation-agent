@@ -17,6 +17,7 @@ import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
 import android.os.Build
 import android.os.Handler
+import android.os.HandlerThread
 import android.os.IBinder
 import android.os.Looper
 import android.util.Base64
@@ -37,7 +38,9 @@ data class CustomerScreenCaptureFailure(
 
 class CustomerScreenCaptureService : Service() {
   private val mainHandler = Handler(Looper.getMainLooper())
-  private var mediaProjection: MediaProjection? = null
+  private lateinit var captureThread: HandlerThread
+  private lateinit var captureHandler: Handler
+  @Volatile private var mediaProjection: MediaProjection? = null
   private var imageReader: ImageReader? = null
   private var virtualDisplay: VirtualDisplay? = null
   private var captureWidth = 0
@@ -46,6 +49,9 @@ class CustomerScreenCaptureService : Service() {
 
   override fun onCreate() {
     super.onCreate()
+    captureThread = HandlerThread("CustomerScreenCaptureThread")
+    captureThread.start()
+    captureHandler = Handler(captureThread.looper)
     activeService = this
     createNotificationChannel()
   }
@@ -66,6 +72,7 @@ class CustomerScreenCaptureService : Service() {
     if (activeService === this) {
       activeService = null
     }
+    captureThread.quitSafely()
     super.onDestroy()
   }
 
@@ -92,16 +99,31 @@ class CustomerScreenCaptureService : Service() {
         object : MediaProjection.Callback() {
           override fun onStop() {
             Log.i(TAG, "MediaProjection stopped.")
-            mainHandler.post {
+            captureHandler.post {
               releaseProjection(stopProjection = false)
-              stopSelf()
+              mainHandler.post {
+                stopSelf()
+              }
             }
           }
         },
-        mainHandler
+        captureHandler
       )
-      Log.i(TAG, "Screen capture foreground service is ready.")
-      request.onReady(null)
+      captureHandler.post {
+        if (mediaProjection === projection) {
+          Log.i(TAG, "Screen capture foreground service is ready.")
+          mainHandler.post { request.onReady(null) }
+        } else {
+          mainHandler.post {
+            request.onReady(
+              CustomerScreenCaptureFailure(
+                "SCREEN_CAPTURE_UNAVAILABLE",
+                "Screen capture session stopped before it became ready."
+              )
+            )
+          }
+        }
+      }
     } catch (error: Exception) {
       releaseProjection(stopProjection = false)
       stopSelf()
@@ -123,6 +145,13 @@ class CustomerScreenCaptureService : Service() {
     onResult: (CustomerScreenCaptureFrame) -> Unit,
     onError: (CustomerScreenCaptureFailure) -> Unit
   ) {
+    if (Looper.myLooper() != captureHandler.looper) {
+      captureHandler.post {
+        captureCurrentFrame(width, height, densityDpi, timeoutMs, onResult, onError)
+      }
+      return
+    }
+
     if (mediaProjection == null) {
       onError(
         CustomerScreenCaptureFailure(
@@ -176,7 +205,7 @@ class CustomerScreenCaptureService : Service() {
     }
     pending.timeoutRunnable = timeoutRunnable
     pendingFrame = pending
-    mainHandler.postDelayed(timeoutRunnable, timeoutMs)
+    captureHandler.postDelayed(timeoutRunnable, timeoutMs)
   }
 
   private fun ensureVirtualDisplay(width: Int, height: Int, densityDpi: Int) {
@@ -198,10 +227,10 @@ class CustomerScreenCaptureService : Service() {
 
         val image = reader.acquireLatestImage() ?: return@setOnImageAvailableListener
         pendingFrame = null
-        pending.timeoutRunnable?.let { mainHandler.removeCallbacks(it) }
+        pending.timeoutRunnable?.let { captureHandler.removeCallbacks(it) }
         resolveFrame(image, pending.width, pending.height, pending.onResult, pending.onError)
       },
-      mainHandler
+      captureHandler
     )
 
     virtualDisplay = mediaProjection?.createVirtualDisplay(
@@ -212,7 +241,7 @@ class CustomerScreenCaptureService : Service() {
       DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
       imageReader?.surface,
       null,
-      mainHandler
+      captureHandler
     )
   }
 
@@ -271,7 +300,7 @@ class CustomerScreenCaptureService : Service() {
   }
 
   private fun releaseVirtualDisplay() {
-    pendingFrame?.timeoutRunnable?.let { mainHandler.removeCallbacks(it) }
+    pendingFrame?.timeoutRunnable?.let { captureHandler.removeCallbacks(it) }
     pendingFrame = null
     virtualDisplay?.release()
     virtualDisplay = null
@@ -349,8 +378,8 @@ class CustomerScreenCaptureService : Service() {
     private const val NOTIFICATION_CHANNEL_ID = "customer-screen-capture"
     private const val NOTIFICATION_ID = 41032
 
-    private var activeService: CustomerScreenCaptureService? = null
-    private var pendingStartRequest: ProjectionStartRequest? = null
+    @Volatile private var activeService: CustomerScreenCaptureService? = null
+    @Volatile private var pendingStartRequest: ProjectionStartRequest? = null
 
     fun startProjection(
       context: Context,
@@ -415,8 +444,16 @@ class CustomerScreenCaptureService : Service() {
         return
       }
 
-      service.mainHandler.post {
+      val posted = service.captureHandler.post {
         service.captureCurrentFrame(width, height, densityDpi, timeoutMs, onResult, onError)
+      }
+      if (!posted) {
+        onError(
+          CustomerScreenCaptureFailure(
+            "SCREEN_CAPTURE_UNAVAILABLE",
+            "Screen capture worker is unavailable."
+          )
+        )
       }
     }
   }
