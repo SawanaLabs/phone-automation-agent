@@ -381,6 +381,49 @@ describe("routine actions", () => {
     })
   })
 
+  it("returns a failed snapshot before contacting the runtime when screen capture fails", async () => {
+    const executor = createRecordingExecutor()
+    let runtimeCalls = 0
+
+    const result = await runHostedRoutineActionLoop({
+      taskId: "customer_task_1",
+      instruction: "检查当前页面",
+      runtimeUrl: "http://localhost:8787",
+      executor,
+      fetchImpl: async () => {
+        runtimeCalls += 1
+        return new Response(
+          JSON.stringify({
+            action: {
+              _metadata: "finish",
+              message: "done",
+            },
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }
+        )
+      },
+      screenStateCollector: {
+        async capture() {
+          throw new Error("Grant screen capture before requesting hosted decisions.")
+        },
+      },
+    })
+
+    expect(runtimeCalls).toBe(0)
+    expect(executor.calls).toEqual([])
+    expect(result.task.status).toBe("failed")
+    expect(result.task.summary).toBe(
+      "Grant screen capture before requesting hosted decisions."
+    )
+    expect(result.events.at(-1)).toMatchObject({
+      type: "task.failed",
+      message: "Grant screen capture before requesting hosted decisions.",
+    })
+  })
+
   it("pauses takeover actions and continues with a new screen state", async () => {
     const executor = createRecordingExecutor()
     const stepRequests: Array<Record<string, unknown>> = []

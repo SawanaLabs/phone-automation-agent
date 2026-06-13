@@ -212,9 +212,10 @@ export async function runHostedRoutineActionLoop({
       return createSnapshot(taskId, instruction, "stopped", null, events)
     }
 
-    const screen = await screenStateCollector.capture()
+    let screen: CustomerScreenState
     let decision
     try {
+      screen = await screenStateCollector.capture()
       decision = await requestNextCustomerAction({
         runtimeUrl,
         taskId,

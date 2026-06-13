@@ -26,6 +26,7 @@ export type CustomerAutomationNativeModule = {
   home: () => Promise<void>
   launchApp: (app: string) => Promise<void>
   typeText: (text: string) => Promise<void>
+  wait: (durationMs: number) => Promise<void>
 }
 
 type NativeModuleRegistry = {
@@ -101,9 +102,7 @@ export function createNativeRoutineActionExecutor(
       await nativeModule.typeText(text)
     },
     async wait(durationMs) {
-      await new Promise((resolve) => {
-        setTimeout(resolve, durationMs)
-      })
+      await nativeModule.wait(durationMs)
     },
   }
 }

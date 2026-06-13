@@ -5,6 +5,8 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.media.projection.MediaProjectionManager
+import android.os.Handler
+import android.os.Looper
 import android.provider.Settings
 import android.text.TextUtils
 import android.util.DisplayMetrics
@@ -19,12 +21,14 @@ import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
 import com.facebook.react.bridge.WritableMap
+import kotlin.math.roundToLong
 import kotlin.math.roundToInt
 
 class CustomerAutomationModule(
   private val reactContext: ReactApplicationContext
 ) : ReactContextBaseJavaModule(reactContext) {
   private var pendingScreenCapturePromise: Promise? = null
+  private val mainHandler = Handler(Looper.getMainLooper())
 
   private val activityEventListener: ActivityEventListener =
     object : BaseActivityEventListener() {
@@ -228,6 +232,22 @@ class CustomerAutomationModule(
       onFailure = { message ->
         promise.reject("NO_FOCUSED_INPUT_TARGET", message)
       }
+    )
+  }
+
+  @ReactMethod
+  fun wait(durationMs: Double, promise: Promise) {
+    if (!durationMs.isFinite() || durationMs < 0.0) {
+      promise.reject(
+        "INVALID_WAIT_DURATION",
+        "Wait duration must be a non-negative number: $durationMs."
+      )
+      return
+    }
+
+    mainHandler.postDelayed(
+      { promise.resolve(null) },
+      durationMs.roundToLong()
     )
   }
 
