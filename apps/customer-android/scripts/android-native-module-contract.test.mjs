@@ -14,7 +14,7 @@ describe("Android native module contract", () => {
     expect(moduleSource).toMatch(/@ReactMethod\s+fun runHostedTask\(/)
   })
 
-  it("runs screen capture callbacks on a dedicated handler thread", async () => {
+  it("runs screen capture on a dedicated handler thread without continuous frame callbacks", async () => {
     const serviceSource = await readFile(
       new URL(
         "../android/app/src/main/java/com/sawanalabs/phoneautomation/customer/CustomerScreenCaptureService.kt",
@@ -25,9 +25,10 @@ describe("Android native module contract", () => {
 
     expect(serviceSource).toMatch(/HandlerThread\("CustomerScreenCaptureThread"\)/)
     expect(serviceSource).toMatch(/projection\.registerCallback\([\s\S]*captureHandler/)
-    expect(serviceSource).toMatch(/setOnImageAvailableListener\([\s\S]*captureHandler/)
     expect(serviceSource).toMatch(/createVirtualDisplay\([\s\S]*captureHandler/)
+    expect(serviceSource).toMatch(/captureHandler\.postDelayed\([\s\S]*SCREEN_CAPTURE_POLL_INTERVAL_MS/)
     expect(serviceSource).toMatch(/service\.captureHandler\.post/)
+    expect(serviceSource).not.toMatch(/setOnImageAvailableListener/)
     expect(serviceSource).not.toMatch(/service\.mainHandler\.post\s*\{\s*service\.captureCurrentFrame/)
   })
 })

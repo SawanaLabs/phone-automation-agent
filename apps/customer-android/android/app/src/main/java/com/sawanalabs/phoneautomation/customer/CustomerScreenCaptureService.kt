@@ -20,6 +20,7 @@ import android.os.Handler
 import android.os.HandlerThread
 import android.os.IBinder
 import android.os.Looper
+import android.os.SystemClock
 import android.util.Base64
 import android.util.Log
 import java.io.ByteArrayOutputStream
@@ -185,27 +186,9 @@ class CustomerScreenCaptureService : Service() {
       return
     }
 
-    val immediateImage = imageReader?.acquireLatestImage()
-    if (immediateImage != null) {
-      resolveFrame(immediateImage, width, height, onResult, onError)
-      return
-    }
-
     val pending = PendingFrame(width, height, onResult, onError)
-    val timeoutRunnable = Runnable {
-      if (pendingFrame === pending) {
-        pendingFrame = null
-        onError(
-          CustomerScreenCaptureFailure(
-            "SCREEN_CAPTURE_TIMEOUT",
-            "Timed out while capturing screen state."
-          )
-        )
-      }
-    }
-    pending.timeoutRunnable = timeoutRunnable
     pendingFrame = pending
-    captureHandler.postDelayed(timeoutRunnable, timeoutMs)
+    pollForFrame(pending, SystemClock.uptimeMillis() + timeoutMs)
   }
 
   private fun ensureVirtualDisplay(width: Int, height: Int, densityDpi: Int) {
@@ -217,21 +200,6 @@ class CustomerScreenCaptureService : Service() {
     captureWidth = width
     captureHeight = height
     imageReader = ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, 2)
-    imageReader?.setOnImageAvailableListener(
-      { reader ->
-        val pending = pendingFrame
-        if (pending == null) {
-          reader.acquireLatestImage()?.close()
-          return@setOnImageAvailableListener
-        }
-
-        val image = reader.acquireLatestImage() ?: return@setOnImageAvailableListener
-        pendingFrame = null
-        pending.timeoutRunnable?.let { captureHandler.removeCallbacks(it) }
-        resolveFrame(image, pending.width, pending.height, pending.onResult, pending.onError)
-      },
-      captureHandler
-    )
 
     virtualDisplay = mediaProjection?.createVirtualDisplay(
       "CustomerAutomationScreenCapture",
@@ -243,6 +211,52 @@ class CustomerScreenCaptureService : Service() {
       null,
       captureHandler
     )
+  }
+
+  private fun pollForFrame(pending: PendingFrame, deadlineMs: Long) {
+    if (pendingFrame !== pending) {
+      return
+    }
+
+    val image = try {
+      imageReader?.acquireLatestImage()
+    } catch (error: Exception) {
+      pendingFrame = null
+      pending.timeoutRunnable = null
+      pending.onError(
+        CustomerScreenCaptureFailure(
+          "SCREEN_CAPTURE_FAILED",
+          "Failed to read screen capture.",
+          error
+        )
+      )
+      return
+    }
+
+    if (image != null) {
+      pendingFrame = null
+      pending.timeoutRunnable = null
+      resolveFrame(image, pending.width, pending.height, pending.onResult, pending.onError)
+      return
+    }
+
+    if (SystemClock.uptimeMillis() >= deadlineMs) {
+      pendingFrame = null
+      pending.timeoutRunnable = null
+      pending.onError(
+        CustomerScreenCaptureFailure(
+          "SCREEN_CAPTURE_TIMEOUT",
+          "Timed out while capturing screen state."
+        )
+      )
+      return
+    }
+
+    val pollRunnable = Runnable {
+      pollForFrame(pending, deadlineMs)
+    }
+    pending.timeoutRunnable = pollRunnable
+    captureHandler.postDelayed(pollRunnable, SCREEN_CAPTURE_POLL_INTERVAL_MS)
   }
 
   private fun resolveFrame(
@@ -377,6 +391,7 @@ class CustomerScreenCaptureService : Service() {
       "com.sawanalabs.phoneautomation.customer.STOP_SCREEN_CAPTURE"
     private const val NOTIFICATION_CHANNEL_ID = "customer-screen-capture"
     private const val NOTIFICATION_ID = 41032
+    private const val SCREEN_CAPTURE_POLL_INTERVAL_MS = 50L
 
     @Volatile private var activeService: CustomerScreenCaptureService? = null
     @Volatile private var pendingStartRequest: ProjectionStartRequest? = null
