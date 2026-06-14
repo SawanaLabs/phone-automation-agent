@@ -105,6 +105,30 @@ def test_customer_session_creation_rejects_invalid_alpha_token():
     assert response.json() == {"detail": "Runtime access token is invalid."}
 
 
+def test_customer_session_routes_allow_browser_preflight_from_customer_android_web():
+    client = TestClient(
+        create_app(
+            runtime_token="test-alpha-token",
+            load_env=False,
+        )
+    )
+
+    response = client.options(
+        "/sessions",
+        headers={
+            "Origin": "http://localhost:19006",
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "authorization,content-type",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == "*"
+    assert "POST" in response.headers["access-control-allow-methods"]
+    assert "authorization" in response.headers["access-control-allow-headers"].lower()
+    assert "content-type" in response.headers["access-control-allow-headers"].lower()
+
+
 def test_customer_session_snapshot_requires_alpha_bearer_token():
     client = TestClient(
         create_app(

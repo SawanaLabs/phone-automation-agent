@@ -4,6 +4,7 @@ import logging
 from secrets import compare_digest
 
 from fastapi import FastAPI, Header, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 
 from customer_android_api.agent import (
     CustomerStepAgent,
@@ -38,6 +39,12 @@ def create_app(
     )
 
     app = FastAPI(title="Customer Android API")
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_methods=["GET", "POST", "OPTIONS"],
+        allow_headers=["Authorization", "Content-Type"],
+    )
     store = session_store or SessionStore()
     step_agent = CustomerStepAgent(
         model_provider=model_provider or build_model_provider_from_env()
