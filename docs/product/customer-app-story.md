@@ -72,7 +72,9 @@ Passing signs:
 - The APK connects to `apps/customer-android-api` with the configured Runtime Access Token.
 - The APK captures current phone state, sends it to the API, receives normalized Open-AutoGLM-style actions, and executes routine actions on the same phone.
 - The task launches Xiaohongshu, searches for coffee shops, and stops on a visible search/results state without login, payment, captcha, posting, following, liking, ordering, or account mutation.
-- The app shows a finished, paused, or clearly failed final state with trace evidence. A scripted-provider run proves transport and local execution; a real-provider run is required before treating the agent behavior as accepted.
+- The app shows a finished, paused, or clearly failed final state with trace evidence.
+- A task that requests stopping on a target app result page should keep the target app visible after completion and use a Completion Signal notification to tell the user the run ended.
+- Evidence-First Integration E2E with the real APK, Customer Android API, model provider, and Controlled Phone behavior is required before treating the customer story as accepted. Scripted-provider runs are diagnostic support, not acceptance substitutes.
 
 ## Productization Implications
 

@@ -48,6 +48,14 @@ _Avoid_: production release, beta app, Play Store build, AAB package
 The app-submitted end-to-end story that must pass before a Demo Build counts as working.
 _Avoid_: terminal smoke test, web-only demo, implementation milestone
 
+**Evidence-First Integration E2E**:
+An end-to-end acceptance posture where a customer task run must produce enough visible and recorded evidence to explain success, failure, pause, and model decisions. Scripted runs can support diagnosis, but the accepted story is judged through the integrated Android app, hosted runtime, and Controlled Phone behavior.
+_Avoid_: action contract only, scripted-only acceptance, phone-screen guessing
+
+**Run Evidence**:
+The diagnostic signal produced by a task run so a tester or agent can tell why a run finished, failed, or paused. In the first customer alpha this can be error-first and console-visible before it becomes durable observability.
+_Avoid_: full observability platform, silent failure, opaque run result
+
 **Quickstart App Version**:
 The already proven Open-AutoGLM Android quickstart reproduced through the Mobile Agent App as the tester-facing entry point.
 _Avoid_: CLI quickstart, worker-only proof
@@ -67,6 +75,14 @@ _Avoid_: Expo Go only, pure web wrapper, Kotlin-first rewrite
 **Notification-First Coordination**:
 The first coordination surface for important background events, confirmations, and takeover prompts while another app is foregrounded on the Controlled Phone. The app resumes and reconciles task state through the Agent Runtime after the tester opens the notification.
 _Avoid_: always-on background socket, web fallback alert
+
+**Completion Signal**:
+A user-visible signal that a task run has finished, failed, or paused while the Controlled Phone may still be showing the operated app. It lets the tester understand the run state without having to guess from the target app screen alone.
+_Avoid_: forced app return, silent completion, result-page guessing
+
+**Setup Flow**:
+The guided permission setup path that helps a tester grant the Android privileges required for the Customer App Story. It is a user onboarding concept, not a requirement to merge every Android system permission into one system dialog.
+_Avoid_: scattered permission buttons, one-dialog permission bundle
 
 **Overlay Spike**:
 A later Android-native experiment for drawing a floating control surface above other apps. It is useful for demos but carries permission, native-module, and tap-interference risk, so it should not block the first working route.

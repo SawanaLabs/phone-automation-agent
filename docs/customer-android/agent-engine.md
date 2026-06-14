@@ -70,6 +70,12 @@ updateAt: 2026-06-14
 - The APK may downscale captured frames before upload; the API trusts the submitted frame width and height as the model-visible dimensions for the current step.
 - The APK executes routine actions locally, pauses for human-in-the-loop actions, and sends the next phone observation back to the API.
 - Each accepted step is also recorded in the API session snapshot so `GET /sessions/{session_id}` can be used for debugging and APK-side reconciliation.
+- First-alpha Run Evidence can stay error-first and console-visible. The minimum bar is that provider failures, invalid model output, parser failures, action execution failures, and terminal state changes produce enough error text for a local tester or coding agent to diagnose the run without guessing from the phone screen alone.
+- Run Evidence should appear in three lightweight exits:
+  - API stdout/stderr for provider, model-output, parser, and step-decision failures.
+  - Android logcat for native action, notification, permission, and screen-capture failures.
+  - App Result UI for user-readable summaries that avoid dumping large raw model/provider details.
+- Durable traces, per-step screenshot retention, searchable logs, metrics, and audit history are later observability work unless a customer-story issue explicitly needs them.
 
 ## Decision Records
 

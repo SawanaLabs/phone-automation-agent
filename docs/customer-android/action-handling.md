@@ -36,6 +36,15 @@ updateAt: 2026-06-14
 - `Note` and `Call_API` are Runtime-Local Actions in V0. They should be represented as explicit trace, note, summary, no-op, or unsupported outcomes instead of being treated as parser failures.
 - `_metadata: "failed"` is not an Open-AutoGLM phone action. It is the customer runtime's normalized failure outcome for invalid model output or model-provider failures.
 - Routine physical actions run in Full Access Mode after explicit Android permission setup. They should not ask for approval before every step in V0.
+- Action E2E QA should be grouped by execution semantics rather than by equal-weight action names:
+  - Routine Action E2E covers `Launch`, `Tap`, `Type`, `Type_Name`, `Swipe`, `Back`, `Home`, `Wait`, `Double Tap`, and `Long Press`.
+  - Pause Action E2E covers `Take_over`, `Interact`, and `Tap` with `message`.
+  - Runtime-Local Action E2E covers `Note` and `Call_API`.
+  - `finish` is validated through Completion Signal E2E.
+- Grouping actions by execution semantics must not reduce coverage. Every recognized Open-AutoGLM action remains accounted for in either routine, pause, runtime-local, or finish acceptance.
+- Customer Android acceptance should use Evidence-First Integration E2E as the main path: the APK, Customer Android API, model provider, and Controlled Phone behavior are judged together with enough run evidence to explain the result.
+- Scripted-provider runs remain useful as executor diagnostics and sanity checks, but scripted-only action success does not prove the real Customer App Story.
+- Completion Signal notifications are triggered by the APK after the hosted loop receives terminal or pause state. The API returns the state and message; it does not own Android notification delivery.
 
 ## Decision Records
 
