@@ -317,6 +317,109 @@ def test_customer_step_returns_next_open_autoglm_action_from_model_output():
     }
 
 
+def test_customer_step_accepts_open_autoglm_answer_wrapped_model_output():
+    client = TestClient(
+        create_app(
+            runtime_token="test-alpha-token",
+            model_provider=FakeModelProvider(
+                '<think>不要 finish(message="未完成")，当前不在目标应用，先打开小红书。</think>\n'
+                '<answer>do(action="Launch", app="小红书")</answer>'
+            ),
+            load_env=False,
+        )
+    )
+    created = client.post(
+        "/sessions",
+        headers={"Authorization": "Bearer test-alpha-token"},
+        json={
+            "instruction": "打开小红书搜索咖啡店，停在结果页",
+            "source": "customer-android",
+        },
+    )
+
+    response = client.post(
+        f"/sessions/{created.json()['task']['id']}/steps",
+        headers={"Authorization": "Bearer test-alpha-token"},
+        json={
+            "instruction": "打开小红书搜索咖啡店，停在结果页",
+            "source": "customer-android",
+            "stepNumber": 1,
+            "screen": {
+                "frameBase64": "ZmFrZS1zY3JlZW4=",
+                "frameMimeType": "image/png",
+                "width": 1080,
+                "height": 2400,
+                "currentPackage": "com.sawanalabs.phoneautomation.customer",
+            },
+            "lastActionResult": None,
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["action"] == {
+        "_metadata": "do",
+        "action": "Launch",
+        "app": "com.xingin.xhs",
+    }
+
+
+@pytest.mark.parametrize(
+    ("app_name", "expected_app"),
+    [
+        ("小红书", "com.xingin.xhs"),
+        ("美团", "com.sankuai.meituan"),
+        ("com.android.settings", "com.android.settings"),
+        ("用户自装冷门应用", "用户自装冷门应用"),
+    ],
+)
+def test_customer_step_normalizes_open_autoglm_launch_app_names(
+    app_name,
+    expected_app,
+):
+    client = TestClient(
+        create_app(
+            runtime_token="test-alpha-token",
+            model_provider=FakeModelProvider(
+                f'<answer>do(action="Launch", app="{app_name}")</answer>'
+            ),
+            load_env=False,
+        )
+    )
+    created = client.post(
+        "/sessions",
+        headers={"Authorization": "Bearer test-alpha-token"},
+        json={
+            "instruction": "打开目标应用",
+            "source": "customer-android",
+        },
+    )
+
+    response = client.post(
+        f"/sessions/{created.json()['task']['id']}/steps",
+        headers={"Authorization": "Bearer test-alpha-token"},
+        json={
+            "instruction": "打开目标应用",
+            "source": "customer-android",
+            "stepNumber": 1,
+            "screen": {
+                "frameBase64": "ZmFrZS1zY3JlZW4=",
+                "frameMimeType": "image/png",
+                "width": 1080,
+                "height": 2400,
+                "currentPackage": "com.sawanalabs.phoneautomation.customer",
+            },
+            "lastActionResult": None,
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["action"] == {
+        "_metadata": "do",
+        "action": "Launch",
+        "app": expected_app,
+    }
+
+
 def test_customer_session_snapshot_records_step_decisions_and_finish():
     client = TestClient(
         create_app(
@@ -834,6 +937,47 @@ def test_customer_step_returns_failed_action_for_invalid_model_output():
     }
 
 
+def test_customer_step_returns_failed_action_for_unparseable_model_action():
+    client = TestClient(
+        create_app(
+            runtime_token="test-alpha-token",
+            model_provider=FakeModelProvider('do(action="Tap", element=[bad])'),
+            load_env=False,
+        )
+    )
+    created = client.post(
+        "/sessions",
+        headers={"Authorization": "Bearer test-alpha-token"},
+        json={
+            "instruction": "检查当前页面",
+            "source": "customer-android",
+        },
+    )
+
+    response = client.post(
+        f"/sessions/{created.json()['task']['id']}/steps",
+        headers={"Authorization": "Bearer test-alpha-token"},
+        json={
+            "instruction": "检查当前页面",
+            "source": "customer-android",
+            "stepNumber": 1,
+            "screen": {
+                "frameBase64": "ZmFrZS1zY3JlZW4=",
+                "frameMimeType": "image/png",
+                "width": 1080,
+                "height": 2400,
+            },
+            "lastActionResult": None,
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["action"] == {
+        "_metadata": "failed",
+        "message": "Invalid model output: Failed to parse action arguments.",
+    }
+
+
 def test_customer_step_returns_failed_action_for_provider_failure():
     client = TestClient(
         create_app(
@@ -915,7 +1059,11 @@ def test_customer_step_builds_open_autoglm_style_multimodal_context():
     assert response.status_code == 200
     messages = model_provider.requests[0]["messages"]
     assert messages[0]["role"] == "system"
+    assert "你必须严格按照要求输出以下格式" in messages[0]["content"]
+    assert "<answer>{action}</answer>" in messages[0]["content"]
+    assert "先检查当前app是否是目标app，如果不是，先执行 Launch" in messages[0]["content"]
     assert 'do(action="Launch", app="xxx")' in messages[0]["content"]
+    assert "Launch 的 app 优先使用用户任务里的目标 app 中文名或已知包名" in messages[0]["content"]
     assert messages[1]["role"] == "user"
     assert messages[1]["content"][0] == {
         "type": "image_url",
@@ -923,8 +1071,62 @@ def test_customer_step_builds_open_autoglm_style_multimodal_context():
     }
     assert messages[1]["content"][1]["type"] == "text"
     assert "打开小红书搜索咖啡店，停在结果页" in messages[1]["content"][1]["text"]
-    assert '"current_app": "com.xingin.xhs"' in messages[1]["content"][1]["text"]
+    assert '"current_app": "小红书"' in messages[1]["content"][1]["text"]
+    assert '"current_package": "com.xingin.xhs"' in messages[1]["content"][1]["text"]
     assert '"accessibility_summary": "Search field visible"' in messages[1]["content"][1]["text"]
+
+
+@pytest.mark.parametrize(
+    ("current_package", "expected_current_app"),
+    [
+        ("com.xingin.xhs", "小红书"),
+        ("com.sankuai.meituan", "美团"),
+        ("com.example.unknown", "com.example.unknown"),
+    ],
+)
+def test_customer_step_maps_current_package_to_open_autoglm_app_name(
+    current_package,
+    expected_current_app,
+):
+    model_provider = FakeModelProvider('do(action="Wait", duration="1 seconds")')
+    client = TestClient(
+        create_app(
+            runtime_token="test-alpha-token",
+            model_provider=model_provider,
+            load_env=False,
+        )
+    )
+    created = client.post(
+        "/sessions",
+        headers={"Authorization": "Bearer test-alpha-token"},
+        json={
+            "instruction": "检查当前页面",
+            "source": "customer-android",
+        },
+    )
+
+    response = client.post(
+        f"/sessions/{created.json()['task']['id']}/steps",
+        headers={"Authorization": "Bearer test-alpha-token"},
+        json={
+            "instruction": "检查当前页面",
+            "source": "customer-android",
+            "stepNumber": 1,
+            "screen": {
+                "frameBase64": "ZmFrZS1zY3JlZW4=",
+                "frameMimeType": "image/jpeg",
+                "width": 1080,
+                "height": 2400,
+                "currentPackage": current_package,
+            },
+            "lastActionResult": None,
+        },
+    )
+
+    assert response.status_code == 200
+    screen_text = model_provider.requests[0]["messages"][1]["content"][1]["text"]
+    assert f'"current_app": "{expected_current_app}"' in screen_text
+    assert f'"current_package": "{current_package}"' in screen_text
 
 
 def test_customer_step_keeps_agent_context_without_repeating_previous_images():
@@ -1068,6 +1270,13 @@ def test_customer_step_keeps_agent_context_without_repeating_previous_images():
         (
             'finish(message="搜索结果页已打开")',
             {"_metadata": "finish", "message": "搜索结果页已打开"},
+        ),
+        (
+            'finish(message="任务已完成，已搜索"咖啡店"，停在结果页。")',
+            {
+                "_metadata": "finish",
+                "message": '任务已完成，已搜索"咖啡店"，停在结果页。',
+            },
         ),
     ],
 )

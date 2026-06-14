@@ -1,7 +1,7 @@
 ---
 title: Customer Android Action Handling
 description: V0 Open-AutoGLM action vocabulary, routine executor scope, and pause-state mapping for the customer Android route.
-updateAt: 2026-06-13
+updateAt: 2026-06-14
 ---
 
 # Customer Android Action Handling
@@ -24,6 +24,7 @@ updateAt: 2026-06-13
 
 - The shared V0 action contract recognizes the full default Chinese Open-AutoGLM action vocabulary: `Launch`, `Tap`, `Type`, `Type_Name`, `Interact`, `Swipe`, `Note`, `Call_API`, `Long Press`, `Double Tap`, `Take_over`, `Back`, `Home`, `Wait`, and `finish`.
 - The first Android executor should implement routine physical actions: `Launch`, `Tap`, `Type`, `Type_Name`, `Swipe`, `Back`, `Home`, `Wait`, `Double Tap`, `Long Press`, and `finish`.
+- `Launch` is normalized in `apps/customer-android-api` before it reaches the APK: known Open-AutoGLM Android app names such as `小红书` and `美团` are mapped to package names such as `com.xingin.xhs` and `com.sankuai.meituan`; unknown names are preserved so the APK can still try package or launcher-label fallback on the user's phone.
 - `Type_Name` should normalize to the same executor behavior as `Type`.
 - `finish` completes the task and surfaces the final message or result evidence in the app.
 - Gate actions must be represented explicitly:
@@ -31,6 +32,7 @@ updateAt: 2026-06-13
   - `Interact` maps to `interaction_required`.
   - `Tap` with `message` maps to `confirmation_required`.
 - During a Human-in-the-loop Pause, the app shows the model-provided message or latest action, lets the user manually resolve the situation on the same phone when needed, then offers Continue and Stop controls.
+- The JS hosted loop and Android native hosted loop must both return `pause`, `nextStepNumber`, and `lastActionResult` for pause outcomes so the app can render Continue, Allow, and Stop consistently.
 - `Note` and `Call_API` are Runtime-Local Actions in V0. They should be represented as explicit trace, note, summary, no-op, or unsupported outcomes instead of being treated as parser failures.
 - `_metadata: "failed"` is not an Open-AutoGLM phone action. It is the customer runtime's normalized failure outcome for invalid model output or model-provider failures.
 - Routine physical actions run in Full Access Mode after explicit Android permission setup. They should not ask for approval before every step in V0.
@@ -42,6 +44,18 @@ updateAt: 2026-06-13
   Context: Open-AutoGLM exposes more action names than the first Android executor can physically execute, and gate actions need a visible user pause rather than hidden backend waiting.
   Decision: Recognize the full default Chinese action vocabulary while implementing routine physical actions first, mapping gate actions to app pause states, and preserving runtime-local actions as explicit outcomes.
   Consequences: The app/API contract can stay compatible with Open-AutoGLM behavior while making unsupported and user-gated cases inspectable during QA.
+
+- **2026-06-14 customer-launch-app-catalog-normalization**: Normalize known `Launch` app names in the API.
+  Status: Accepted
+  Context: Upstream Open-AutoGLM Android launch uses `APP_PACKAGES` to turn app names into packages before calling the device layer. The customer split route cannot rely only on Android launcher labels because labels vary by device, locale, and vendor ROM.
+  Decision: Keep Open-AutoGLM-style app-name normalization in `apps/customer-android-api`, then return package names to the APK for routine execution.
+  Consequences: The API stays closer to upstream behavior while the APK remains a generic executor. Unknown app names still fall through to APK package or label fallback for internal alpha QA.
+
+- **2026-06-14 native-pause-continuation-parity**: Keep native hosted pauses compatible with JS hosted pauses.
+  Status: Accepted
+  Context: The UI pause controls depend on a structured `pause` object and continuation step metadata, but the native hosted loop originally returned only task status and summary.
+  Decision: Return `pause`, `nextStepNumber`, and `lastActionResult` from native hosted pause snapshots.
+  Consequences: Login, permissions, user choices, and sensitive tap confirmations can resume through the same UI contract whether the loop runs in JS or native Android.
 
 ## Update Triggers
 

@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.media.projection.MediaProjectionManager
 import android.os.Handler
 import android.os.Looper
@@ -20,7 +21,9 @@ import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
+import com.facebook.react.bridge.WritableArray
 import com.facebook.react.bridge.WritableMap
+import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
@@ -400,7 +403,16 @@ class CustomerAutomationModule(
       if (pauseStatus != null) {
         val message = nativePauseMessage(action)
         appendNativeEvent(events, "task.paused", message)
-        return createNativeSessionSnapshot(taskId, instruction, pauseStatus, message, events)
+        return createNativeSessionSnapshot(
+          taskId,
+          instruction,
+          pauseStatus,
+          message,
+          events,
+          pauseAction = action,
+          nextStepNumber = stepNumber + 1,
+          lastActionResult = lastActionResult
+        )
       }
 
       val actionName = action.getString("action")
@@ -768,7 +780,10 @@ class CustomerAutomationModule(
     instruction: String,
     status: String,
     summary: String?,
-    events: List<NativeTaskEvent>
+    events: List<NativeTaskEvent>,
+    pauseAction: JSONObject? = null,
+    nextStepNumber: Int? = null,
+    lastActionResult: NativeActionResult? = null
   ): WritableMap {
     val task = Arguments.createMap().apply {
       putString("id", taskId)
@@ -794,6 +809,84 @@ class CustomerAutomationModule(
     return Arguments.createMap().apply {
       putMap("task", task)
       putArray("events", eventArray)
+      if (pauseAction != null) {
+        putMap(
+          "pause",
+          Arguments.createMap().apply {
+            putString("status", status)
+            putMap("action", jsonObjectToWritableMap(pauseAction))
+            putString("message", summary ?: "User interaction required.")
+          }
+        )
+      } else {
+        putNull("pause")
+      }
+      if (nextStepNumber != null) {
+        putInt("nextStepNumber", nextStepNumber)
+      }
+      if (lastActionResult != null) {
+        putMap("lastActionResult", jsonObjectToWritableMap(lastActionResult.toJson()))
+      } else {
+        putNull("lastActionResult")
+      }
+    }
+  }
+
+  private fun jsonObjectToWritableMap(source: JSONObject): WritableMap {
+    val map = Arguments.createMap()
+    val keys = source.keys()
+    while (keys.hasNext()) {
+      val key = keys.next()
+      putJsonValue(map, key, source.opt(key))
+    }
+    return map
+  }
+
+  private fun jsonArrayToWritableArray(source: JSONArray): WritableArray {
+    val array = Arguments.createArray()
+    for (index in 0 until source.length()) {
+      pushJsonValue(array, source.opt(index))
+    }
+    return array
+  }
+
+  private fun putJsonValue(map: WritableMap, key: String, value: Any?) {
+    when (value) {
+      null, JSONObject.NULL -> map.putNull(key)
+      is Boolean -> map.putBoolean(key, value)
+      is Int -> map.putInt(key, value)
+      is Long -> {
+        if (value >= Int.MIN_VALUE && value <= Int.MAX_VALUE) {
+          map.putInt(key, value.toInt())
+        } else {
+          map.putDouble(key, value.toDouble())
+        }
+      }
+      is Number -> map.putDouble(key, value.toDouble())
+      is String -> map.putString(key, value)
+      is JSONObject -> map.putMap(key, jsonObjectToWritableMap(value))
+      is JSONArray -> map.putArray(key, jsonArrayToWritableArray(value))
+      else -> map.putString(key, value.toString())
+    }
+  }
+
+  private fun pushJsonValue(array: WritableArray, value: Any?) {
+    when (value) {
+      null, JSONObject.NULL -> array.pushNull()
+      is Boolean -> array.pushBoolean(value)
+      is Int -> array.pushInt(value)
+      is Long -> {
+        if (value >= Int.MIN_VALUE && value <= Int.MAX_VALUE) {
+          array.pushInt(value.toInt())
+        } else {
+          array.pushDouble(value.toDouble())
+        }
+      }
+      is Number -> array.pushDouble(value.toDouble())
+      is String -> array.pushString(value)
+      is JSONObject -> array.pushMap(jsonObjectToWritableMap(value))
+      is JSONArray -> array.pushArray(jsonArrayToWritableArray(value))
+      else -> array.pushString(value.toString())
     }
   }
 
@@ -822,7 +915,41 @@ class CustomerAutomationModule(
       return Intent.parseUri(target, Intent.URI_INTENT_SCHEME)
     }
 
-    return reactContext.packageManager.getLaunchIntentForPackage(target)
+    val packageManager = reactContext.packageManager
+    return packageManager.getLaunchIntentForPackage(target)
+      ?: resolveLaunchIntentByLabel(packageManager, target)
+  }
+
+  private fun resolveLaunchIntentByLabel(
+    packageManager: PackageManager,
+    target: String
+  ): Intent? {
+    val normalizedTarget = normalizeLaunchLabel(target)
+    val launcherIntent = Intent(Intent.ACTION_MAIN).apply {
+      addCategory(Intent.CATEGORY_LAUNCHER)
+    }
+    val launchableApps = packageManager.queryIntentActivities(
+      launcherIntent,
+      PackageManager.MATCH_DEFAULT_ONLY
+    )
+    val exactMatch = launchableApps.firstOrNull { resolveInfo ->
+      normalizeLaunchLabel(resolveInfo.loadLabel(packageManager).toString()) ==
+        normalizedTarget
+    }
+    val partialMatch = exactMatch ?: launchableApps.firstOrNull { resolveInfo ->
+      val label = normalizeLaunchLabel(resolveInfo.loadLabel(packageManager).toString())
+      label.contains(normalizedTarget) || normalizedTarget.contains(label)
+    }
+    val activityInfo = partialMatch?.activityInfo ?: return null
+
+    return Intent(Intent.ACTION_MAIN).apply {
+      addCategory(Intent.CATEGORY_LAUNCHER)
+      setClassName(activityInfo.packageName, activityInfo.name)
+    }
+  }
+
+  private fun normalizeLaunchLabel(value: String): String {
+    return value.trim().lowercase()
   }
 
   private fun handleScreenCaptureActivityResult(

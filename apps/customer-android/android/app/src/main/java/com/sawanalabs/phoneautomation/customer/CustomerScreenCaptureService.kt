@@ -24,6 +24,7 @@ import android.os.SystemClock
 import android.util.Base64
 import android.util.Log
 import java.io.ByteArrayOutputStream
+import kotlin.math.roundToInt
 
 data class CustomerScreenCaptureFrame(
   val width: Int,
@@ -267,7 +268,7 @@ class CustomerScreenCaptureService : Service() {
     onError: (CustomerScreenCaptureFailure) -> Unit
   ) {
     try {
-      onResult(CustomerScreenCaptureFrame(width, height, encodeImageAsJpeg(image, width, height)))
+      onResult(encodeImageAsJpeg(image, width, height))
     } catch (error: Exception) {
       onError(
         CustomerScreenCaptureFailure(
@@ -281,7 +282,7 @@ class CustomerScreenCaptureService : Service() {
     }
   }
 
-  private fun encodeImageAsJpeg(image: Image, width: Int, height: Int): String {
+  private fun encodeImageAsJpeg(image: Image, width: Int, height: Int): CustomerScreenCaptureFrame {
     val plane = image.planes[0]
     val buffer = plane.buffer
     val pixelStride = plane.pixelStride
@@ -293,15 +294,37 @@ class CustomerScreenCaptureService : Service() {
 
     val croppedBitmap =
       if (bitmapWidth == width) bitmap else Bitmap.createBitmap(bitmap, 0, 0, width, height)
+    val maxSide = maxOf(width, height)
+    val scaledBitmap =
+      if (maxSide > MAX_MODEL_IMAGE_SIDE) {
+        val scale = MAX_MODEL_IMAGE_SIDE.toDouble() / maxSide.toDouble()
+        Bitmap.createScaledBitmap(
+          croppedBitmap,
+          (width * scale).roundToInt(),
+          (height * scale).roundToInt(),
+          true
+        )
+      } else {
+        croppedBitmap
+      }
     val output = ByteArrayOutputStream()
-    croppedBitmap.compress(Bitmap.CompressFormat.JPEG, 70, output)
+    scaledBitmap.compress(Bitmap.CompressFormat.JPEG, 70, output)
 
+    val scaledWidth = scaledBitmap.width
+    val scaledHeight = scaledBitmap.height
+    if (scaledBitmap !== croppedBitmap) {
+      scaledBitmap.recycle()
+    }
     if (croppedBitmap !== bitmap) {
       croppedBitmap.recycle()
     }
     bitmap.recycle()
 
-    return Base64.encodeToString(output.toByteArray(), Base64.NO_WRAP)
+    return CustomerScreenCaptureFrame(
+      width = scaledWidth,
+      height = scaledHeight,
+      frameBase64 = Base64.encodeToString(output.toByteArray(), Base64.NO_WRAP)
+    )
   }
 
   private fun releaseProjection(stopProjection: Boolean = true) {
@@ -392,6 +415,7 @@ class CustomerScreenCaptureService : Service() {
     private const val NOTIFICATION_CHANNEL_ID = "customer-screen-capture"
     private const val NOTIFICATION_ID = 41032
     private const val SCREEN_CAPTURE_POLL_INTERVAL_MS = 50L
+    private const val MAX_MODEL_IMAGE_SIDE = 2048
 
     @Volatile private var activeService: CustomerScreenCaptureService? = null
     @Volatile private var pendingStartRequest: ProjectionStartRequest? = null
