@@ -252,6 +252,60 @@ describe("routine actions", () => {
     })
   })
 
+  it("records a completion signal when a hosted task finishes", async () => {
+    const executor = createRecordingExecutor()
+    const completionSignals: string[] = []
+
+    const result = await runHostedRoutineActionLoop({
+      taskId: "customer_task_1",
+      instruction: "检查当前页面",
+      runtimeUrl: "http://localhost:8787",
+      runtimeAccessToken: "alpha-token",
+      executor,
+      fetchImpl: async () =>
+        new Response(
+          JSON.stringify({
+            action: {
+              _metadata: "finish",
+              message: "done",
+            },
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }
+        ),
+      screenStateCollector: {
+        async capture() {
+          return {
+            frameBase64: "frame",
+            frameMimeType: "image/png",
+            width: 1080,
+            height: 2400,
+          }
+        },
+      },
+      completionSignalNotifier: {
+        async notifyTaskOutcome(session) {
+          completionSignals.push(
+            `${session.task.id}:${session.task.status}:${session.task.summary}`
+          )
+          return {
+            status: "delivered",
+            message: "Completion signal delivered.",
+          }
+        },
+      },
+    })
+
+    expect(completionSignals).toEqual(["customer_task_1:finished:done"])
+    expect(result.task.status).toBe("finished")
+    expect(result.events.at(-1)).toMatchObject({
+      type: "task.notification.delivered",
+      message: "Completion signal delivered.",
+    })
+  })
+
   it("records runtime-local actions without dispatching physical phone actions", async () => {
     const executor = createRecordingExecutor()
     const stepRequests: Array<Record<string, unknown>> = []

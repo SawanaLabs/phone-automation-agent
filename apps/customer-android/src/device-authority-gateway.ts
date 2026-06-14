@@ -10,17 +10,20 @@ export type DeviceAuthorityGateway = {
   getSnapshot: () => Promise<DeviceAuthoritySnapshot>
   openAccessibilitySettings: () => Promise<DeviceAuthoritySnapshot>
   requestScreenCapture: () => Promise<DeviceAuthoritySnapshot>
+  requestNotifications: () => Promise<DeviceAuthoritySnapshot>
   simulateScreenCaptureLoss?: () => Promise<DeviceAuthoritySnapshot>
 }
 
 const SETUP_REQUIRED_SNAPSHOT: DeviceAuthoritySnapshot = {
   accessibilityService: "disabled",
   screenCapture: "missing",
+  notifications: "missing",
 }
 
 const READY_SNAPSHOT: DeviceAuthoritySnapshot = {
   accessibilityService: "enabled",
   screenCapture: "granted",
+  notifications: "granted",
 }
 
 export function createDeviceAuthorityGateway(): DeviceAuthorityGateway {
@@ -47,6 +50,13 @@ function createDevelopmentAuthorityGateway(): DeviceAuthorityGateway {
     },
     async requestScreenCapture() {
       snapshot = READY_SNAPSHOT
+      return snapshot
+    },
+    async requestNotifications() {
+      snapshot = {
+        ...snapshot,
+        notifications: "granted",
+      }
       return snapshot
     },
     async simulateScreenCaptureLoss() {

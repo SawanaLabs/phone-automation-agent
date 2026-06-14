@@ -17,6 +17,7 @@ import {
   type CustomerTaskEvent,
   type CustomerSessionSnapshot,
 } from "./src/customer-session"
+import { createCompletionSignalNotifier } from "./src/completion-signal-gateway"
 import {
   deriveDeviceAuthorityState,
   type DeviceAuthoritySnapshot,
@@ -46,10 +47,12 @@ const DEFAULT_INSTRUCTION = "打开小红书搜索咖啡店，停在结果页"
 const DEFAULT_AUTHORITY_SNAPSHOT: DeviceAuthoritySnapshot = {
   accessibilityService: "disabled",
   screenCapture: "missing",
+  notifications: "missing",
 }
 const authorityGateway = createDeviceAuthorityGateway()
 const routineActionExecutor = createRoutineActionExecutor()
 const screenStateCollector = createScreenStateCollector()
+const completionSignalNotifier = createCompletionSignalNotifier()
 const nativeHostedTaskRunner =
   Platform.OS === "web"
     ? null
@@ -131,6 +134,15 @@ export default function App() {
     setErrorMessage(null)
     try {
       applyAuthoritySnapshot(await authorityGateway.requestScreenCapture())
+    } catch (error) {
+      setErrorMessage(describeError(error))
+    }
+  }
+
+  async function handleRequestNotifications() {
+    setErrorMessage(null)
+    try {
+      applyAuthoritySnapshot(await authorityGateway.requestNotifications())
     } catch (error) {
       setErrorMessage(describeError(error))
     }
@@ -259,6 +271,7 @@ export default function App() {
         initialEvents: baseSession.events,
         initialStepNumber: options.initialStepNumber,
         initialLastActionResult: options.initialLastActionResult,
+        completionSignalNotifier,
         shouldStop: () => stopRequestedRef.current,
         onEvent: (event) => {
           setSession((currentSession) =>
@@ -350,6 +363,24 @@ export default function App() {
                   ]}
                 >
                   <Text style={styles.secondaryButtonText}>Grant Capture</Text>
+                </Pressable>
+              </View>
+              <View style={styles.authorityRow}>
+                <View>
+                  <Text style={styles.authorityName}>Notifications</Text>
+                  <Text style={styles.authorityValue}>
+                    {authoritySnapshot.notifications}
+                  </Text>
+                </View>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={handleRequestNotifications}
+                  style={({ pressed }) => [
+                    styles.secondaryButton,
+                    pressed && styles.buttonPressed,
+                  ]}
+                >
+                  <Text style={styles.secondaryButtonText}>Grant Alerts</Text>
                 </Pressable>
               </View>
             </View>

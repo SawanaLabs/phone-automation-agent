@@ -363,6 +363,51 @@ def test_customer_step_accepts_open_autoglm_answer_wrapped_model_output():
     }
 
 
+def test_customer_step_logs_invalid_model_output_with_session_context(caplog):
+    raw_output = "<think>bad</think><answer>not an action</answer>"
+    client = TestClient(
+        create_app(
+            runtime_token="test-alpha-token",
+            model_provider=FakeModelProvider(raw_output),
+            load_env=False,
+        )
+    )
+    created = client.post(
+        "/sessions",
+        headers={"Authorization": "Bearer test-alpha-token"},
+        json={
+            "instruction": "检查当前页面",
+            "source": "customer-android",
+        },
+    )
+    session_id = created.json()["task"]["id"]
+    caplog.set_level("ERROR", logger="customer_android_api.agent")
+
+    response = client.post(
+        f"/sessions/{session_id}/steps",
+        headers={"Authorization": "Bearer test-alpha-token"},
+        json={
+            "instruction": "检查当前页面",
+            "source": "customer-android",
+            "stepNumber": 1,
+            "screen": {
+                "frameBase64": "ZmFrZS1zY3JlZW4=",
+                "frameMimeType": "image/png",
+                "width": 1080,
+                "height": 2400,
+                "currentPackage": "com.android.settings",
+            },
+            "lastActionResult": None,
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["action"]["_metadata"] == "failed"
+    assert session_id in caplog.text
+    assert "step_number=1" in caplog.text
+    assert raw_output in caplog.text
+
+
 @pytest.mark.parametrize(
     ("app_name", "expected_app"),
     [
@@ -978,7 +1023,7 @@ def test_customer_step_returns_failed_action_for_unparseable_model_action():
     }
 
 
-def test_customer_step_returns_failed_action_for_provider_failure():
+def test_customer_step_returns_failed_action_for_provider_failure(caplog):
     client = TestClient(
         create_app(
             runtime_token="test-alpha-token",
@@ -994,9 +1039,11 @@ def test_customer_step_returns_failed_action_for_provider_failure():
             "source": "customer-android",
         },
     )
+    session_id = created.json()["task"]["id"]
+    caplog.set_level("ERROR", logger="customer_android_api.agent")
 
     response = client.post(
-        f"/sessions/{created.json()['task']['id']}/steps",
+        f"/sessions/{session_id}/steps",
         headers={"Authorization": "Bearer test-alpha-token"},
         json={
             "instruction": "检查当前页面",
@@ -1017,6 +1064,9 @@ def test_customer_step_returns_failed_action_for_provider_failure():
         "_metadata": "failed",
         "message": "Model provider failed: provider unavailable",
     }
+    assert session_id in caplog.text
+    assert "step_number=1" in caplog.text
+    assert "provider unavailable" in caplog.text
 
 
 def test_customer_step_builds_open_autoglm_style_multimodal_context():

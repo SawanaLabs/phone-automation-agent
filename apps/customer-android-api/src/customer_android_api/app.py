@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from secrets import compare_digest
 
 from fastapi import FastAPI, Header, HTTPException
@@ -18,6 +19,8 @@ from customer_android_api.models import (
     CustomerStepResponse,
 )
 from customer_android_api.store import SessionStore
+
+logger = logging.getLogger(__name__)
 
 
 def create_app(
@@ -83,6 +86,12 @@ def create_app(
             session=session,
         )
         if action is not None:
+            logger.warning(
+                "Customer step preflight failed: session_id=%s step_number=%s message=%s",
+                session_id,
+                request.stepNumber,
+                action.get("message"),
+            )
             if not _is_terminal_status(session.task.status):
                 store.record_step_decision(
                     session_id=session_id,

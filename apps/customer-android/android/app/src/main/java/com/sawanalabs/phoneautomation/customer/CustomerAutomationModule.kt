@@ -1,11 +1,17 @@
 package com.sawanalabs.phoneautomation.customer
 
+import android.Manifest
 import android.app.Activity
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.media.projection.MediaProjectionManager
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
@@ -21,8 +27,11 @@ import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
+import com.facebook.react.bridge.ReadableMap
 import com.facebook.react.bridge.WritableArray
 import com.facebook.react.bridge.WritableMap
+import com.facebook.react.modules.core.PermissionAwareActivity
+import com.facebook.react.modules.core.PermissionListener
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
@@ -36,8 +45,9 @@ import kotlin.math.roundToInt
 
 class CustomerAutomationModule(
   private val reactContext: ReactApplicationContext
-) : ReactContextBaseJavaModule(reactContext) {
+) : ReactContextBaseJavaModule(reactContext), PermissionListener {
   private var pendingScreenCapturePromise: Promise? = null
+  private var pendingNotificationPermissionPromise: Promise? = null
   private val mainHandler = Handler(Looper.getMainLooper())
 
   private val activityEventListener: ActivityEventListener =
@@ -85,6 +95,7 @@ class CustomerAutomationModule(
 
     val activity = reactApplicationContext.currentActivity
     if (activity == null) {
+      Log.e(TAG, "Screen capture permission request failed: no Android activity.")
       promise.reject("NO_ACTIVITY", "No Android activity is available.")
       return
     }
@@ -98,6 +109,58 @@ class CustomerAutomationModule(
       projectionManager.createScreenCaptureIntent(),
       SCREEN_CAPTURE_REQUEST_CODE
     )
+  }
+
+  @ReactMethod
+  fun requestNotifications(promise: Promise) {
+    if (hasNotificationPermission()) {
+      promise.resolve(createAuthoritySnapshot())
+      return
+    }
+
+    if (pendingNotificationPermissionPromise != null) {
+      promise.reject(
+        "NOTIFICATION_REQUEST_IN_PROGRESS",
+        "Notification permission is already being requested."
+      )
+      return
+    }
+
+    val activity = reactApplicationContext.currentActivity as? PermissionAwareActivity
+    if (activity == null) {
+      Log.e(TAG, "Notification permission request failed: no Android activity.")
+      promise.reject("NO_ACTIVITY", "No Android activity is available.")
+      return
+    }
+
+    pendingNotificationPermissionPromise = promise
+    Log.i(TAG, "Requesting notification permission.")
+    activity.requestPermissions(
+      arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+      NOTIFICATION_PERMISSION_REQUEST_CODE,
+      this
+    )
+  }
+
+  override fun onRequestPermissionsResult(
+    requestCode: Int,
+    permissions: Array<String>,
+    grantResults: IntArray
+  ): Boolean {
+    if (requestCode != NOTIFICATION_PERMISSION_REQUEST_CODE) {
+      return false
+    }
+
+    val promise = pendingNotificationPermissionPromise ?: run {
+      Log.i(TAG, "Ignoring notification permission result because no promise is pending.")
+      return true
+    }
+    pendingNotificationPermissionPromise = null
+    val granted = grantResults.isNotEmpty() &&
+      grantResults[0] == PackageManager.PERMISSION_GRANTED
+    Log.i(TAG, "Notification permission result: granted=$granted")
+    promise.resolve(createAuthoritySnapshot())
+    return true
   }
 
   @ReactMethod
@@ -262,6 +325,50 @@ class CustomerAutomationModule(
   }
 
   @ReactMethod
+  fun showCompletionSignal(session: ReadableMap, promise: Promise) {
+    try {
+      val task = session.getMap("task")
+        ?: throw IllegalStateException("Task snapshot is required for completion signal.")
+      val taskId = task.getString("id") ?: "customer-task"
+      val status = task.getString("status") ?: "unknown"
+      val summary = if (task.hasKey("summary") && !task.isNull("summary")) {
+        task.getString("summary")
+      } else {
+        null
+      }
+
+      if (!shouldShowCompletionSignal(status)) {
+        promise.resolve(
+          Arguments.createMap().apply {
+            putString("status", "delivered")
+            putString("message", "Completion signal not required.")
+          }
+        )
+        return
+      }
+
+      showTaskOutcomeNotification(
+        taskId = taskId,
+        status = status,
+        message = summary ?: defaultCompletionSignalMessage(status)
+      )
+      promise.resolve(
+        Arguments.createMap().apply {
+          putString("status", "delivered")
+          putString("message", "Completion signal delivered.")
+        }
+      )
+    } catch (error: Exception) {
+      Log.e(TAG, "Completion signal failed: ${error.message}", error)
+      promise.reject(
+        "COMPLETION_SIGNAL_FAILED",
+        error.message ?: "Completion signal failed.",
+        error
+      )
+    }
+  }
+
+  @ReactMethod
   fun runHostedTask(
     runtimeUrl: String,
     runtimeAccessToken: String,
@@ -318,6 +425,7 @@ class CustomerAutomationModule(
         )
         mainHandler.post { promise.resolve(snapshot) }
       } catch (error: Exception) {
+        Log.e(TAG, "Hosted task failed before returning a snapshot: ${error.message}", error)
         mainHandler.post {
           promise.reject(
             "HOSTED_TASK_FAILED",
@@ -355,7 +463,7 @@ class CustomerAutomationModule(
         captureScreenStateJsonBlocking()
       } catch (error: Exception) {
         val message = error.message ?: "Failed to capture screen state."
-        Log.w(TAG, "Hosted task $taskId step $stepNumber capture failed: $message", error)
+        Log.e(TAG, "Hosted task $taskId step $stepNumber capture failed: $message", error)
         appendNativeEvent(events, "task.failed", message)
         return createNativeSessionSnapshot(taskId, instruction, "failed", message, events)
       }
@@ -377,7 +485,7 @@ class CustomerAutomationModule(
         )
       } catch (error: Exception) {
         val message = error.message ?: "Hosted runtime request failed."
-        Log.w(TAG, "Hosted task $taskId step $stepNumber decision failed: $message", error)
+        Log.e(TAG, "Hosted task $taskId step $stepNumber decision failed: $message", error)
         appendNativeEvent(events, "task.failed", message)
         return createNativeSessionSnapshot(taskId, instruction, "failed", message, events)
       }
@@ -394,7 +502,7 @@ class CustomerAutomationModule(
         val message = action.optString("message").ifBlank {
           "Hosted runtime returned a failed action."
         }
-        Log.w(TAG, "Hosted task $taskId failed: $message")
+        Log.e(TAG, "Hosted task $taskId failed: $message")
         appendNativeEvent(events, "task.failed", message)
         return createNativeSessionSnapshot(taskId, instruction, "failed", message, events)
       }
@@ -419,10 +527,13 @@ class CustomerAutomationModule(
       Log.i(TAG, "Hosted task $taskId step $stepNumber action=$actionName.")
       appendNativeEvent(events, "step.action", "$actionName requested.")
       lastActionResult = dispatchHostedActionNative(action)
-      Log.i(
-        TAG,
+      val resultMessage =
         "Hosted task $taskId step $stepNumber result=${lastActionResult.status}: ${lastActionResult.message}"
-      )
+      if (lastActionResult.status == "failed") {
+        Log.e(TAG, resultMessage)
+      } else {
+        Log.i(TAG, resultMessage)
+      }
       appendNativeEvent(events, "step.result", lastActionResult.message)
     }
 
@@ -458,6 +569,7 @@ class CustomerAutomationModule(
         message = "$actionName completed."
       )
     } catch (error: Exception) {
+      Log.e(TAG, "Native action failed: action=$actionName message=${error.message}", error)
       NativeActionResult(
         status = "failed",
         action = actionName,
@@ -1031,6 +1143,7 @@ class CustomerAutomationModule(
       "ACCESSIBILITY_SERVICE_DISABLED",
       "Enable Customer Phone Agent accessibility service before running actions."
     )
+    Log.e(TAG, "Native action rejected: accessibility service disabled.")
     return null
   }
 
@@ -1044,10 +1157,148 @@ class CustomerAutomationModule(
         "screenCapture",
         if (CustomerScreenCaptureService.isCaptureReady()) "granted" else "missing"
       )
+      putString(
+        "notifications",
+        if (hasNotificationPermission()) "granted" else "missing"
+      )
+    }
+  }
+
+  private fun hasNotificationPermission(): Boolean {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+      return true
+    }
+
+    return reactContext.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) ==
+      PackageManager.PERMISSION_GRANTED
+  }
+
+  private fun showTaskOutcomeNotification(
+    taskId: String,
+    status: String,
+    message: String
+  ) {
+    if (!hasNotificationPermission()) {
+      throw IllegalStateException("Notification permission is missing.")
+    }
+
+    createCompletionSignalChannel()
+    val notificationManager =
+      reactContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+    val notification = createTaskOutcomeNotification(taskId, status, message)
+    val notificationId = COMPLETION_SIGNAL_NOTIFICATION_ID_BASE +
+      (taskId.hashCode() and 0x0fffffff)
+    notificationManager.notify(notificationId, notification)
+    Log.i(TAG, "Completion signal delivered: taskId=$taskId status=$status")
+  }
+
+  private fun createTaskOutcomeNotification(
+    taskId: String,
+    status: String,
+    message: String
+  ): Notification {
+    val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+      Notification.Builder(reactContext, COMPLETION_SIGNAL_CHANNEL_ID)
+    } else {
+      @Suppress("DEPRECATION")
+      Notification.Builder(reactContext)
+    }
+
+    builder
+      .setSmallIcon(completionSignalIcon(status))
+      .setContentTitle(completionSignalTitle(status))
+      .setContentText(message)
+      .setStyle(Notification.BigTextStyle().bigText(message))
+      .setContentIntent(createCompletionSignalPendingIntent(taskId))
+      .setAutoCancel(true)
+      .setShowWhen(true)
+
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+      @Suppress("DEPRECATION")
+      builder.setPriority(Notification.PRIORITY_DEFAULT)
+    }
+
+    return builder.build()
+  }
+
+  private fun createCompletionSignalPendingIntent(taskId: String): PendingIntent {
+    val intent = reactContext.packageManager.getLaunchIntentForPackage(reactContext.packageName)
+      ?: Intent(reactContext, MainActivity::class.java)
+    intent.addFlags(
+      Intent.FLAG_ACTIVITY_CLEAR_TOP or
+        Intent.FLAG_ACTIVITY_SINGLE_TOP or
+        Intent.FLAG_ACTIVITY_NEW_TASK
+    )
+    intent.putExtra("customer_task_id", taskId)
+
+    val flags = PendingIntent.FLAG_UPDATE_CURRENT or
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        PendingIntent.FLAG_IMMUTABLE
+      } else {
+        0
+      }
+    return PendingIntent.getActivity(
+      reactContext,
+      taskId.hashCode(),
+      intent,
+      flags
+    )
+  }
+
+  private fun createCompletionSignalChannel() {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+      return
+    }
+
+    val notificationManager =
+      reactContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+    val channel = NotificationChannel(
+      COMPLETION_SIGNAL_CHANNEL_ID,
+      "Task status",
+      NotificationManager.IMPORTANCE_DEFAULT
+    ).apply {
+      description = "Customer Phone Agent task outcomes"
+    }
+    notificationManager.createNotificationChannel(channel)
+  }
+
+  private fun shouldShowCompletionSignal(status: String): Boolean {
+    return status == "finished" ||
+      status == "failed" ||
+      status == "stopped" ||
+      status == "takeover_required" ||
+      status == "interaction_required" ||
+      status == "confirmation_required"
+  }
+
+  private fun completionSignalTitle(status: String): String {
+    return when (status) {
+      "finished" -> "Task finished"
+      "failed" -> "Task failed"
+      "stopped" -> "Task stopped"
+      else -> "Task needs attention"
+    }
+  }
+
+  private fun defaultCompletionSignalMessage(status: String): String {
+    return when (status) {
+      "finished" -> "The task finished."
+      "failed" -> "The task failed."
+      "stopped" -> "The task stopped."
+      else -> "The task needs your attention."
+    }
+  }
+
+  private fun completionSignalIcon(status: String): Int {
+    return if (status == "failed") {
+      android.R.drawable.stat_notify_error
+    } else {
+      android.R.drawable.stat_sys_upload_done
     }
   }
 
   private fun rejectScreenCapture(promise: Promise, failure: CustomerScreenCaptureFailure) {
+    Log.e(TAG, "Screen capture failed: ${failure.code}: ${failure.message}", failure.cause)
     if (failure.cause == null) {
       promise.reject(failure.code, failure.message)
     } else {
@@ -1089,10 +1340,13 @@ class CustomerAutomationModule(
   companion object {
     private const val TAG = "CustomerAutomation"
     private const val SCREEN_CAPTURE_REQUEST_CODE = 41031
+    private const val NOTIFICATION_PERMISSION_REQUEST_CODE = 41032
     private const val SCREEN_CAPTURE_TIMEOUT_MS = 1500L
     private const val NATIVE_ACTION_TIMEOUT_MS = 6000L
     private const val ACTION_SETTLE_MS = 700L
     private const val HOSTED_RUNTIME_TIMEOUT_MS = 30000
+    private const val COMPLETION_SIGNAL_CHANNEL_ID = "customer_task_status"
+    private const val COMPLETION_SIGNAL_NOTIFICATION_ID_BASE = 52000
     private var activeModule: CustomerAutomationModule? = null
 
     fun handleActivityResult(

@@ -1,9 +1,11 @@
 export type AccessibilityServiceStatus = "enabled" | "disabled"
 export type ScreenCaptureStatus = "granted" | "missing"
+export type NotificationPermissionStatus = "granted" | "missing"
 
 export type DeviceAuthoritySnapshot = {
   accessibilityService: AccessibilityServiceStatus
   screenCapture: ScreenCaptureStatus
+  notifications: NotificationPermissionStatus
 }
 
 export type DeviceAuthorityState = {
@@ -18,7 +20,8 @@ export function deriveDeviceAuthorityState(
 ): DeviceAuthorityState {
   if (
     snapshot.accessibilityService === "enabled" &&
-    snapshot.screenCapture === "granted"
+    snapshot.screenCapture === "granted" &&
+    snapshot.notifications === "granted"
   ) {
     return {
       status: "ready",
@@ -49,6 +52,9 @@ function getMissingAuthority(snapshot: DeviceAuthoritySnapshot): string[] {
   }
   if (snapshot.screenCapture === "missing") {
     missing.push("screen_capture")
+  }
+  if (snapshot.notifications === "missing") {
+    missing.push("notifications")
   }
 
   return missing

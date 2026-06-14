@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import json
+import logging
 from datetime import datetime
 from typing import Protocol
 
@@ -13,6 +14,7 @@ from customer_android_api.open_autoglm_app_catalog import (
 from customer_android_api.open_autoglm_actions import parse_open_autoglm_action_text
 
 _WEEKDAY_NAMES = ["星期一", "星期二", "星期三", "星期四", "星期五", "星期六", "星期日"]
+logger = logging.getLogger(__name__)
 
 
 def _formatted_today() -> str:
@@ -125,11 +127,22 @@ class CustomerStepAgent:
                 }
             )
         except Exception as error:
+            logger.exception(
+                "Customer Step Agent model provider failed: session_id=%s step_number=%s",
+                session.task.id,
+                request.stepNumber,
+            )
             raise CustomerStepAgentError(f"Model provider failed: {error}") from error
 
         try:
             action = parse_open_autoglm_action_text(output)
         except ValueError as error:
+            logger.exception(
+                "Customer Step Agent invalid model output: session_id=%s step_number=%s raw_output=%r",
+                session.task.id,
+                request.stepNumber,
+                output,
+            )
             raise CustomerStepAgentError(f"Invalid model output: {error}") from error
 
         self._store_step_result(

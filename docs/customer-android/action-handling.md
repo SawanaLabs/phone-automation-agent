@@ -38,13 +38,15 @@ updateAt: 2026-06-14
 - Routine physical actions run in Full Access Mode after explicit Android permission setup. They should not ask for approval before every step in V0.
 - Action E2E QA should be grouped by execution semantics rather than by equal-weight action names:
   - Routine Action E2E covers `Launch`, `Tap`, `Type`, `Type_Name`, `Swipe`, `Back`, `Home`, `Wait`, `Double Tap`, and `Long Press`.
-  - Pause Action E2E covers `Take_over`, `Interact`, and `Tap` with `message`.
+  - Pause Action E2E covers `Take_over` and `Interact`.
+  - Sensitive Tap Variant E2E covers `Tap` with `message` as `confirmation_required`.
   - Runtime-Local Action E2E covers `Note` and `Call_API`.
   - `finish` is validated through Completion Signal E2E.
 - Grouping actions by execution semantics must not reduce coverage. Every recognized Open-AutoGLM action remains accounted for in either routine, pause, runtime-local, or finish acceptance.
+- `apps/customer-android/src/action-e2e-coverage.ts` is the code-level action coverage manifest. Its test keeps the 14 recognized `do(...)` action names plus `finish(...)` accounted for exactly once, while tracking sensitive `Tap(message)` as a required variant.
 - Customer Android acceptance should use Evidence-First Integration E2E as the main path: the APK, Customer Android API, model provider, and Controlled Phone behavior are judged together with enough run evidence to explain the result.
 - Scripted-provider runs remain useful as executor diagnostics and sanity checks, but scripted-only action success does not prove the real Customer App Story.
-- Completion Signal notifications are triggered by the APK after the hosted loop receives terminal or pause state. The API returns the state and message; it does not own Android notification delivery.
+- Completion Signal notifications are triggered by the APK after the hosted loop receives terminal or pause state. The API returns the state and message; it does not own Android notification delivery. Notification delivery success is recorded as `task.notification.delivered`; delivery failures stay visible as `task.notification.failed` evidence without changing the task outcome.
 
 ## Decision Records
 

@@ -6,6 +6,7 @@ import { deriveDeviceAuthorityState } from "./device-authority"
 const readyAuthorityState = deriveDeviceAuthorityState({
   accessibilityService: "enabled",
   screenCapture: "granted",
+  notifications: "granted",
 })
 
 describe("customer hosted session", () => {
@@ -154,6 +155,7 @@ describe("customer hosted session", () => {
         authorityState: deriveDeviceAuthorityState({
           accessibilityService: "disabled",
           screenCapture: "missing",
+          notifications: "missing",
         }),
         runtimeUrl: "http://localhost:8787",
         runtimeAccessToken: "alpha-token",
@@ -161,7 +163,7 @@ describe("customer hosted session", () => {
         fetchImpl,
       })
     ).rejects.toThrow(
-      "Android permissions are required before starting a task: accessibility_service, screen_capture."
+      "Android permissions are required before starting a task: accessibility_service, screen_capture, notifications."
     )
   })
 

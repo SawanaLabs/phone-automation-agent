@@ -6,6 +6,10 @@ import {
   type CustomerTaskEvent,
   type CustomerTaskPause,
 } from "./customer-session"
+import {
+  notifyTaskOutcome,
+  type CompletionSignalNotifier,
+} from "./completion-signal"
 
 export type RelativePoint = [number, number]
 
@@ -136,6 +140,7 @@ export type HostedRoutineActionLoopInput = {
   initialStepNumber?: number
   initialLastActionResult?: CustomerActionResult | null
   maxSteps?: number
+  completionSignalNotifier?: CompletionSignalNotifier
 }
 
 export function convertRelativePoint(
@@ -214,6 +219,7 @@ export async function runHostedRoutineActionLoop({
   initialStepNumber = 1,
   initialLastActionResult = null,
   maxSteps = 50,
+  completionSignalNotifier,
 }: HostedRoutineActionLoopInput): Promise<CustomerSessionSnapshot> {
   const events: CustomerTaskEvent[] = [...initialEvents]
   let lastActionResult: CustomerActionResult | null = initialLastActionResult
@@ -223,7 +229,11 @@ export async function runHostedRoutineActionLoop({
     if (shouldStop()) {
       const event = createEvent(events, "task.stopped", "Task stopped by user.")
       onEvent?.(event)
-      return createSnapshot(taskId, instruction, "stopped", null, events)
+      return completeHostedSession(
+        createSnapshot(taskId, instruction, "stopped", null, events),
+        completionSignalNotifier,
+        onEvent
+      )
     }
 
     let screen: CustomerScreenState
@@ -244,7 +254,11 @@ export async function runHostedRoutineActionLoop({
       const message = describeUnknownError(error)
       const event = createEvent(events, "task.failed", message, { stepNumber })
       onEvent?.(event)
-      return createSnapshot(taskId, instruction, "failed", message, events)
+      return completeHostedSession(
+        createSnapshot(taskId, instruction, "failed", message, events),
+        completionSignalNotifier,
+        onEvent
+      )
     }
 
     const action = decision.action
@@ -252,7 +266,17 @@ export async function runHostedRoutineActionLoop({
     if (action._metadata === "finish") {
       const event = createEvent(events, "task.finished", action.message)
       onEvent?.(event)
-      return createSnapshot(taskId, instruction, "finished", action.message, events)
+      return completeHostedSession(
+        createSnapshot(
+          taskId,
+          instruction,
+          "finished",
+          action.message,
+          events
+        ),
+        completionSignalNotifier,
+        onEvent
+      )
     }
 
     if (action._metadata === "failed") {
@@ -260,7 +284,11 @@ export async function runHostedRoutineActionLoop({
         stepNumber,
       })
       onEvent?.(event)
-      return createSnapshot(taskId, instruction, "failed", action.message, events)
+      return completeHostedSession(
+        createSnapshot(taskId, instruction, "failed", action.message, events),
+        completionSignalNotifier,
+        onEvent
+      )
     }
 
     const pause = createPauseForAction(action)
@@ -270,17 +298,21 @@ export async function runHostedRoutineActionLoop({
         stepNumber,
       })
       onEvent?.(event)
-      return createSnapshot(
-        taskId,
-        instruction,
-        pause.status,
-        pause.message,
-        events,
-        {
-          pause,
-          nextStepNumber: stepNumber + 1,
-          lastActionResult,
-        }
+      return completeHostedSession(
+        createSnapshot(
+          taskId,
+          instruction,
+          pause.status,
+          pause.message,
+          events,
+          {
+            pause,
+            nextStepNumber: stepNumber + 1,
+            lastActionResult,
+          }
+        ),
+        completionSignalNotifier,
+        onEvent
       )
     }
 
@@ -313,6 +345,21 @@ export async function runHostedRoutineActionLoop({
   throw new Error(
     `Hosted routine action loop exceeded ${maxSteps} steps without finish.`
   )
+}
+
+async function completeHostedSession(
+  session: CustomerSessionSnapshot,
+  completionSignalNotifier: CompletionSignalNotifier | undefined,
+  onEvent: ((event: CustomerTaskEvent) => void) | undefined
+): Promise<CustomerSessionSnapshot> {
+  const notifiedSession = await notifyTaskOutcome(
+    session,
+    completionSignalNotifier
+  )
+  for (const event of notifiedSession.events.slice(session.events.length)) {
+    onEvent?.(event)
+  }
+  return notifiedSession
 }
 
 export function createPauseContinueActionResult(

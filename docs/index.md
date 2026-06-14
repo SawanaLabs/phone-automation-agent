@@ -30,6 +30,7 @@ Start with `docs/DOCS.md` for repository-wide conventions, then use the domain f
 | ./customer-android/action-handling.md | Customer Android Action Handling | V0 Open-AutoGLM action vocabulary, routine executor scope, and pause-state mapping for the customer Android route. | 2026-06-14 |
 | ./customer-android/agent-engine.md | Customer Android Agent Engine | Runtime shape, environment contract, and session context behavior for apps/customer-android-api. | 2026-06-14 |
 | ./customer-android/delivery.md | Customer Android Delivery | Alpha APK distribution, validation checkpoints, and QA gates for the customer Android route. | 2026-06-13 |
+| ./customer-android/evidence-first-e2e.md | Customer Android Evidence-First E2E | Re-runnable QA checklist for Open-AutoGLM action coverage, Completion Signal behavior, and Run Evidence exits. | 2026-06-14 |
 | ./customer-android/index.md | Customer Android Docs | Map of customer Android app and API docs. | 2026-06-14 |
 | ./customer-android/runtime-boundary.md | Customer Android Runtime Boundary | Ownership boundary for the customer Android app, paired API, and reusable contracts. | 2026-06-13 |
 | ./customer-android/runtime-contract.md | Customer Android Runtime Contract | V0 sessions and steps contract between the Android APK and Customer Android API. | 2026-06-13 |

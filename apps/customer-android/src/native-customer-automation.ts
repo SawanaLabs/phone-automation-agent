@@ -1,5 +1,10 @@
 import type { DeviceAuthorityGateway } from "./device-authority-gateway"
 import type { DeviceAuthoritySnapshot } from "./device-authority"
+import {
+  notifyTaskOutcome,
+  type CompletionSignalNotifier,
+  type CompletionSignalResult,
+} from "./completion-signal"
 import type {
   CustomerScreenState,
   CustomerSessionSnapshot,
@@ -16,6 +21,7 @@ export type CustomerAutomationNativeModule = {
   getAuthoritySnapshot: () => Promise<DeviceAuthoritySnapshot>
   openAccessibilitySettings: () => Promise<DeviceAuthoritySnapshot>
   requestScreenCapture: () => Promise<DeviceAuthoritySnapshot>
+  requestNotifications: () => Promise<DeviceAuthoritySnapshot>
   captureScreenState: () => Promise<CustomerScreenState>
   tap: (x: number, y: number) => Promise<void>
   doubleTap: (x: number, y: number) => Promise<void>
@@ -31,6 +37,9 @@ export type CustomerAutomationNativeModule = {
   launchApp: (app: string) => Promise<void>
   typeText: (text: string) => Promise<void>
   wait: (durationMs: number) => Promise<void>
+  showCompletionSignal: (
+    session: CustomerSessionSnapshot
+  ) => Promise<CompletionSignalResult>
   runHostedTask: (
     runtimeUrl: string,
     runtimeAccessToken: string,
@@ -69,6 +78,7 @@ export function createNativeDeviceAuthorityGateway(
     getSnapshot: nativeModule.getAuthoritySnapshot,
     openAccessibilitySettings: nativeModule.openAccessibilitySettings,
     requestScreenCapture: nativeModule.requestScreenCapture,
+    requestNotifications: nativeModule.requestNotifications,
   }
 }
 
@@ -80,8 +90,18 @@ export function createNativeScreenStateCollector(
   }
 }
 
-export function createNativeHostedTaskRunner(
+export function createNativeCompletionSignalNotifier(
   nativeModule: CustomerAutomationNativeModule
+): CompletionSignalNotifier {
+  return {
+    notifyTaskOutcome: nativeModule.showCompletionSignal,
+  }
+}
+
+export function createNativeHostedTaskRunner(
+  nativeModule: CustomerAutomationNativeModule,
+  completionSignalNotifier: CompletionSignalNotifier =
+    createNativeCompletionSignalNotifier(nativeModule)
 ): HostedTaskRunner {
   return {
     async startTask({
@@ -106,11 +126,14 @@ export function createNativeHostedTaskRunner(
         throw new Error("Runtime access token is required.")
       }
 
-      return nativeModule.runHostedTask(
-        runtimeUrl,
-        normalizedRuntimeAccessToken,
-        normalizedInstruction,
-        50
+      return notifyTaskOutcome(
+        await nativeModule.runHostedTask(
+          runtimeUrl,
+          normalizedRuntimeAccessToken,
+          normalizedInstruction,
+          50
+        ),
+        completionSignalNotifier
       )
     },
   }

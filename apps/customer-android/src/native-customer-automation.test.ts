@@ -15,18 +15,34 @@ const readyNativeModule: CustomerAutomationNativeModule = {
     return {
       accessibilityService: "enabled",
       screenCapture: "granted",
+      notifications: "granted",
     }
   },
   async openAccessibilitySettings() {
     return {
       accessibilityService: "enabled",
       screenCapture: "granted",
+      notifications: "granted",
     }
   },
   async requestScreenCapture() {
     return {
       accessibilityService: "enabled",
       screenCapture: "granted",
+      notifications: "granted",
+    }
+  },
+  async requestNotifications() {
+    return {
+      accessibilityService: "enabled",
+      screenCapture: "granted",
+      notifications: "granted",
+    }
+  },
+  async showCompletionSignal() {
+    return {
+      status: "delivered",
+      message: "Completion signal delivered.",
     }
   },
   async captureScreenState() {
@@ -74,6 +90,17 @@ describe("customer automation native bridge", () => {
     await expect(gateway.getSnapshot()).resolves.toEqual({
       accessibilityService: "enabled",
       screenCapture: "granted",
+      notifications: "granted",
+    })
+  })
+
+  it("requests notification permission through the native authority gateway", async () => {
+    const gateway = createNativeDeviceAuthorityGateway(readyNativeModule)
+
+    await expect(gateway.requestNotifications()).resolves.toEqual({
+      accessibilityService: "enabled",
+      screenCapture: "granted",
+      notifications: "granted",
     })
   })
 
@@ -115,6 +142,7 @@ describe("customer automation native bridge", () => {
       authorityState: deriveDeviceAuthorityState({
         accessibilityService: "enabled",
         screenCapture: "granted",
+        notifications: "granted",
       }),
       runtimeUrl: "http://localhost:8787",
       runtimeAccessToken: "alpha-token",
@@ -127,6 +155,49 @@ describe("customer automation native bridge", () => {
     expect(session.task.status).toBe("finished")
   })
 
+  it("delivers a completion signal after the native Android loop returns a task outcome", async () => {
+    const notifications: string[] = []
+    const nativeModule: CustomerAutomationNativeModule = {
+      ...readyNativeModule,
+      async runHostedTask() {
+        return {
+          task: {
+            id: "customer_task_1",
+            instruction: "检查当前页面",
+            status: "finished",
+            summary: "Done",
+          },
+          events: [],
+        }
+      },
+      async showCompletionSignal(session) {
+        notifications.push(`${session.task.id}:${session.task.status}`)
+        return {
+          status: "delivered",
+          message: "Completion signal delivered.",
+        }
+      },
+    }
+    const runner = createNativeHostedTaskRunner(nativeModule)
+
+    const session = await runner.startTask({
+      authorityState: deriveDeviceAuthorityState({
+        accessibilityService: "enabled",
+        screenCapture: "granted",
+        notifications: "granted",
+      }),
+      runtimeUrl: "http://localhost:8787",
+      runtimeAccessToken: "alpha-token",
+      instruction: "检查当前页面",
+    })
+
+    expect(notifications).toEqual(["customer_task_1:finished"])
+    expect(session.events.at(-1)).toMatchObject({
+      type: "task.notification.delivered",
+      message: "Completion signal delivered.",
+    })
+  })
+
   it("rejects native hosted tasks before Android permissions are granted", async () => {
     const runner = createNativeHostedTaskRunner(readyNativeModule)
 
@@ -135,13 +206,14 @@ describe("customer automation native bridge", () => {
         authorityState: deriveDeviceAuthorityState({
           accessibilityService: "disabled",
           screenCapture: "missing",
+          notifications: "missing",
         }),
         runtimeUrl: "http://localhost:8787",
         runtimeAccessToken: "alpha-token",
         instruction: "检查当前页面",
       })
     ).rejects.toThrow(
-      "Android permissions are required before starting a task: accessibility_service, screen_capture."
+      "Android permissions are required before starting a task: accessibility_service, screen_capture, notifications."
     )
   })
 
