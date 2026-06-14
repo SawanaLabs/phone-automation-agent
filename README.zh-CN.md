@@ -6,8 +6,8 @@
 Agent Runtime 通过 ADB 和 [Open-AutoGLM](https://github.com/zai-org/Open-AutoGLM)
 控制同一台手机，然后 App 展示最终任务状态和证据。
 
-项目目前处于 demo 阶段。已验证路线是 Android + Expo + Mac worker + Open-AutoGLM +
-ModelScope `ZhipuAI/AutoGLM-Phone-9B`。
+项目目前处于 demo 阶段。当前模型端点标准是 BigModel `autoglm-phone`，通过
+OpenAI-compatible endpoint preset 配置。
 
 ## 截图
 
@@ -59,7 +59,7 @@ flowchart LR
   OAG["Open-AutoGLM\nPython source dependency"]
   ADB["ADB"]
   Phone["Android Controlled Phone"]
-  Model["ModelScope or BigModel\nOpenAI-compatible API"]
+  Model["BigModel\nOpenAI-compatible API"]
 
   Tester --> Mobile
   Mobile -->|"HTTP task API"| Worker
@@ -119,24 +119,23 @@ cd ../phone-automation-agent
 cp .env.example .env
 ```
 
-当前已验证路线：
+当前 BigModel 路线：
 
 ```bash
-PHONE_AGENT_BASE_URL="https://api-inference.modelscope.cn/v1"
-PHONE_AGENT_MODEL="ZhipuAI/AutoGLM-Phone-9B"
-PHONE_AGENT_API_KEY="<your-modelscope-token>"
+BIGMODEL_TOKEN="<your-bigmodel-token>"
+PHONE_AGENT_ENDPOINT="bigmodel"
 ```
 
-历史 BigModel 路线：
+endpoint 关键词会在代码里解析成：
 
 ```bash
 PHONE_AGENT_BASE_URL="https://open.bigmodel.cn/api/paas/v4"
 PHONE_AGENT_MODEL="autoglm-phone"
-PHONE_AGENT_API_KEY="<your-bigmodel-token>"
+PHONE_AGENT_API_KEY="${BIGMODEL_TOKEN}"
 ```
 
-BigModel 证明过原始 raw Open-AutoGLM quickstart。当前 App 提交路线最近一次端到端验证使用的是
-ModelScope，所以复现 demo 时优先使用 ModelScope。
+历史 ModelScope 路线仍可通过显式配置 `PHONE_AGENT_BASE_URL`、`PHONE_AGENT_MODEL` 和
+`PHONE_AGENT_API_KEY` 使用，前提是不要设置 `PHONE_AGENT_ENDPOINT`。
 
 ### 4. 运行 mobile app 和 worker
 
@@ -189,14 +188,16 @@ adb shell wm size
 
 | 变量                   | 用途                                    |
 | ---------------------- | --------------------------------------- |
-| `PHONE_AGENT_BASE_URL` | OpenAI-compatible 模型 API base URL     |
-| `PHONE_AGENT_MODEL`    | 模型名，例如 `ZhipuAI/AutoGLM-Phone-9B` |
-| `PHONE_AGENT_API_KEY`  | 模型 provider API key                   |
+| `BIGMODEL_TOKEN`       | 后端 runtime 使用的 BigModel API token  |
+| `PHONE_AGENT_ENDPOINT` | 模型端点关键词，当前使用 `bigmodel`     |
 
 可选 override：
 
 | 变量                           | 用途                                                 |
 | ------------------------------ | ---------------------------------------------------- |
+| `PHONE_AGENT_BASE_URL`         | 未设置 `PHONE_AGENT_ENDPOINT` 时的自定义端点 base URL |
+| `PHONE_AGENT_MODEL`            | 未设置 `PHONE_AGENT_ENDPOINT` 时的自定义模型名        |
+| `PHONE_AGENT_API_KEY`          | 未设置 `PHONE_AGENT_ENDPOINT` 时的自定义 API key      |
 | `OPEN_AUTOGLM_ROOT`            | `phone_agent` 不可 import 时的 Open-AutoGLM 绝对路径 |
 | `PHONE_AGENT_MAX_STEPS`        | 最大 Open-AutoGLM 步数，默认 `12`                    |
 | `PHONE_AUTOMATION_WORKER_HOST` | worker bind host，默认 `127.0.0.1`                   |

@@ -37,7 +37,9 @@ The default listener is `127.0.0.1:8765`. For a real Android phone on the same W
 `open-autoglm` mode uses:
 
 - `OPEN_AUTOGLM_ROOT`: path to a local Open-AutoGLM checkout when `phone_agent` is not installed into the worker environment. The root `dev:worker:open-autoglm` script defaults this to `../Open-AutoGLM` for the current local workspace.
-- `PHONE_AGENT_BASE_URL`, `PHONE_AGENT_MODEL`, `PHONE_AGENT_API_KEY`: OpenAI-compatible model configuration.
+- `PHONE_AGENT_ENDPOINT=bigmodel`: preferred model endpoint keyword for the current BigModel route.
+- `BIGMODEL_TOKEN`: default API key source for the `bigmodel` endpoint keyword.
+- `PHONE_AGENT_BASE_URL`, `PHONE_AGENT_MODEL`, `PHONE_AGENT_API_KEY`: custom OpenAI-compatible model configuration when `PHONE_AGENT_ENDPOINT` is unset.
 - `PHONE_AGENT_MAX_STEPS`: max Open-AutoGLM steps. Defaults to `12`.
 - `PHONE_AGENT_DEVICE_ID`: optional ADB device id.
 - `PHONE_AGENT_LANG`: Open-AutoGLM language setting. Defaults to `cn`.
@@ -72,7 +74,7 @@ To run against the already validated local Open-AutoGLM checkout:
 pnpm dev:worker:open-autoglm
 ```
 
-For the current ModelScope demo route, make sure the root `.env` contains the ModelScope endpoint and model, then temporarily lower the Android logical size before starting the task:
+For the current BigModel demo route, make sure the root `.env` contains `BIGMODEL_TOKEN` and `PHONE_AGENT_ENDPOINT=bigmodel`, then temporarily lower the Android logical size before starting the task:
 
 ```bash
 adb shell wm size 992x2048

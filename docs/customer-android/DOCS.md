@@ -1,7 +1,7 @@
 ---
 title: Customer Android Domain Protocol
 description: Domain-level conventions for the customer Android app and paired API.
-updateAt: 2026-06-13
+updateAt: 2026-06-14
 ---
 
 # Customer Android Domain Protocol
@@ -19,6 +19,7 @@ Use this domain when working on the customer-installable Android APK, its paired
 - **In-Memory Session Store**: The V0 session storage posture where `apps/customer-android-api` keeps active task state inside the running process and fails clearly after process restart instead of persisting or restoring tasks.
 - **Runtime Access Token**: A revocable V0 bearer token accepted by `apps/customer-android-api` from the APK. The first internal alpha uses a single shared token, and the token must not be treated as a model-provider secret once distributed inside an APK.
 - **Agent Context**: The per-session model message history kept by `apps/customer-android-api` while the split phone task is running.
+- **Model Endpoint Keyword**: A code-owned provider preset such as `bigmodel` that resolves backend model URL, model name, and default provider key env without putting provider routing into YAML.
 
 ## Collaboration Conventions
 
@@ -34,8 +35,10 @@ Use this domain when working on the customer-installable Android APK, its paired
 
 - `apps/customer-android` executes routine physical actions after explicit Android permission setup; it does not own model credentials or Open-AutoGLM prompt iteration in the Hosted Agent Runtime Route.
 - `apps/customer-android-api` decides the next action from uploaded phone state; it does not execute ADB actions or take over the role of the Android On-Device Executor.
+- `apps/customer-android-api` owns Open-AutoGLM-specific action normalization, including known `Launch` app-name to package-name mapping; `apps/customer-android` executes the resulting package launch and only uses local package or label fallback for unknown targets.
 - `apps/worker` remains the experimental Mac/ADB worker for the first demo route. Do not fold customer execution into it by default.
 - Keep long-lived model-provider credentials behind the API for the hosted route. Do not ship them inside the APK.
+- Prefer `CUSTOMER_ANDROID_MODEL_ENDPOINT=bigmodel` plus `BIGMODEL_TOKEN` for real-provider customer Android QA. Add new provider presets in code only after a deliberate routing decision.
 - Ship the APK with only the API URL and a lightweight Runtime Access Token for alpha distribution. V0 uses one shared alpha bearer token; rotate or revoke that token when an internal build leaks or expires.
 - Extract shared packages only after real reuse pressure appears. Start with explicit contracts and focused tests before creating a broad core package.
 - Gate actions such as takeover, interaction, and confirmation should surface as pause states in the app, not as hidden backend waits.

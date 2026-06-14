@@ -33,8 +33,19 @@ Scripted provider env:
 
 OpenAI-compatible provider env:
 
+- `CUSTOMER_ANDROID_MODEL_ENDPOINT=bigmodel`
+- `BIGMODEL_TOKEN`
+
+Custom OpenAI-compatible endpoint env. Leave `CUSTOMER_ANDROID_MODEL_ENDPOINT`
+unset when using these:
+
 - `CUSTOMER_ANDROID_MODEL_BASE_URL`
 - `CUSTOMER_ANDROID_MODEL_API_KEY`
 - `CUSTOMER_ANDROID_MODEL_NAME`
+
+`CUSTOMER_ANDROID_MODEL_ENDPOINT=bigmodel` resolves in code to
+`https://open.bigmodel.cn/api/paas/v4` and `autoglm-phone`. Add new endpoint
+keywords in `customer_android_api/model_endpoints.py` when another provider is
+intentionally supported.
 
 See `docs/customer-android/agent-engine.md` for the runtime contract and agent context behavior.

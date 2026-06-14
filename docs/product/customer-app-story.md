@@ -46,7 +46,7 @@ updateAt: 2026-06-13
 
 - `apps/mobile` is currently the task entry and result review surface.
 - `apps/worker` is currently the Agent Runtime that actually executes tasks.
-- The worker currently depends on an Android phone visible to ADB, an importable Open-AutoGLM source tree or Python package, a ModelScope or BigModel API key, and a local connection through LAN or `adb reverse`.
+- The worker currently depends on an Android phone visible to ADB, an importable Open-AutoGLM source tree or Python package, a backend model token such as `BIGMODEL_TOKEN`, and a local connection through LAN or `adb reverse`.
 - Sending only the current APK to a customer is insufficient. The app can open, but real task execution still needs the worker and device/model setup.
 - The no-phone path is `PHONE_AUTOMATION_WORKER_RUNNER=dry-run`; it verifies the API and UI protocol only and does not prove real phone control.
 

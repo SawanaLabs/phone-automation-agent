@@ -8,6 +8,8 @@ from typing import Any, Callable
 
 from openai import OpenAI
 
+from customer_android_api.model_endpoints import resolve_model_endpoint_from_env
+
 
 CompletionCreate = Callable[..., Any]
 
@@ -18,6 +20,7 @@ class OpenAiModelSettings:
     api_key: str
     model_name: str
     max_tokens: int = 3000
+    timeout_seconds: float = 60.0
     temperature: float = 0.0
     top_p: float = 0.85
     frequency_penalty: float = 0.2
@@ -32,9 +35,17 @@ class OpenAiCompatibleModelProvider:
     ) -> None:
         self._settings = settings
         if completion_create is None:
-            client = OpenAI(base_url=settings.base_url, api_key=settings.api_key)
+            client = OpenAI(
+                base_url=settings.base_url,
+                api_key=settings.api_key,
+                timeout=settings.timeout_seconds,
+            )
             completion_create = client.chat.completions.create
         self._completion_create = completion_create
+
+    @property
+    def settings(self) -> OpenAiModelSettings:
+        return self._settings
 
     def complete(self, request: dict[str, object]) -> str:
         messages = request.get("messages")
@@ -48,6 +59,7 @@ class OpenAiCompatibleModelProvider:
             temperature=self._settings.temperature,
             top_p=self._settings.top_p,
             frequency_penalty=self._settings.frequency_penalty,
+            stream=False,
         )
         return _extract_message_content(response)
 
@@ -99,14 +111,13 @@ def load_scripted_actions_from_env() -> list[str]:
 
 
 def load_openai_model_settings_from_env() -> OpenAiModelSettings:
+    endpoint = resolve_model_endpoint_from_env()
     return OpenAiModelSettings(
-        base_url=_required_env("CUSTOMER_ANDROID_MODEL_BASE_URL"),
-        api_key=_required_env(
-            "CUSTOMER_ANDROID_MODEL_API_KEY",
-            forbidden_values={"your-api-key"},
-        ),
-        model_name=_required_env("CUSTOMER_ANDROID_MODEL_NAME"),
+        base_url=endpoint.base_url,
+        api_key=endpoint.api_key,
+        model_name=endpoint.model_name,
         max_tokens=_env_int("CUSTOMER_ANDROID_MODEL_MAX_TOKENS", 3000),
+        timeout_seconds=_env_float("CUSTOMER_ANDROID_MODEL_TIMEOUT_SECONDS", 60.0),
         temperature=_env_float("CUSTOMER_ANDROID_MODEL_TEMPERATURE", 0.0),
         top_p=_env_float("CUSTOMER_ANDROID_MODEL_TOP_P", 0.85),
         frequency_penalty=_env_float(
@@ -126,22 +137,6 @@ def _extract_message_content(response: Any) -> str:
         return content
 
     raise RuntimeError("Model response content is empty.")
-
-
-def _required_env(
-    name: str,
-    *,
-    forbidden_values: set[str] | None = None,
-) -> str:
-    value = os.getenv(name)
-    if value is None or not value.strip():
-        raise RuntimeError(f"{name} is required.")
-
-    normalized = value.strip()
-    if forbidden_values and normalized in forbidden_values:
-        raise RuntimeError(f"{name} is required.")
-
-    return normalized
 
 
 def _env_int(name: str, default: int) -> int:

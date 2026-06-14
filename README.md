@@ -7,8 +7,8 @@ from an Android app, a Mac-hosted Agent Runtime controls the same phone through
 ADB and [Open-AutoGLM](https://github.com/zai-org/Open-AutoGLM), then the app
 shows the final task state and evidence.
 
-The project is demo-stage. The validated route is Android + Expo + Mac worker +
-Open-AutoGLM + ModelScope `ZhipuAI/AutoGLM-Phone-9B`.
+The project is demo-stage. The current model endpoint standard is BigModel
+`autoglm-phone` through the OpenAI-compatible endpoint preset.
 
 ## Screenshot
 
@@ -78,7 +78,7 @@ flowchart LR
   OAG["Open-AutoGLM\nPython source dependency"]
   ADB["ADB"]
   Phone["Android Controlled Phone"]
-  Model["ModelScope or BigModel\nOpenAI-compatible API"]
+  Model["BigModel\nOpenAI-compatible API"]
 
   Tester --> Mobile
   Mobile -->|"HTTP task API"| Worker
@@ -139,25 +139,24 @@ Create `.env` from the example, then replace the API key.
 cp .env.example .env
 ```
 
-Current validated route:
+Current BigModel route:
 
 ```bash
-PHONE_AGENT_BASE_URL="https://api-inference.modelscope.cn/v1"
-PHONE_AGENT_MODEL="ZhipuAI/AutoGLM-Phone-9B"
-PHONE_AGENT_API_KEY="<your-modelscope-token>"
+BIGMODEL_TOKEN="<your-bigmodel-token>"
+PHONE_AGENT_ENDPOINT="bigmodel"
 ```
 
-Historical BigModel route:
+The endpoint keyword is resolved in code to:
 
 ```bash
 PHONE_AGENT_BASE_URL="https://open.bigmodel.cn/api/paas/v4"
 PHONE_AGENT_MODEL="autoglm-phone"
-PHONE_AGENT_API_KEY="<your-bigmodel-token>"
+PHONE_AGENT_API_KEY="${BIGMODEL_TOKEN}"
 ```
 
-BigModel proved the original raw Open-AutoGLM quickstart. The current
-app-submitted route was most recently verified with ModelScope, so use
-ModelScope first when reproducing the demo.
+Historical ModelScope route remains available through explicit
+`PHONE_AGENT_BASE_URL`, `PHONE_AGENT_MODEL`, and `PHONE_AGENT_API_KEY`
+configuration when `PHONE_AGENT_ENDPOINT` is unset.
 
 ### 4. Run the mobile app and worker
 
@@ -210,14 +209,16 @@ Required root `.env` values:
 
 | Variable               | Purpose                                            |
 | ---------------------- | -------------------------------------------------- |
-| `PHONE_AGENT_BASE_URL` | OpenAI-compatible model API base URL               |
-| `PHONE_AGENT_MODEL`    | Model name, for example `ZhipuAI/AutoGLM-Phone-9B` |
-| `PHONE_AGENT_API_KEY`  | Model provider API key                             |
+| `BIGMODEL_TOKEN`       | BigModel API token for backend runtimes            |
+| `PHONE_AGENT_ENDPOINT` | Model endpoint keyword, currently `bigmodel`       |
 
 Optional overrides:
 
 | Variable                       | Purpose                                                            |
 | ------------------------------ | ------------------------------------------------------------------ |
+| `PHONE_AGENT_BASE_URL`         | Custom endpoint base URL when `PHONE_AGENT_ENDPOINT` is unset      |
+| `PHONE_AGENT_MODEL`            | Custom endpoint model name when `PHONE_AGENT_ENDPOINT` is unset    |
+| `PHONE_AGENT_API_KEY`          | Custom endpoint API key when `PHONE_AGENT_ENDPOINT` is unset       |
 | `OPEN_AUTOGLM_ROOT`            | Absolute path to Open-AutoGLM when `phone_agent` is not importable |
 | `PHONE_AGENT_MAX_STEPS`        | Max Open-AutoGLM steps, defaults to `12`                           |
 | `PHONE_AUTOMATION_WORKER_HOST` | Worker bind host, defaults to `127.0.0.1`                          |

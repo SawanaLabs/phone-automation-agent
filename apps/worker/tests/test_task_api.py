@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 
 from phone_automation_worker.app import create_app
 from phone_automation_worker.__main__ import main
+from phone_automation_worker.model_endpoints import resolve_phone_agent_endpoint_from_env
 
 
 @pytest.fixture(autouse=True)
@@ -14,8 +15,11 @@ def clear_worker_environment(monkeypatch):
 
     for name in [
         "ADB_PATH",
+        "BIGMODEL_API_KEY",
+        "BIGMODEL_TOKEN",
         "OPEN_AUTOGLM_ROOT",
         "PHONE_AGENT_BASE_URL",
+        "PHONE_AGENT_ENDPOINT",
         "PHONE_AGENT_MODEL",
         "PHONE_AGENT_API_KEY",
         "PHONE_AUTOMATION_DEVICE_PROVIDER",
@@ -370,6 +374,60 @@ def test_open_autoglm_mode_uses_explicit_configured_root(
     app = create_app(load_env=False)
 
     assert app.title == "Phone Automation Worker"
+
+
+def test_open_autoglm_mode_resolves_bigmodel_endpoint_keyword(monkeypatch, tmp_path):
+    repo_root = tmp_path / "phone-automation-agent"
+    worker_dir = repo_root / "apps" / "worker"
+    open_autoglm_root = tmp_path / "Open-AutoGLM"
+    phone_agent_package = open_autoglm_root / "phone_agent"
+    worker_dir.mkdir(parents=True)
+    phone_agent_package.mkdir(parents=True)
+    (repo_root / "pnpm-workspace.yaml").write_text("packages:\n  - apps/*\n")
+    (phone_agent_package / "__init__.py").write_text("")
+    monkeypatch.chdir(worker_dir)
+    monkeypatch.setenv("PHONE_AUTOMATION_WORKER_RUNNER", "open-autoglm")
+    monkeypatch.setenv("OPEN_AUTOGLM_ROOT", str(open_autoglm_root))
+    monkeypatch.setenv("PHONE_AGENT_ENDPOINT", "bigmodel")
+    monkeypatch.setenv("BIGMODEL_TOKEN", "test-api-key")
+
+    app = create_app(load_env=False)
+
+    assert app.title == "Phone Automation Worker"
+
+
+def test_phone_agent_endpoint_keyword_wins_over_stale_explicit_model_values():
+    endpoint = resolve_phone_agent_endpoint_from_env(
+        env={
+            "PHONE_AGENT_ENDPOINT": "bigmodel",
+            "PHONE_AGENT_BASE_URL": "https://api-inference.modelscope.cn/v1",
+            "PHONE_AGENT_MODEL": "ZhipuAI/AutoGLM-Phone-9B",
+            "BIGMODEL_TOKEN": "test-api-key",
+        }
+    )
+
+    assert endpoint.base_url == "https://open.bigmodel.cn/api/paas/v4"
+    assert endpoint.model_name == "autoglm-phone"
+    assert endpoint.api_key == "test-api-key"
+
+
+def test_open_autoglm_mode_rejects_unknown_endpoint_keyword(monkeypatch, tmp_path):
+    repo_root = tmp_path / "phone-automation-agent"
+    worker_dir = repo_root / "apps" / "worker"
+    open_autoglm_root = tmp_path / "Open-AutoGLM"
+    phone_agent_package = open_autoglm_root / "phone_agent"
+    worker_dir.mkdir(parents=True)
+    phone_agent_package.mkdir(parents=True)
+    (repo_root / "pnpm-workspace.yaml").write_text("packages:\n  - apps/*\n")
+    (phone_agent_package / "__init__.py").write_text("")
+    monkeypatch.chdir(worker_dir)
+    monkeypatch.setenv("PHONE_AUTOMATION_WORKER_RUNNER", "open-autoglm")
+    monkeypatch.setenv("OPEN_AUTOGLM_ROOT", str(open_autoglm_root))
+    monkeypatch.setenv("PHONE_AGENT_ENDPOINT", "unknown")
+    monkeypatch.setenv("BIGMODEL_TOKEN", "test-api-key")
+
+    with pytest.raises(RuntimeError, match="Unsupported PHONE_AGENT_ENDPOINT: unknown"):
+        create_app(load_env=False)
 
 
 def test_open_autoglm_mode_fails_fast_without_model_api_key(monkeypatch, tmp_path):
