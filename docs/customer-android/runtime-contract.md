@@ -1,7 +1,7 @@
 ---
 title: Customer Android Runtime Contract
 description: V0 sessions and steps contract between the Android APK and Customer Android API.
-updateAt: 2026-06-13
+updateAt: 2026-06-15
 ---
 
 # Customer Android Runtime Contract
@@ -18,6 +18,7 @@ updateAt: 2026-06-13
 - **Session**: A customer task run created from the Android app's user instruction and runtime metadata.
 - **Step Request**: The Android app's current phone state, screenshot, accessibility summary, and previous action result sent to the API.
 - **Step Response**: The API's next normalized action, pause state, failure, or finish response.
+- **Step Outcome**: The API-side classification of a normalized action as routine, finish, failed, or pause before it is projected into session state and task events.
 - **In-Memory Session Store**: V0 storage for active session context inside the running API process.
 - **Runtime Access Token**: A bearer token that the APK presents to `apps/customer-android-api` for alpha access to the hosted runtime.
 - **Single Alpha Token**: The V0 credential strategy where all internal alpha APKs use one shared Runtime Access Token.
@@ -29,6 +30,7 @@ updateAt: 2026-06-13
 - V0 uses `POST /sessions/{session_id}/steps` for every decision turn after the APK captures current phone state.
 - The APK sends the user instruction, screenshot frame, dimensions, current package, accessibility summary, step number, and previous action result when available.
 - The API returns exactly one next action per step. The APK maps routine actions, pause actions, runtime-local actions, failures, and finish into local task state.
+- `apps/customer-android-api/src/customer_android_api/step_outcome.py` owns Step Outcome classification for normalized actions. Keep task-status and task-event projection rules there instead of spreading `_metadata` checks across route and store code.
 - The API records every accepted step as a `step.decided` event, advances `nextStepNumber`, and updates task status when the returned action is terminal or requires user involvement.
 - `finish(message="...")` updates the task status to `finished` and records `task.finished`.
 - `_metadata: failed` updates the task status to `failed` and records `task.failed`.

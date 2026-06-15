@@ -1,7 +1,7 @@
 ---
 title: Customer Android Agent Engine
 description: Runtime shape, environment contract, and session context behavior for apps/customer-android-api.
-updateAt: 2026-06-14
+updateAt: 2026-06-15
 ---
 
 # Customer Android Agent Engine
@@ -52,6 +52,7 @@ updateAt: 2026-06-14
 - `apps/customer-android` now has separate Runtime URL and Runtime Access Token inputs. The token is sent to the API on session creation and every step request.
 - The native Android hosted loop also passes the Runtime Access Token into its HTTP requests, so real-device execution and web/dev fetch paths share the same auth contract.
 - The in-memory session snapshot records `task.started`, `step.decided`, and terminal or pause events. `finish(...)` marks the task `finished`, `_metadata: failed` marks it `failed`, and Human-in-the-loop actions mark it `takeover_required`, `interaction_required`, or `confirmation_required`.
+- Step Outcome projection lives in `apps/customer-android-api/src/customer_android_api/step_outcome.py`; `SessionStore` should consume that classification instead of re-implementing terminal, failure, and pause rules.
 - If an APK continues past `CUSTOMER_ANDROID_API_MAX_STEPS`, the API returns `_metadata: failed` without calling the model provider and records that failed outcome in the session.
 
 ## Agent Context Behavior
