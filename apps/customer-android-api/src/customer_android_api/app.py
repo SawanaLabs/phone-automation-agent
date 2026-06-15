@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 from secrets import compare_digest
 
 from fastapi import FastAPI, Header, HTTPException
@@ -8,7 +7,6 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from customer_android_api.agent import (
     CustomerStepAgent,
-    CustomerStepAgentError,
     ModelProvider,
 )
 from customer_android_api.config import load_settings
@@ -19,9 +17,11 @@ from customer_android_api.models import (
     CustomerStepResponse,
     SessionCreateRequest,
 )
+from customer_android_api.step_lifecycle import (
+    CustomerStepLifecycle,
+    CustomerStepSessionNotFoundError,
+)
 from customer_android_api.store import SessionStore
-
-logger = logging.getLogger(__name__)
 
 
 def create_app(
@@ -48,6 +48,11 @@ def create_app(
     store = session_store or SessionStore()
     step_agent = CustomerStepAgent(
         model_provider=model_provider or build_model_provider_from_env()
+    )
+    step_lifecycle = CustomerStepLifecycle(
+        store=store,
+        step_agent=step_agent,
+        max_steps=settings.max_steps,
     )
 
     @app.get("/healthz")
@@ -83,93 +88,15 @@ def create_app(
         authorization: str | None = Header(default=None),
     ) -> CustomerStepResponse:
         require_runtime_token(authorization, settings.runtime_access_token)
-        session = store.get_session(session_id)
-        if session is None:
-            raise HTTPException(status_code=404, detail="Session not found.")
-
-        action = _preflight_step_action(
-            request=request,
-            max_steps=settings.max_steps,
-            session=session,
-        )
-        if action is not None:
-            logger.warning(
-                "Customer step preflight failed: session_id=%s step_number=%s message=%s",
-                session_id,
-                request.stepNumber,
-                action.get("message"),
+        try:
+            return step_lifecycle.create_step_decision(
+                session_id=session_id,
+                request=request,
             )
-            if not _is_terminal_status(session.task.status):
-                store.record_step_decision(
-                    session_id=session_id,
-                    step_number=request.stepNumber,
-                    action=action,
-                )
-            return CustomerStepResponse(action=action)
-
-        action = _decide_action(
-            request=request,
-            session=session,
-            step_agent=step_agent,
-        )
-        store.record_step_decision(
-            session_id=session_id,
-            step_number=request.stepNumber,
-            action=action,
-        )
-        return CustomerStepResponse(action=action)
+        except CustomerStepSessionNotFoundError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
 
     return app
-
-
-def _preflight_step_action(
-    *,
-    request: CustomerStepRequest,
-    max_steps: int,
-    session: CustomerSessionSnapshot,
-) -> dict[str, object] | None:
-    if _is_terminal_status(session.task.status):
-        return {
-            "_metadata": "failed",
-            "message": (
-                f"Session is already {session.task.status}; no more steps are accepted."
-            ),
-        }
-
-    if request.stepNumber > max_steps:
-        return {
-            "_metadata": "failed",
-            "message": (
-                f"Hosted routine action loop exceeded {max_steps} steps without finish."
-            ),
-        }
-
-    if request.stepNumber != session.nextStepNumber:
-        return {
-            "_metadata": "failed",
-            "message": f"Expected step {session.nextStepNumber}, got {request.stepNumber}.",
-        }
-
-    return None
-
-
-def _decide_action(
-    *,
-    request: CustomerStepRequest,
-    session: CustomerSessionSnapshot,
-    step_agent: CustomerStepAgent,
-) -> dict[str, object]:
-    try:
-        return step_agent.decide(session=session, request=request)
-    except CustomerStepAgentError as error:
-        return {
-            "_metadata": "failed",
-            "message": str(error),
-        }
-
-
-def _is_terminal_status(status: str) -> bool:
-    return status in {"finished", "failed", "stopped"}
 
 
 def require_runtime_token(authorization: str | None, runtime_token: str) -> None:

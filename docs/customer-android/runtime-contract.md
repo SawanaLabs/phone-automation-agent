@@ -30,6 +30,7 @@ updateAt: 2026-06-15
 - V0 uses `POST /sessions/{session_id}/steps` for every decision turn after the APK captures current phone state.
 - The APK sends the user instruction, screenshot frame, dimensions, current package, accessibility summary, step number, and previous action result when available.
 - The API returns exactly one next action per step. The APK maps routine actions, pause actions, runtime-local actions, failures, and finish into local task state.
+- `apps/customer-android-api/src/customer_android_api/step_lifecycle.py` owns session lookup, step preflight, agent invocation, and accepted step recording for `POST /sessions/{session_id}/steps`.
 - `apps/customer-android-api/src/customer_android_api/step_outcome.py` owns Step Outcome classification for normalized actions. Keep task-status and task-event projection rules there instead of spreading `_metadata` checks across route and store code.
 - The API records every accepted step as a `step.decided` event, advances `nextStepNumber`, and updates task status when the returned action is terminal or requires user involvement.
 - `finish(message="...")` updates the task status to `finished` and records `task.finished`.
