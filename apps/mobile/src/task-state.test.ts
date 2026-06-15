@@ -1,7 +1,7 @@
-import { describe, expect, it } from "vitest"
+import { describe, expect, it } from "vitest";
 
-import { getScreenSummary, isActiveStatus, isTraceEvent } from "./task-state"
-import type { TaskEvent, TaskRecord } from "./worker-api"
+import { getScreenSummary, isActiveStatus, isTraceEvent } from "./task-state";
+import type { TaskEvent, TaskRecord } from "./worker-api";
 
 const baseTask: TaskRecord = {
   id: "task_1",
@@ -12,7 +12,7 @@ const baseTask: TaskRecord = {
   error: null,
   created_at: "2026-06-10T00:00:00Z",
   updated_at: "2026-06-10T00:00:01Z",
-}
+};
 
 function event(overrides: Partial<TaskEvent>): TaskEvent {
   return {
@@ -23,27 +23,27 @@ function event(overrides: Partial<TaskEvent>): TaskEvent {
     payload: {},
     created_at: "2026-06-10T00:00:00Z",
     ...overrides,
-  }
+  };
 }
 
 describe("task state helpers", () => {
   it("keeps mobile polling active only for non-terminal worker states", () => {
-    expect(isActiveStatus("created")).toBe(true)
-    expect(isActiveStatus("running")).toBe(true)
-    expect(isActiveStatus("confirmation_required")).toBe(true)
-    expect(isActiveStatus("takeover_required")).toBe(true)
-    expect(isActiveStatus("finished")).toBe(false)
-    expect(isActiveStatus("failed")).toBe(false)
-  })
+    expect(isActiveStatus("created")).toBe(true);
+    expect(isActiveStatus("running")).toBe(true);
+    expect(isActiveStatus("confirmation_required")).toBe(true);
+    expect(isActiveStatus("takeover_required")).toBe(true);
+    expect(isActiveStatus("finished")).toBe(false);
+    expect(isActiveStatus("failed")).toBe(false);
+  });
 
   it("keeps the visible trace focused on steps, gates, and terminal events", () => {
-    expect(isTraceEvent(event({ type: "step.started" }))).toBe(true)
+    expect(isTraceEvent(event({ type: "step.started" }))).toBe(true);
     expect(isTraceEvent(event({ type: "gate.confirmation_required" }))).toBe(
       true
-    )
-    expect(isTraceEvent(event({ type: "task.finished" }))).toBe(true)
-    expect(isTraceEvent(event({ type: "debug.noise" }))).toBe(false)
-  })
+    );
+    expect(isTraceEvent(event({ type: "task.finished" }))).toBe(true);
+    expect(isTraceEvent(event({ type: "debug.noise" }))).toBe(false);
+  });
 
   it("prefers the final screen summary emitted by the worker", () => {
     const summary = getScreenSummary(baseTask, [
@@ -53,12 +53,12 @@ describe("task state helpers", () => {
         type: "task.finished",
         payload: { screen_summary: "美团火锅搜索结果页" },
       }),
-    ])
+    ]);
 
-    expect(summary).toBe("美团火锅搜索结果页")
-  })
+    expect(summary).toBe("美团火锅搜索结果页");
+  });
 
   it("uses the task summary when no final screen summary is available", () => {
-    expect(getScreenSummary(baseTask, [])).toBe("fallback summary")
-  })
-})
+    expect(getScreenSummary(baseTask, [])).toBe("fallback summary");
+  });
+});
