@@ -3,6 +3,7 @@ import type {
   CustomerActionResult,
   CustomerScreenState,
   CustomerTaskEvent,
+  CustomerTaskPause,
 } from "./customer-session";
 
 export type RelativePoint = [number, number];
@@ -110,6 +111,16 @@ export interface RoutineActionExecutor {
   wait: (durationMs: number) => Promise<void>;
 }
 
+export interface RoutineActionRunner {
+  createPauseContinueActionResult: (
+    pause: CustomerTaskPause | null | undefined
+  ) => CustomerActionResult;
+  execute: (action: ExecutableRoutineAction) => Promise<CustomerActionResult>;
+  executeConfirmedPause: (
+    pause: CustomerTaskPause | null | undefined
+  ) => Promise<CustomerActionResult>;
+}
+
 export interface RoutineActionScriptInput {
   actions: RoutineAction[];
   executor: RoutineActionExecutor;
@@ -124,8 +135,9 @@ export interface ScreenStateCollector {
 }
 
 export interface HostedRoutineActionLoopInput {
+  actionRunner?: RoutineActionRunner;
   completionSignalNotifier?: CompletionSignalNotifier;
-  executor: RoutineActionExecutor;
+  executor?: RoutineActionExecutor;
   fetchImpl?: typeof fetch;
   initialEvents?: CustomerTaskEvent[];
   initialLastActionResult?: CustomerActionResult | null;

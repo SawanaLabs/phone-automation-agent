@@ -6,7 +6,10 @@ import type {
 } from "./customer-session";
 import { createCustomerTaskRunController } from "./customer-task-run-controller";
 import { deriveDeviceAuthorityState } from "./device-authority";
-import type { HostedRoutineActionLoopInput } from "./routine-action-types";
+import type {
+  HostedRoutineActionLoopInput,
+  RoutineActionRunner,
+} from "./routine-action-types";
 import { createRecordingExecutor } from "./routine-actions.test-support";
 
 const readyAuthorityState = deriveDeviceAuthorityState({
@@ -25,6 +28,7 @@ const startInput: StartCustomerTaskInput = {
 describe("customer task run controller", () => {
   it("starts a JS hosted task, streams loop events, and stores the final session", async () => {
     const sink = createRecordingSink();
+    const routineActionRunner = createRecordingActionRunner();
     const startedSession = createSession("running", "customer_task_1");
     const finalSession = createSession("finished", "customer_task_1", [
       { sequence: 1, type: "task.started", message: "Task started." },
@@ -32,7 +36,7 @@ describe("customer task run controller", () => {
     ]);
     const controller = createCustomerTaskRunController({
       sink,
-      routineActionExecutor: createRecordingExecutor(),
+      routineActionRunner,
       screenStateCollector: {
         async capture() {
           throw new Error("capture should be owned by the hosted loop stub");
@@ -43,6 +47,7 @@ describe("customer task run controller", () => {
         return startedSession;
       },
       async runHostedRoutineActionLoop(input) {
+        expect(input.actionRunner).toBe(routineActionRunner);
         input.onEvent?.({
           sequence: 2,
           type: "task.finished",
@@ -188,6 +193,41 @@ function createRecordingSink() {
     },
   };
   return sink;
+}
+
+function createRecordingActionRunner(): RoutineActionRunner {
+  return {
+    createPauseContinueActionResult(pause) {
+      if (!pause) {
+        throw new Error("pause is required");
+      }
+
+      return {
+        status: "succeeded",
+        action:
+          pause.action._metadata === "do" ? pause.action.action : "finish",
+        message: "continued",
+      };
+    },
+    async execute(action) {
+      return {
+        status: "succeeded",
+        action: action.action,
+        message: `${action.action} completed.`,
+      };
+    },
+    async executeConfirmedPause(pause) {
+      if (pause?.action._metadata !== "do") {
+        throw new Error("pause action is required");
+      }
+
+      return {
+        status: "succeeded",
+        action: pause.action.action,
+        message: `${pause.action.action} completed.`,
+      };
+    },
+  };
 }
 
 function createSession(

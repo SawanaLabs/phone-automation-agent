@@ -7,6 +7,7 @@ import type {
   PixelPoint,
   RelativePoint,
   RoutineActionExecutor,
+  RoutineActionRunner,
   ScreenSize,
 } from "./routine-action-types";
 
@@ -38,6 +39,20 @@ export function createPauseContinueActionResult(
       pause.action._metadata === "do"
         ? `User continued after ${pause.action.action}.`
         : "User continued.",
+  };
+}
+
+export function createRoutineActionRunner(
+  executor: RoutineActionExecutor
+): RoutineActionRunner {
+  return {
+    createPauseContinueActionResult,
+    execute(action) {
+      return dispatchHostedRoutineAction(action, executor);
+    },
+    executeConfirmedPause(pause) {
+      return executeConfirmedPauseAction(pause, executor);
+    },
   };
 }
 

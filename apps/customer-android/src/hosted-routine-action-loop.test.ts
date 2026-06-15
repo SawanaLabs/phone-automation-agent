@@ -4,6 +4,76 @@ import { runHostedRoutineActionLoop } from "./routine-actions";
 import { createRecordingExecutor } from "./routine-actions.test-support";
 
 describe("hosted routine action loop runtime-local actions", () => {
+  it("can execute hosted steps through a semantic action runner", async () => {
+    const executedActions: string[] = [];
+    const result = await runHostedRoutineActionLoop({
+      actionRunner: {
+        async execute(action) {
+          executedActions.push(action.action);
+          return {
+            status: "succeeded",
+            action: action.action,
+            message: `${action.action} completed.`,
+          };
+        },
+        async executeConfirmedPause() {
+          throw new Error("confirmation pauses are handled by the app");
+        },
+        createPauseContinueActionResult() {
+          throw new Error("pause continuation is handled by the app");
+        },
+      },
+      taskId: "customer_task_1",
+      instruction: "检查当前页面",
+      runtimeUrl: "http://localhost:8787",
+      runtimeAccessToken: "alpha-token",
+      fetchImpl: async (_url, init) => {
+        const body = JSON.parse(String(init?.body));
+        if (body.stepNumber === 1) {
+          return new Response(
+            JSON.stringify({
+              action: {
+                _metadata: "do",
+                action: "Tap",
+                element: [500, 250],
+              },
+            }),
+            {
+              status: 200,
+              headers: { "Content-Type": "application/json" },
+            }
+          );
+        }
+
+        return new Response(
+          JSON.stringify({
+            action: {
+              _metadata: "finish",
+              message: "done",
+            },
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+      },
+      screenStateCollector: {
+        async capture() {
+          return {
+            frameBase64: "frame",
+            frameMimeType: "image/png",
+            width: 1080,
+            height: 2400,
+          };
+        },
+      },
+    });
+
+    expect(executedActions).toEqual(["Tap"]);
+    expect(result.task.status).toBe("finished");
+  });
+
   it("records runtime-local actions without dispatching physical phone actions", async () => {
     const executor = createRecordingExecutor();
     const stepRequests: Record<string, unknown>[] = [];

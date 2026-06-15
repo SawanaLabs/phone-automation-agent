@@ -27,6 +27,7 @@ import {
   createNativeHostedTaskRunner,
   requireCustomerAutomationNativeModule,
 } from "./src/native-customer-automation";
+import { createRoutineActionRunner } from "./src/routine-action-dispatch";
 import { createRoutineActionExecutor } from "./src/routine-action-executor-gateway";
 import { createScreenStateCollector } from "./src/screen-state-gateway";
 import { styles } from "./src/styles";
@@ -45,6 +46,7 @@ const DEFAULT_AUTHORITY_SNAPSHOT: DeviceAuthoritySnapshot = {
 const authorityGateway = createDeviceAuthorityGateway();
 const simulateScreenCaptureLoss = authorityGateway.simulateScreenCaptureLoss;
 const routineActionExecutor = createRoutineActionExecutor();
+const routineActionRunner = createRoutineActionRunner(routineActionExecutor);
 const screenStateCollector = createScreenStateCollector();
 const completionSignalNotifier = createCompletionSignalNotifier();
 const nativeHostedTaskRunner =
@@ -89,7 +91,7 @@ export default function App() {
       createCustomerTaskRunController({
         completionSignalNotifier,
         nativeHostedTaskRunner,
-        routineActionExecutor,
+        routineActionRunner,
         screenStateCollector,
         sink: {
           setErrorMessage,

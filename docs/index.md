@@ -27,7 +27,7 @@ Start with `docs/DOCS.md` for repository-wide conventions, then use the domain f
 | ./architecture/open-autoglm-integration.md | Open-AutoGLM Integration | Durable integration boundaries for using Open-AutoGLM as the first automation engine. | 2026-06-14 |
 | ./architecture/worker-api.md | Worker API | Public API and runtime modes for the Python Agent Runtime. | 2026-06-10 |
 | ./customer-android/DOCS.md | Customer Android Domain Protocol | Domain-level conventions for the customer Android app and paired API. | 2026-06-15 |
-| ./customer-android/action-handling.md | Customer Android Action Handling | V0 Open-AutoGLM action vocabulary, routine executor scope, and pause-state mapping for the customer Android route. | 2026-06-14 |
+| ./customer-android/action-handling.md | Customer Android Action Handling | V0 Open-AutoGLM action vocabulary, routine executor scope, and pause-state mapping for the customer Android route. | 2026-06-15 |
 | ./customer-android/agent-engine.md | Customer Android Agent Engine | Runtime shape, environment contract, and session context behavior for apps/customer-android-api. | 2026-06-15 |
 | ./customer-android/delivery.md | Customer Android Delivery | Alpha APK distribution, validation checkpoints, and QA gates for the customer Android route. | 2026-06-13 |
 | ./customer-android/evidence-first-e2e.md | Customer Android Evidence-First E2E | Re-runnable QA checklist for Open-AutoGLM action coverage, Completion Signal behavior, and Run Evidence exits. | 2026-06-14 |

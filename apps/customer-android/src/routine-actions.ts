@@ -12,14 +12,16 @@ import {
   requestNextCustomerAction,
 } from "./customer-session";
 import {
+  createRoutineActionRunner,
   describeUnknownError,
-  dispatchHostedRoutineAction,
   dispatchRoutineAction,
 } from "./routine-action-dispatch";
 
 import type {
   ExecutableRoutineAction,
   HostedRoutineActionLoopInput,
+  RoutineActionExecutor,
+  RoutineActionRunner,
   RoutineActionScriptInput,
 } from "./routine-action-types";
 
@@ -92,6 +94,7 @@ export async function runHostedRoutineActionLoop({
   instruction,
   runtimeUrl,
   runtimeAccessToken,
+  actionRunner,
   executor,
   screenStateCollector,
   fetchImpl,
@@ -104,6 +107,10 @@ export async function runHostedRoutineActionLoop({
   completionSignalNotifier,
 }: HostedRoutineActionLoopInput): Promise<CustomerSessionSnapshot> {
   const events: CustomerTaskEvent[] = [...initialEvents];
+  const routineActionRunner = resolveRoutineActionRunner(
+    actionRunner,
+    executor
+  );
   let lastActionResult: CustomerActionResult | null = initialLastActionResult;
 
   for (let offset = 0; offset < maxSteps; offset += 1) {
@@ -212,7 +219,7 @@ export async function runHostedRoutineActionLoop({
     );
     onEvent?.(actionEvent);
 
-    lastActionResult = await dispatchHostedRoutineAction(action, executor);
+    lastActionResult = await routineActionRunner.execute(action);
     const resultEvent = createEvent(
       events,
       "step.result",
@@ -240,6 +247,21 @@ async function completeHostedSession(
     onEvent?.(event);
   }
   return notifiedSession;
+}
+
+function resolveRoutineActionRunner(
+  actionRunner: RoutineActionRunner | undefined,
+  executor: RoutineActionExecutor | undefined
+): RoutineActionRunner {
+  if (actionRunner) {
+    return actionRunner;
+  }
+
+  if (executor) {
+    return createRoutineActionRunner(executor);
+  }
+
+  throw new Error("Routine action runner or executor is required.");
 }
 
 export function stopPausedRoutineActionSession(

@@ -6,12 +6,10 @@ import {
   type StartCustomerTaskInput,
   startCustomerTask as startHostedCustomerTask,
 } from "./customer-session";
-import {
-  createPauseContinueActionResult as createPauseContinueResult,
-  executeConfirmedPauseAction as executeConfirmedAction,
-} from "./routine-action-dispatch";
+import { createRoutineActionRunner } from "./routine-action-dispatch";
 import type {
   RoutineActionExecutor,
+  RoutineActionRunner,
   ScreenStateCollector,
 } from "./routine-action-types";
 import {
@@ -47,15 +45,14 @@ export interface CustomerTaskRunController {
 
 export interface CustomerTaskRunControllerInput {
   completionSignalNotifier?: CompletionSignalNotifier;
-  createPauseContinueActionResult?: typeof createPauseContinueResult;
   describeError?: (error: unknown) => string;
-  executeConfirmedPauseAction?: typeof executeConfirmedAction;
   nativeHostedTaskRunner?: {
     startTask: (
       input: StartCustomerTaskInput
     ) => Promise<CustomerSessionSnapshot>;
   } | null;
-  routineActionExecutor: RoutineActionExecutor;
+  routineActionExecutor?: RoutineActionExecutor;
+  routineActionRunner?: RoutineActionRunner;
   runHostedRoutineActionLoop?: typeof runHostedLoop;
   screenStateCollector: ScreenStateCollector;
   sink: CustomerTaskRunSink;
@@ -65,11 +62,10 @@ export interface CustomerTaskRunControllerInput {
 
 export function createCustomerTaskRunController({
   completionSignalNotifier,
-  createPauseContinueActionResult = createPauseContinueResult,
   describeError = describeTaskError,
-  executeConfirmedPauseAction = executeConfirmedAction,
   nativeHostedTaskRunner = null,
   routineActionExecutor,
+  routineActionRunner,
   runHostedRoutineActionLoop = runHostedLoop,
   screenStateCollector,
   sink,
@@ -77,6 +73,11 @@ export function createCustomerTaskRunController({
   stopPausedRoutineActionSession = stopPausedSession,
 }: CustomerTaskRunControllerInput): CustomerTaskRunController {
   let stopRequested = false;
+  const resolvedRoutineActionRunner =
+    routineActionRunner ??
+    (routineActionExecutor
+      ? createRoutineActionRunner(routineActionExecutor)
+      : null);
 
   async function startTask(input: StartCustomerTaskInput) {
     sink.setIsSubmitting(true);
@@ -121,7 +122,9 @@ export function createCustomerTaskRunController({
     }
 
     await runTaskLoopFromSession(session, input, {
-      initialLastActionResult: createPauseContinueActionResult(session.pause),
+      initialLastActionResult: requireRoutineActionRunner(
+        resolvedRoutineActionRunner
+      ).createPauseContinueActionResult(session.pause),
       initialStepNumber: session.nextStepNumber,
     });
   }
@@ -138,10 +141,9 @@ export function createCustomerTaskRunController({
     sink.setErrorMessage(null);
     stopRequested = false;
     try {
-      const result = await executeConfirmedPauseAction(
-        session.pause,
-        routineActionExecutor
-      );
+      const result = await requireRoutineActionRunner(
+        resolvedRoutineActionRunner
+      ).executeConfirmedPause(session.pause);
       const confirmedSession = appendSessionEvent(session, {
         sequence: session.events.length + 1,
         type: "step.result",
@@ -188,7 +190,7 @@ export function createCustomerTaskRunController({
         instruction: baseSession.task.instruction,
         runtimeUrl: input.runtimeUrl,
         runtimeAccessToken: input.runtimeAccessToken,
-        executor: routineActionExecutor,
+        actionRunner: requireRoutineActionRunner(resolvedRoutineActionRunner),
         screenStateCollector,
         initialEvents: baseSession.events,
         initialLastActionResult: options.initialLastActionResult,
@@ -217,6 +219,16 @@ export function createCustomerTaskRunController({
     startTask,
     stopTask,
   };
+}
+
+function requireRoutineActionRunner(
+  runner: RoutineActionRunner | null
+): RoutineActionRunner {
+  if (runner) {
+    return runner;
+  }
+
+  throw new Error("Routine action runner or executor is required.");
 }
 
 export function appendSessionEvent(
