@@ -23,6 +23,7 @@ updateAt: 2026-06-15
 ## Current Subdomain Docs
 
 - `apps/customer-android` owns task entry, permission readiness, MediaProjection screen frames, AccessibilityService state, routine action execution, human-in-the-loop pause UI, progress display, and final result evidence.
+- The React screen should stay presentation-first. `CustomerTaskRunController` owns task start, native-vs-JS runner selection, stop, continue, confirmation allow, streamed event updates, and loop-running state changes.
 - Inside `apps/customer-android`, `CustomerAutomationModule.kt` should stay a React Native bridge and Android permission/action adapter. The native hosted run loop belongs in `NativeHostedTaskLoop.kt`, with HTTP, screen capture, action execution, and snapshot mapping behind focused ports.
 - `apps/customer-android-api` owns customer task sessions, per-step state, prompt construction, model-provider calls, Open-AutoGLM-style response parsing, action normalization, pause/failure states, and runtime logs.
 - The first `apps/customer-android-api` implementation keeps Agent Context in memory, uses an OpenAI-compatible model provider, and exposes the Session-Step API directly to the APK.
