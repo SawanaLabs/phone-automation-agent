@@ -9,7 +9,12 @@ import java.net.URLEncoder
 
 internal data class NativeHostedTaskInput(
   val instruction: String,
-  val maxSteps: Int
+  val maxSteps: Int,
+  val taskId: String? = null,
+  val initialEvents: List<NativeTaskEvent> = emptyList(),
+  val initialLastActionResult: NativeActionResult? = null,
+  val initialStepNumber: Int = 1,
+  val approvedPauseAction: JSONObject? = null
 )
 
 internal data class NativeTaskEvent(
@@ -66,15 +71,24 @@ internal class NativeHostedTaskLoop(
   private val snapshotMapper: NativeSessionSnapshotMapper = NativeSessionSnapshotMapper()
 ) {
   fun run(input: NativeHostedTaskInput): WritableMap {
-    val startResponse = runtimeClient.startSession(input.instruction)
-    val task = startResponse.getJSONObject("task")
-    val taskId = task.getString("id")
-    val events = mutableListOf<NativeTaskEvent>()
-    appendNativeEvent(events, "task.started", "Task started.")
-    Log.i(TAG, "Hosted task started: $taskId")
+    val taskId = input.taskId ?: startNewTask(input.instruction)
+    val events = input.initialEvents.toMutableList()
+    if (input.taskId == null) {
+      appendNativeEvent(events, "task.started", "Task started.")
+      Log.i(TAG, "Hosted task started: $taskId")
+    } else {
+      Log.i(TAG, "Hosted task resumed: $taskId from step ${input.initialStepNumber}.")
+    }
 
-    var lastActionResult: NativeActionResult? = null
-    for (stepNumber in 1..input.maxSteps) {
+    var lastActionResult: NativeActionResult? = input.initialLastActionResult
+    if (input.approvedPauseAction != null) {
+      val actionName = input.approvedPauseAction.getString("action")
+      Log.i(TAG, "Hosted task $taskId approved pause action=$actionName.")
+      lastActionResult = actionExecutor.dispatch(input.approvedPauseAction)
+      appendNativeEvent(events, "step.result", lastActionResult.message)
+    }
+
+    for (stepNumber in input.initialStepNumber..input.maxSteps) {
       Log.i(TAG, "Hosted task $taskId step $stepNumber capture start.")
       val screen = try {
         screenStateCollector.capture()
@@ -153,6 +167,12 @@ internal class NativeHostedTaskLoop(
     throw IllegalStateException(
       "Hosted routine action loop exceeded ${input.maxSteps} steps without finish."
     )
+  }
+
+  private fun startNewTask(instruction: String): String {
+    val startResponse = runtimeClient.startSession(instruction)
+    val task = startResponse.getJSONObject("task")
+    return task.getString("id")
   }
 
   private fun appendNativeEvent(

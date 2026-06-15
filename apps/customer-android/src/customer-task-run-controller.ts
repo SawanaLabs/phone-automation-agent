@@ -46,11 +46,7 @@ export interface CustomerTaskRunController {
 export interface CustomerTaskRunControllerInput {
   completionSignalNotifier?: CompletionSignalNotifier;
   describeError?: (error: unknown) => string;
-  nativeHostedTaskRunner?: {
-    startTask: (
-      input: StartCustomerTaskInput
-    ) => Promise<CustomerSessionSnapshot>;
-  } | null;
+  nativeHostedTaskRunner?: NativeHostedTaskRunner | null;
   routineActionExecutor?: RoutineActionExecutor;
   routineActionRunner?: RoutineActionRunner;
   runHostedRoutineActionLoop?: typeof runHostedLoop;
@@ -58,6 +54,21 @@ export interface CustomerTaskRunControllerInput {
   sink: CustomerTaskRunSink;
   startCustomerTask?: typeof startHostedCustomerTask;
   stopPausedRoutineActionSession?: typeof stopPausedSession;
+}
+
+export interface NativeHostedTaskRunner {
+  allowConfirmedAction: (
+    session: CustomerSessionSnapshot,
+    input: StartCustomerTaskInput
+  ) => Promise<CustomerSessionSnapshot>;
+  continuePausedTask: (
+    session: CustomerSessionSnapshot,
+    input: StartCustomerTaskInput
+  ) => Promise<CustomerSessionSnapshot>;
+  startTask: (
+    input: StartCustomerTaskInput
+  ) => Promise<CustomerSessionSnapshot>;
+  stopPausedTask: (session: CustomerSessionSnapshot) => CustomerSessionSnapshot;
 }
 
 export function createCustomerTaskRunController({
@@ -106,7 +117,11 @@ export function createCustomerTaskRunController({
 
   function stopTask(session: CustomerSessionSnapshot | null) {
     if (session?.pause) {
-      sink.setSession(stopPausedRoutineActionSession(session));
+      sink.setSession(
+        nativeHostedTaskRunner
+          ? nativeHostedTaskRunner.stopPausedTask(session)
+          : stopPausedRoutineActionSession(session)
+      );
       return;
     }
 
@@ -118,6 +133,13 @@ export function createCustomerTaskRunController({
     input: StartCustomerTaskInput
   ) {
     if (!session?.pause) {
+      return;
+    }
+
+    if (nativeHostedTaskRunner) {
+      await runNativePausedTask(() =>
+        nativeHostedTaskRunner.continuePausedTask(session, input)
+      );
       return;
     }
 
@@ -134,6 +156,13 @@ export function createCustomerTaskRunController({
     input: StartCustomerTaskInput
   ) {
     if (!session?.pause) {
+      return;
+    }
+
+    if (nativeHostedTaskRunner) {
+      await runNativePausedTask(() =>
+        nativeHostedTaskRunner.allowConfirmedAction(session, input)
+      );
       return;
     }
 
@@ -163,6 +192,21 @@ export function createCustomerTaskRunController({
         },
         { alreadyLooping: true }
       );
+    } catch (error) {
+      sink.setErrorMessage(describeError(error));
+    } finally {
+      sink.setIsTaskLoopRunning(false);
+    }
+  }
+
+  async function runNativePausedTask(
+    run: () => Promise<CustomerSessionSnapshot>
+  ) {
+    sink.setIsTaskLoopRunning(true);
+    sink.setErrorMessage(null);
+    stopRequested = false;
+    try {
+      sink.setSession(await run());
     } catch (error) {
       sink.setErrorMessage(describeError(error));
     } finally {

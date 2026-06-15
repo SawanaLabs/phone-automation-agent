@@ -369,6 +369,7 @@ class CustomerAutomationModule(
     runtimeAccessToken: String,
     instruction: String,
     maxSteps: Double,
+    resumeStateJson: String?,
     promise: Promise
   ) {
     val normalizedRuntimeUrl = normalizeRuntimeUrl(runtimeUrl)
@@ -416,9 +417,10 @@ class CustomerAutomationModule(
           runtimeUrl = normalizedRuntimeUrl,
           runtimeAccessToken = normalizedRuntimeAccessToken
         ).run(
-          NativeHostedTaskInput(
+          NativeHostedTaskResumeStateParser.createInput(
             instruction = normalizedInstruction,
-            maxSteps = maxSteps.roundToInt()
+            maxSteps = maxSteps.roundToInt(),
+            resumeStateJson = resumeStateJson
           )
         )
         mainHandler.post { promise.resolve(snapshot) }

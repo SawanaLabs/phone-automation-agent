@@ -8,6 +8,7 @@ import { createCustomerTaskRunController } from "./customer-task-run-controller"
 import { deriveDeviceAuthorityState } from "./device-authority";
 import type {
   HostedRoutineActionLoopInput,
+  RoutineAction,
   RoutineActionRunner,
 } from "./routine-action-types";
 import { createRecordingExecutor } from "./routine-actions.test-support";
@@ -68,7 +69,9 @@ describe("customer task run controller", () => {
       { sequence: 2, type: "task.finished", message: "done" },
     ]);
   });
+});
 
+describe("customer task run controller native runner", () => {
   it("keeps native hosted tasks behind the same start interface", async () => {
     const sink = createRecordingSink();
     const nativeSession = createSession("finished", "native_task_1");
@@ -78,6 +81,15 @@ describe("customer task run controller", () => {
         async startTask(input) {
           expect(input).toMatchObject(startInput);
           return nativeSession;
+        },
+        async continuePausedTask() {
+          throw new Error("native start branch must not continue a task");
+        },
+        async allowConfirmedAction() {
+          throw new Error("native start branch must not allow a confirmation");
+        },
+        stopPausedTask(session) {
+          return session;
         },
       },
       routineActionExecutor: createRecordingExecutor(),
@@ -97,6 +109,86 @@ describe("customer task run controller", () => {
     await controller.startTask(startInput);
 
     expect(sink.sessions).toEqual([nativeSession]);
+    expect(sink.loopRunning).toEqual([true, false]);
+  });
+
+  it("keeps native pause continuation behind the native hosted task runner", async () => {
+    const sink = createRecordingSink();
+    const pausedSession = createPausedSession("interaction_required");
+    const continuedSession = createSession("finished", "native_task_1");
+    const calls: string[] = [];
+    const controller = createCustomerTaskRunController({
+      sink,
+      nativeHostedTaskRunner: {
+        async startTask() {
+          throw new Error("native branch must not start a new task");
+        },
+        async continuePausedTask(session, input) {
+          calls.push(`${session.task.id}|${input.instruction}`);
+          return continuedSession;
+        },
+        async allowConfirmedAction() {
+          throw new Error("continue branch must not allow a confirmation");
+        },
+        stopPausedTask(session) {
+          return session;
+        },
+      },
+      routineActionExecutor: createRecordingExecutor(),
+      screenStateCollector: {
+        async capture() {
+          throw new Error("native branch must not capture from JS");
+        },
+      },
+      async runHostedRoutineActionLoop() {
+        throw new Error("native branch must not run a JS loop");
+      },
+    });
+
+    await controller.continuePausedTask(pausedSession, startInput);
+
+    expect(calls).toEqual(["customer_task_1|打开美团，搜索白切鸡，停在结果页"]);
+    expect(sink.sessions.at(-1)).toBe(continuedSession);
+    expect(sink.loopRunning).toEqual([true, false]);
+  });
+
+  it("keeps native confirmation approval behind the native hosted task runner", async () => {
+    const sink = createRecordingSink();
+    const pausedSession = createPausedSession("confirmation_required");
+    const finishedSession = createSession("finished", "native_task_1");
+    const calls: string[] = [];
+    const controller = createCustomerTaskRunController({
+      sink,
+      nativeHostedTaskRunner: {
+        async startTask() {
+          throw new Error("native branch must not start a new task");
+        },
+        async continuePausedTask() {
+          throw new Error("confirmation branch must not continue directly");
+        },
+        async allowConfirmedAction(session, input) {
+          calls.push(`${session.task.id}|${input.instruction}`);
+          return finishedSession;
+        },
+        stopPausedTask(session) {
+          return session;
+        },
+      },
+      routineActionExecutor: createRecordingExecutor(),
+      screenStateCollector: {
+        async capture() {
+          throw new Error("native branch must not capture from JS");
+        },
+      },
+      async runHostedRoutineActionLoop() {
+        throw new Error("native branch must not run a JS loop");
+      },
+    });
+
+    await controller.allowConfirmedAction(pausedSession, startInput);
+
+    expect(calls).toEqual(["customer_task_1|打开美团，搜索白切鸡，停在结果页"]);
+    expect(sink.sessions.at(-1)).toBe(finishedSession);
     expect(sink.loopRunning).toEqual([true, false]);
   });
 
@@ -193,6 +285,41 @@ function createRecordingSink() {
     },
   };
   return sink;
+}
+
+function createPausedSession(
+  status: "interaction_required" | "confirmation_required"
+): CustomerSessionSnapshot {
+  const action: RoutineAction =
+    status === "confirmation_required"
+      ? {
+          _metadata: "do",
+          action: "Tap",
+          element: [500, 250],
+          message: "确认点击",
+        }
+      : {
+          _metadata: "do",
+          action: "Interact",
+          message: "User interaction required.",
+        };
+
+  return {
+    task: {
+      id: "customer_task_1",
+      instruction: startInput.instruction,
+      status,
+      summary: "Paused",
+    },
+    events: [],
+    pause: {
+      status,
+      action,
+      message: "Paused",
+    },
+    nextStepNumber: 2,
+    lastActionResult: null,
+  };
 }
 
 function createRecordingActionRunner(): RoutineActionRunner {

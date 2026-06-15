@@ -25,6 +25,10 @@ const LAST_ACTION_RESULT_FIELD = /putMap\(\s*"lastActionResult"/;
 const PRIVATE_RUN_HOSTED_TASK_LOOP = /private fun runHostedTaskLoop\(/;
 const NATIVE_HOSTED_TASK_LOOP_CLASS = /class NativeHostedTaskLoop\(/;
 const NATIVE_HOSTED_RUNTIME_CLIENT_PORT = /interface NativeHostedRuntimeClient/;
+const RUN_HOSTED_TASK_RESUME_PARAM = /resumeStateJson: String\?/;
+const NATIVE_HOSTED_RESUME_PARSER = /object NativeHostedTaskResumeStateParser/;
+const NATIVE_HOSTED_INPUT_RESUME_FIELDS =
+  /initialEvents: List<NativeTaskEvent>[\s\S]*initialStepNumber: Int[\s\S]*approvedPauseAction: JSONObject\?/;
 const NATIVE_ROUTINE_ACTION_EXECUTOR_CLASS =
   /class NativeRoutineActionExecutor\(/;
 const PRIVATE_NATIVE_ROUTINE_DISPATCH =
@@ -41,6 +45,36 @@ describe("Android native module contract", () => {
     );
 
     expect(moduleSource).toMatch(RUN_HOSTED_TASK_REACT_METHOD);
+  });
+
+  it("accepts native hosted resume state through a named parser", async () => {
+    const moduleSource = await readFile(
+      new URL(
+        "../android/app/src/main/java/com/sawanalabs/phoneautomation/customer/CustomerAutomationModule.kt",
+        import.meta.url
+      ),
+      "utf8"
+    );
+    const loopSource = await readFile(
+      new URL(
+        "../android/app/src/main/java/com/sawanalabs/phoneautomation/customer/NativeHostedTaskLoop.kt",
+        import.meta.url
+      ),
+      "utf8"
+    );
+    const resumeSource = await readFile(
+      new URL(
+        "../android/app/src/main/java/com/sawanalabs/phoneautomation/customer/NativeHostedTaskResumeState.kt",
+        import.meta.url
+      ),
+      "utf8"
+    );
+
+    expect(moduleSource).toMatch(RUN_HOSTED_TASK_RESUME_PARAM);
+    expect(loopSource).toMatch(NATIVE_HOSTED_INPUT_RESUME_FIELDS);
+    expect(resumeSource).toMatch(NATIVE_HOSTED_RESUME_PARSER);
+    expect(resumeSource).toContain("allow_confirmed_action");
+    expect(resumeSource).toContain("initialLastActionResult");
   });
 
   it("keeps the hosted task loop outside the React Native bridge module", async () => {

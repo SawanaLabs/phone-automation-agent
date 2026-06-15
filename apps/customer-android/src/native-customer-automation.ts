@@ -10,12 +10,14 @@ import type {
 } from "./customer-session";
 import type { DeviceAuthoritySnapshot } from "./device-authority";
 import type { DeviceAuthorityGateway } from "./device-authority-gateway";
+import { createPauseContinueActionResult } from "./routine-action-dispatch";
 import type {
   PixelPoint,
   RoutineActionExecutor,
   ScreenSize,
   ScreenStateCollector,
 } from "./routine-action-types";
+import { stopPausedRoutineActionSession } from "./routine-actions";
 
 export interface CustomerAutomationNativeModule {
   back: () => Promise<void>;
@@ -32,7 +34,8 @@ export interface CustomerAutomationNativeModule {
     runtimeUrl: string,
     runtimeAccessToken: string,
     instruction: string,
-    maxSteps: number
+    maxSteps: number,
+    resumeStateJson: string | null
   ) => Promise<CustomerSessionSnapshot>;
   showCompletionSignal: (
     session: CustomerSessionSnapshot
@@ -49,17 +52,33 @@ export interface CustomerAutomationNativeModule {
 }
 
 export interface HostedTaskRunner {
+  allowConfirmedAction: (
+    session: CustomerSessionSnapshot,
+    input: StartCustomerTaskInput
+  ) => Promise<CustomerSessionSnapshot>;
+  continuePausedTask: (
+    session: CustomerSessionSnapshot,
+    input: StartCustomerTaskInput
+  ) => Promise<CustomerSessionSnapshot>;
   startTask: (
     input: Pick<
       StartCustomerTaskInput,
       "authorityState" | "runtimeUrl" | "runtimeAccessToken" | "instruction"
     >
   ) => Promise<CustomerSessionSnapshot>;
+  stopPausedTask: (session: CustomerSessionSnapshot) => CustomerSessionSnapshot;
 }
 
 interface NativeModuleRegistry {
   CustomerAutomation?: CustomerAutomationNativeModule;
 }
+
+type NativeHostedTaskRunnerInput = Pick<
+  StartCustomerTaskInput,
+  "authorityState" | "runtimeUrl" | "runtimeAccessToken" | "instruction"
+>;
+
+type NativeHostedResumeMode = "continue" | "allow_confirmed_action";
 
 export function requireCustomerAutomationNativeModule(
   modules: NativeModuleRegistry
@@ -105,39 +124,114 @@ export function createNativeHostedTaskRunner(
   )
 ): HostedTaskRunner {
   return {
-    async startTask({
-      authorityState,
-      runtimeUrl,
-      runtimeAccessToken,
-      instruction,
-    }) {
-      if (!authorityState.canStartTask) {
-        throw new Error(
-          `Android permissions are required before starting a task: ${authorityState.missing.join(", ")}.`
-        );
-      }
-
-      const normalizedInstruction = instruction.trim();
-      if (!normalizedInstruction) {
-        throw new Error("Instruction is required.");
-      }
-
-      const normalizedRuntimeAccessToken = runtimeAccessToken.trim();
-      if (!normalizedRuntimeAccessToken) {
-        throw new Error("Runtime access token is required.");
-      }
-
-      return notifyTaskOutcome(
-        await nativeModule.runHostedTask(
-          runtimeUrl,
-          normalizedRuntimeAccessToken,
-          normalizedInstruction,
-          50
-        ),
-        completionSignalNotifier
+    allowConfirmedAction(session, input) {
+      return runNativeHostedTask(
+        nativeModule,
+        completionSignalNotifier,
+        input,
+        createNativeHostedResumeStateJson("allow_confirmed_action", session)
       );
     },
+    continuePausedTask(session, input) {
+      return runNativeHostedTask(
+        nativeModule,
+        completionSignalNotifier,
+        input,
+        createNativeHostedResumeStateJson("continue", session)
+      );
+    },
+    startTask({ authorityState, runtimeUrl, runtimeAccessToken, instruction }) {
+      return runNativeHostedTask(
+        nativeModule,
+        completionSignalNotifier,
+        {
+          authorityState,
+          runtimeUrl,
+          runtimeAccessToken,
+          instruction,
+        },
+        null
+      );
+    },
+    stopPausedTask(session) {
+      return stopPausedRoutineActionSession(session);
+    },
   };
+}
+
+async function runNativeHostedTask(
+  nativeModule: CustomerAutomationNativeModule,
+  completionSignalNotifier: CompletionSignalNotifier,
+  input: NativeHostedTaskRunnerInput,
+  resumeStateJson: string | null
+): Promise<CustomerSessionSnapshot> {
+  const normalizedInput = normalizeNativeHostedTaskInput(input);
+  return notifyTaskOutcome(
+    await nativeModule.runHostedTask(
+      normalizedInput.runtimeUrl,
+      normalizedInput.runtimeAccessToken,
+      normalizedInput.instruction,
+      50,
+      resumeStateJson
+    ),
+    completionSignalNotifier
+  );
+}
+
+function normalizeNativeHostedTaskInput({
+  authorityState,
+  runtimeUrl,
+  runtimeAccessToken,
+  instruction,
+}: NativeHostedTaskRunnerInput): {
+  instruction: string;
+  runtimeAccessToken: string;
+  runtimeUrl: string;
+} {
+  if (!authorityState.canStartTask) {
+    throw new Error(
+      `Android permissions are required before starting a task: ${authorityState.missing.join(", ")}.`
+    );
+  }
+
+  const normalizedInstruction = instruction.trim();
+  if (!normalizedInstruction) {
+    throw new Error("Instruction is required.");
+  }
+
+  const normalizedRuntimeAccessToken = runtimeAccessToken.trim();
+  if (!normalizedRuntimeAccessToken) {
+    throw new Error("Runtime access token is required.");
+  }
+
+  return {
+    instruction: normalizedInstruction,
+    runtimeAccessToken: normalizedRuntimeAccessToken,
+    runtimeUrl,
+  };
+}
+
+function createNativeHostedResumeStateJson(
+  mode: NativeHostedResumeMode,
+  session: CustomerSessionSnapshot
+): string {
+  if (!session.pause) {
+    throw new Error(
+      "A paused task is required before resuming native hosted execution."
+    );
+  }
+
+  return JSON.stringify({
+    mode,
+    taskId: session.task.id,
+    events: session.events,
+    nextStepNumber: session.nextStepNumber ?? 1,
+    lastActionResult:
+      mode === "continue"
+        ? createPauseContinueActionResult(session.pause)
+        : (session.lastActionResult ?? null),
+    pause: session.pause,
+  });
 }
 
 export function createNativeRoutineActionExecutor(
