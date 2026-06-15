@@ -20,6 +20,10 @@ _Avoid_: Mac worker, ADB-only worker, cloud device runner
 The customer-story hosted Agent Runtime paired with the customer Android app. It owns customer task sessions, action decisions, model-facing automation state, and runtime logs while the Android On-Device Executor owns same-phone observation and action execution.
 _Avoid_: demo worker extension, Mac worker route, web fallback
 
+**Customer Agent Context**:
+The Customer Android API module that builds model-facing messages from Customer Steps, keeps per-session Agent Context, maps Android packages to Open-AutoGLM app names, and prunes previous images.
+_Avoid_: prompt helper, hidden model state, route-owned message history
+
 **Full Access Mode**:
 The first customer-story execution posture where, after explicit permission setup, the agent can continue routine automation without asking for approval before every step.
 _Avoid_: silent permission bypass, production safety policy, Play Store compliance story
