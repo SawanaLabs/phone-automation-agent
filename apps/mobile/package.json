@@ -18,15 +18,11 @@
     "web": "expo start --web",
     "build": "expo export --platform android --output-dir dist",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
-    "lint": "eslint .",
-    "format": "prettier --write \"**/*.{ts,tsx}\""
+    "test": "vitest run"
   },
   "private": true,
   "devDependencies": {
     "@types/react": "~19.2.2",
-    "@workspace/eslint-config": "workspace:^",
-    "eslint": "^9",
     "typescript": "~6.0.3",
     "vitest": "^4.1.8"
   }
