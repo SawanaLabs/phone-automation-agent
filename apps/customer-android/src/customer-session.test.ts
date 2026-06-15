@@ -12,8 +12,7 @@ const readyAuthorityState = deriveDeviceAuthorityState({
   notifications: "granted",
 });
 
-// biome-ignore lint/complexity/noExcessiveLinesPerFunction: broad existing hosted-session contract suite; split by workflow during the customer-android architecture pass.
-describe("customer hosted session", () => {
+describe("customer hosted session start", () => {
   it("starts a hosted session with the alpha bearer token and returns the terminal trace", async () => {
     const fetchCalls: Array<{ url: string; init?: RequestInit }> = [];
     const fetchImpl: typeof fetch = async (url, init) => {
@@ -77,7 +76,9 @@ describe("customer hosted session", () => {
       "task.finished",
     ]);
   });
+});
 
+describe("customer hosted session validation", () => {
   it("throws before calling the runtime when the instruction is empty", async () => {
     const fetchImpl: typeof fetch = async () => {
       throw new Error("fetch should not be called");
@@ -170,7 +171,9 @@ describe("customer hosted session", () => {
       "Android permissions are required before starting a task: accessibility_service, screen_capture, notifications."
     );
   });
+});
 
+describe("customer hosted session step request", () => {
   it("requests one hosted action with the latest screen state and last action result", async () => {
     const fetchCalls: Array<{ url: string; init?: RequestInit }> = [];
     const fetchImpl: typeof fetch = async (url, init) => {
@@ -286,7 +289,9 @@ describe("customer hosted session", () => {
       text: "Sawana",
     });
   });
+});
 
+describe("customer hosted session step validation", () => {
   it("rejects invalid hosted runtime actions", async () => {
     const fetchImpl: typeof fetch = async () =>
       new Response(
