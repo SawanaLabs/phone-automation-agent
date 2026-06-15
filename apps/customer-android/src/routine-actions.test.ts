@@ -1,17 +1,17 @@
-import { describe, expect, it } from "vitest"
+import { describe, expect, it } from "vitest";
 
 import {
-  createPauseContinueActionResult,
   convertRelativePoint,
+  createPauseContinueActionResult,
   executeConfirmedPauseAction,
+  type RoutineActionExecutor,
   runHostedRoutineActionLoop,
   runRoutineActionScript,
   stopPausedRoutineActionSession,
-  type RoutineActionExecutor,
-} from "./routine-actions"
+} from "./routine-actions";
 
 function createRecordingExecutor(): RoutineActionExecutor & {
-  calls: string[]
+  calls: string[];
 } {
   return {
     calls: [],
@@ -20,46 +20,47 @@ function createRecordingExecutor(): RoutineActionExecutor & {
       height: 2400,
     },
     async tap(point) {
-      this.calls.push(`tap:${point.x},${point.y}`)
+      this.calls.push(`tap:${point.x},${point.y}`);
     },
     async doubleTap(point) {
-      this.calls.push(`double-tap:${point.x},${point.y}`)
+      this.calls.push(`double-tap:${point.x},${point.y}`);
     },
     async longPress(point) {
-      this.calls.push(`long-press:${point.x},${point.y}`)
+      this.calls.push(`long-press:${point.x},${point.y}`);
     },
     async swipe(start, end) {
-      this.calls.push(`swipe:${start.x},${start.y}->${end.x},${end.y}`)
+      this.calls.push(`swipe:${start.x},${start.y}->${end.x},${end.y}`);
     },
     async back() {
-      this.calls.push("back")
+      this.calls.push("back");
     },
     async home() {
-      this.calls.push("home")
+      this.calls.push("home");
     },
     async launchApp(app) {
-      this.calls.push(`launch:${app}`)
+      this.calls.push(`launch:${app}`);
     },
     async typeText(text) {
-      this.calls.push(`type:${text}`)
+      this.calls.push(`type:${text}`);
     },
     async wait(durationMs) {
-      this.calls.push(`wait:${durationMs}`)
+      this.calls.push(`wait:${durationMs}`);
     },
-  }
+  };
 }
 
 describe("routine actions", () => {
   it("converts Open-AutoGLM relative coordinates to screen pixels", () => {
-    expect(convertRelativePoint([500, 250], { width: 1080, height: 2400 }))
-      .toEqual({
-        x: 540,
-        y: 600,
-      })
-  })
+    expect(
+      convertRelativePoint([500, 250], { width: 1080, height: 2400 })
+    ).toEqual({
+      x: 540,
+      y: 600,
+    });
+  });
 
   it("dispatches routine actions in script order and finishes the task", async () => {
-    const executor = createRecordingExecutor()
+    const executor = createRecordingExecutor();
 
     const result = await runRoutineActionScript({
       taskId: "customer_task_1",
@@ -78,7 +79,7 @@ describe("routine actions", () => {
         { _metadata: "finish", message: "done" },
       ],
       executor,
-    })
+    });
 
     expect(executor.calls).toEqual([
       "tap:540,600",
@@ -86,14 +87,14 @@ describe("routine actions", () => {
       "back",
       "home",
       "wait:1000",
-    ])
-    expect(result.task.status).toBe("finished")
-    expect(result.task.summary).toBe("done")
-    expect(result.events.map((event) => event.type)).toContain("task.finished")
-  })
+    ]);
+    expect(result.task.status).toBe("finished");
+    expect(result.task.summary).toBe("done");
+    expect(result.events.map((event) => event.type)).toContain("task.finished");
+  });
 
   it("dispatches launch and text-entry actions in script order", async () => {
-    const executor = createRecordingExecutor()
+    const executor = createRecordingExecutor();
 
     const result = await runRoutineActionScript({
       taskId: "customer_task_1",
@@ -109,18 +110,18 @@ describe("routine actions", () => {
         { _metadata: "finish", message: "done" },
       ],
       executor,
-    })
+    });
 
     expect(executor.calls).toEqual([
       "launch:com.android.settings",
       "type:coffee shop",
       "type:Sawana",
-    ])
-    expect(result.task.status).toBe("finished")
-  })
+    ]);
+    expect(result.task.status).toBe("finished");
+  });
 
   it("dispatches double tap and long press actions", async () => {
-    const executor = createRecordingExecutor()
+    const executor = createRecordingExecutor();
 
     const result = await runRoutineActionScript({
       taskId: "customer_task_1",
@@ -131,18 +132,18 @@ describe("routine actions", () => {
         { _metadata: "finish", message: "done" },
       ],
       executor,
-    })
+    });
 
     expect(executor.calls).toEqual([
       "double-tap:540,600",
       "long-press:270,1200",
-    ])
-    expect(result.task.status).toBe("finished")
-  })
+    ]);
+    expect(result.task.status).toBe("finished");
+  });
 
   it("stops before dispatching the next action when stop is requested", async () => {
-    const executor = createRecordingExecutor()
-    let checks = 0
+    const executor = createRecordingExecutor();
+    let checks = 0;
 
     const result = await runRoutineActionScript({
       taskId: "customer_task_1",
@@ -154,26 +155,26 @@ describe("routine actions", () => {
       ],
       executor,
       shouldStop: () => {
-        checks += 1
-        return checks > 1
+        checks += 1;
+        return checks > 1;
       },
-    })
+    });
 
-    expect(executor.calls).toEqual(["tap:540,600"])
-    expect(result.task.status).toBe("stopped")
+    expect(executor.calls).toEqual(["tap:540,600"]);
+    expect(result.task.status).toBe("stopped");
     expect(result.events.at(-1)).toMatchObject({
       type: "task.stopped",
       message: "Task stopped by user.",
-    })
-  })
+    });
+  });
 
   it("uploads screen state for each hosted step and finishes on terminal action", async () => {
-    const executor = createRecordingExecutor()
-    const stepRequests: Array<Record<string, unknown>> = []
-    let captures = 0
+    const executor = createRecordingExecutor();
+    const stepRequests: Record<string, unknown>[] = [];
+    let captures = 0;
     const fetchImpl: typeof fetch = async (_url, init) => {
-      const body = JSON.parse(String(init?.body))
-      stepRequests.push(body)
+      const body = JSON.parse(String(init?.body));
+      stepRequests.push(body);
 
       if (body.stepNumber === 1) {
         return new Response(
@@ -188,7 +189,7 @@ describe("routine actions", () => {
             status: 200,
             headers: { "Content-Type": "application/json" },
           }
-        )
+        );
       }
 
       return new Response(
@@ -202,8 +203,8 @@ describe("routine actions", () => {
           status: 200,
           headers: { "Content-Type": "application/json" },
         }
-      )
-    }
+      );
+    };
 
     const result = await runHostedRoutineActionLoop({
       taskId: "customer_task_1",
@@ -214,22 +215,22 @@ describe("routine actions", () => {
       fetchImpl,
       screenStateCollector: {
         async capture() {
-          captures += 1
+          captures += 1;
           return {
             frameBase64: `frame-${captures}`,
             frameMimeType: "image/png",
             width: 1080,
             height: 2400,
             currentPackage: "com.android.settings",
-          }
+          };
         },
       },
-    })
+    });
 
-    expect(executor.calls).toEqual(["tap:540,600"])
-    expect(result.task.status).toBe("finished")
-    expect(result.task.summary).toBe("done")
-    expect(stepRequests).toHaveLength(2)
+    expect(executor.calls).toEqual(["tap:540,600"]);
+    expect(result.task.status).toBe("finished");
+    expect(result.task.summary).toBe("done");
+    expect(stepRequests).toHaveLength(2);
     expect(stepRequests[0]).toMatchObject({
       stepNumber: 1,
       screen: {
@@ -238,7 +239,7 @@ describe("routine actions", () => {
         height: 2400,
       },
       lastActionResult: null,
-    })
+    });
     expect(stepRequests[1]).toMatchObject({
       stepNumber: 2,
       screen: {
@@ -249,12 +250,12 @@ describe("routine actions", () => {
         action: "Tap",
         message: "Tap completed.",
       },
-    })
-  })
+    });
+  });
 
   it("records a completion signal when a hosted task finishes", async () => {
-    const executor = createRecordingExecutor()
-    const completionSignals: string[] = []
+    const executor = createRecordingExecutor();
+    const completionSignals: string[] = [];
 
     const result = await runHostedRoutineActionLoop({
       taskId: "customer_task_1",
@@ -282,36 +283,36 @@ describe("routine actions", () => {
             frameMimeType: "image/png",
             width: 1080,
             height: 2400,
-          }
+          };
         },
       },
       completionSignalNotifier: {
         async notifyTaskOutcome(session) {
           completionSignals.push(
             `${session.task.id}:${session.task.status}:${session.task.summary}`
-          )
+          );
           return {
             status: "delivered",
             message: "Completion signal delivered.",
-          }
+          };
         },
       },
-    })
+    });
 
-    expect(completionSignals).toEqual(["customer_task_1:finished:done"])
-    expect(result.task.status).toBe("finished")
+    expect(completionSignals).toEqual(["customer_task_1:finished:done"]);
+    expect(result.task.status).toBe("finished");
     expect(result.events.at(-1)).toMatchObject({
       type: "task.notification.delivered",
       message: "Completion signal delivered.",
-    })
-  })
+    });
+  });
 
   it("records runtime-local actions without dispatching physical phone actions", async () => {
-    const executor = createRecordingExecutor()
-    const stepRequests: Array<Record<string, unknown>> = []
+    const executor = createRecordingExecutor();
+    const stepRequests: Record<string, unknown>[] = [];
     const fetchImpl: typeof fetch = async (_url, init) => {
-      const body = JSON.parse(String(init?.body))
-      stepRequests.push(body)
+      const body = JSON.parse(String(init?.body));
+      stepRequests.push(body);
 
       if (body.stepNumber === 1) {
         return new Response(
@@ -326,7 +327,7 @@ describe("routine actions", () => {
             status: 200,
             headers: { "Content-Type": "application/json" },
           }
-        )
+        );
       }
 
       if (body.stepNumber === 2) {
@@ -342,7 +343,7 @@ describe("routine actions", () => {
             status: 200,
             headers: { "Content-Type": "application/json" },
           }
-        )
+        );
       }
 
       return new Response(
@@ -356,8 +357,8 @@ describe("routine actions", () => {
           status: 200,
           headers: { "Content-Type": "application/json" },
         }
-      )
-    }
+      );
+    };
 
     const result = await runHostedRoutineActionLoop({
       taskId: "customer_task_1",
@@ -373,21 +374,21 @@ describe("routine actions", () => {
             frameMimeType: "image/png",
             width: 1080,
             height: 2400,
-          }
+          };
         },
       },
-    })
+    });
 
-    expect(executor.calls).toEqual([])
-    expect(result.task.status).toBe("finished")
-    expect(stepRequests).toHaveLength(3)
+    expect(executor.calls).toEqual([]);
+    expect(result.task.status).toBe("finished");
+    expect(stepRequests).toHaveLength(3);
     expect(stepRequests[1]).toMatchObject({
       lastActionResult: {
         status: "succeeded",
         action: "Note",
         message: "Note recorded: 页面显示三条结果",
       },
-    })
+    });
     expect(stepRequests[2]).toMatchObject({
       lastActionResult: {
         status: "unsupported",
@@ -395,11 +396,11 @@ describe("routine actions", () => {
         message:
           "Call_API is a runtime-local action and is not implemented by this hosted runtime.",
       },
-    })
-  })
+    });
+  });
 
   it("returns a failed snapshot with trace when the hosted runtime rejects a step", async () => {
-    const executor = createRecordingExecutor()
+    const executor = createRecordingExecutor();
 
     const result = await runHostedRoutineActionLoop({
       taskId: "customer_task_1",
@@ -424,22 +425,22 @@ describe("routine actions", () => {
             frameMimeType: "image/png",
             width: 1080,
             height: 2400,
-          }
+          };
         },
       },
-    })
+    });
 
-    expect(executor.calls).toEqual([])
-    expect(result.task.status).toBe("failed")
-    expect(result.task.summary).toBe("Invalid model output.")
+    expect(executor.calls).toEqual([]);
+    expect(result.task.status).toBe("failed");
+    expect(result.task.summary).toBe("Invalid model output.");
     expect(result.events.at(-1)).toMatchObject({
       type: "task.failed",
       message: "Invalid model output.",
-    })
-  })
+    });
+  });
 
   it("returns a failed snapshot when the hosted runtime returns a failed outcome", async () => {
-    const executor = createRecordingExecutor()
+    const executor = createRecordingExecutor();
 
     const result = await runHostedRoutineActionLoop({
       taskId: "customer_task_1",
@@ -468,26 +469,26 @@ describe("routine actions", () => {
             frameMimeType: "image/png",
             width: 1080,
             height: 2400,
-          }
+          };
         },
       },
-    })
+    });
 
-    expect(executor.calls).toEqual([])
-    expect(result.task.status).toBe("failed")
+    expect(executor.calls).toEqual([]);
+    expect(result.task.status).toBe("failed");
     expect(result.task.summary).toBe(
       "Invalid model output: Model output must contain do(...) or finish(...)."
-    )
+    );
     expect(result.events.at(-1)).toMatchObject({
       type: "task.failed",
       message:
         "Invalid model output: Model output must contain do(...) or finish(...).",
-    })
-  })
+    });
+  });
 
   it("returns a failed snapshot before contacting the runtime when screen capture fails", async () => {
-    const executor = createRecordingExecutor()
-    let runtimeCalls = 0
+    const executor = createRecordingExecutor();
+    let runtimeCalls = 0;
 
     const result = await runHostedRoutineActionLoop({
       taskId: "customer_task_1",
@@ -496,7 +497,7 @@ describe("routine actions", () => {
       runtimeAccessToken: "alpha-token",
       executor,
       fetchImpl: async () => {
-        runtimeCalls += 1
+        runtimeCalls += 1;
         return new Response(
           JSON.stringify({
             action: {
@@ -508,33 +509,35 @@ describe("routine actions", () => {
             status: 200,
             headers: { "Content-Type": "application/json" },
           }
-        )
+        );
       },
       screenStateCollector: {
         async capture() {
-          throw new Error("Grant screen capture before requesting hosted decisions.")
+          throw new Error(
+            "Grant screen capture before requesting hosted decisions."
+          );
         },
       },
-    })
+    });
 
-    expect(runtimeCalls).toBe(0)
-    expect(executor.calls).toEqual([])
-    expect(result.task.status).toBe("failed")
+    expect(runtimeCalls).toBe(0);
+    expect(executor.calls).toEqual([]);
+    expect(result.task.status).toBe("failed");
     expect(result.task.summary).toBe(
       "Grant screen capture before requesting hosted decisions."
-    )
+    );
     expect(result.events.at(-1)).toMatchObject({
       type: "task.failed",
       message: "Grant screen capture before requesting hosted decisions.",
-    })
-  })
+    });
+  });
 
   it("pauses takeover actions and continues with a new screen state", async () => {
-    const executor = createRecordingExecutor()
-    const stepRequests: Array<Record<string, unknown>> = []
+    const executor = createRecordingExecutor();
+    const stepRequests: Record<string, unknown>[] = [];
     const fetchImpl: typeof fetch = async (_url, init) => {
-      const body = JSON.parse(String(init?.body))
-      stepRequests.push(body)
+      const body = JSON.parse(String(init?.body));
+      stepRequests.push(body);
 
       if (body.stepNumber === 1) {
         return new Response(
@@ -549,7 +552,7 @@ describe("routine actions", () => {
             status: 200,
             headers: { "Content-Type": "application/json" },
           }
-        )
+        );
       }
 
       return new Response(
@@ -563,20 +566,20 @@ describe("routine actions", () => {
           status: 200,
           headers: { "Content-Type": "application/json" },
         }
-      )
-    }
-    let captures = 0
+      );
+    };
+    let captures = 0;
     const screenStateCollector = {
       async capture() {
-        captures += 1
+        captures += 1;
         return {
           frameBase64: `frame-${captures}`,
           frameMimeType: "image/png",
           width: 1080,
           height: 2400,
-        }
+        };
       },
-    }
+    };
 
     const paused = await runHostedRoutineActionLoop({
       taskId: "customer_task_1",
@@ -586,15 +589,15 @@ describe("routine actions", () => {
       executor,
       fetchImpl,
       screenStateCollector,
-    })
+    });
 
-    expect(paused.task.status).toBe("takeover_required")
+    expect(paused.task.status).toBe("takeover_required");
     expect(paused.pause).toMatchObject({
       status: "takeover_required",
       message: "请先完成登录",
-    })
-    expect(paused.nextStepNumber).toBe(2)
-    expect(executor.calls).toEqual([])
+    });
+    expect(paused.nextStepNumber).toBe(2);
+    expect(executor.calls).toEqual([]);
 
     const finished = await runHostedRoutineActionLoop({
       taskId: paused.task.id,
@@ -607,9 +610,9 @@ describe("routine actions", () => {
       initialEvents: paused.events,
       initialStepNumber: paused.nextStepNumber,
       initialLastActionResult: createPauseContinueActionResult(paused.pause),
-    })
+    });
 
-    expect(finished.task.status).toBe("finished")
+    expect(finished.task.status).toBe("finished");
     expect(stepRequests[1]).toMatchObject({
       stepNumber: 2,
       screen: {
@@ -620,11 +623,11 @@ describe("routine actions", () => {
         action: "Take_over",
         message: "User continued after Take_over.",
       },
-    })
-  })
+    });
+  });
 
   it("pauses interact actions", async () => {
-    const executor = createRecordingExecutor()
+    const executor = createRecordingExecutor();
     const fetchImpl: typeof fetch = async () =>
       new Response(
         JSON.stringify({
@@ -637,7 +640,7 @@ describe("routine actions", () => {
           status: 200,
           headers: { "Content-Type": "application/json" },
         }
-      )
+      );
 
     const paused = await runHostedRoutineActionLoop({
       taskId: "customer_task_1",
@@ -653,20 +656,20 @@ describe("routine actions", () => {
             frameMimeType: "image/png",
             width: 1080,
             height: 2400,
-          }
+          };
         },
       },
-    })
+    });
 
-    expect(paused.task.status).toBe("interaction_required")
+    expect(paused.task.status).toBe("interaction_required");
     expect(paused.pause).toMatchObject({
       status: "interaction_required",
       message: "User interaction required.",
-    })
-  })
+    });
+  });
 
   it("pauses sensitive tap actions until confirmation", async () => {
-    const executor = createRecordingExecutor()
+    const executor = createRecordingExecutor();
     const fetchImpl: typeof fetch = async () =>
       new Response(
         JSON.stringify({
@@ -681,7 +684,7 @@ describe("routine actions", () => {
           status: 200,
           headers: { "Content-Type": "application/json" },
         }
-      )
+      );
 
     const paused = await runHostedRoutineActionLoop({
       taskId: "customer_task_1",
@@ -697,13 +700,13 @@ describe("routine actions", () => {
             frameMimeType: "image/png",
             width: 1080,
             height: 2400,
-          }
+          };
         },
       },
-    })
+    });
 
-    expect(paused.task.status).toBe("confirmation_required")
-    expect(executor.calls).toEqual([])
+    expect(paused.task.status).toBe("confirmation_required");
+    expect(executor.calls).toEqual([]);
 
     await expect(
       executeConfirmedPauseAction(paused.pause, executor)
@@ -711,9 +714,9 @@ describe("routine actions", () => {
       status: "succeeded",
       action: "Tap",
       message: "Tap completed.",
-    })
-    expect(executor.calls).toEqual(["tap:540,600"])
-  })
+    });
+    expect(executor.calls).toEqual(["tap:540,600"]);
+  });
 
   it("stops paused sessions", async () => {
     const stopped = stopPausedRoutineActionSession({
@@ -739,14 +742,14 @@ describe("routine actions", () => {
         },
         message: "User interaction required.",
       },
-    })
+    });
 
-    expect(stopped.task.status).toBe("stopped")
-    expect(stopped.pause).toBeNull()
+    expect(stopped.task.status).toBe("stopped");
+    expect(stopped.pause).toBeNull();
     expect(stopped.events.at(-1)).toMatchObject({
       sequence: 2,
       type: "task.stopped",
       message: "Task stopped by user.",
-    })
-  })
-})
+    });
+  });
+});

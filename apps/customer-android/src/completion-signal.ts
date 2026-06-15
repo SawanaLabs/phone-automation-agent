@@ -2,7 +2,7 @@ import type {
   CustomerSessionSnapshot,
   CustomerTaskEvent,
   CustomerTaskStatus,
-} from "./customer-session"
+} from "./customer-session";
 
 type CompletionSignalTaskStatus = Extract<
   CustomerTaskStatus,
@@ -12,48 +12,48 @@ type CompletionSignalTaskStatus = Extract<
   | "takeover_required"
   | "interaction_required"
   | "confirmation_required"
->
+>;
 
-export type CompletionSignalResult = {
-  status: "delivered"
-  message: string
+export interface CompletionSignalResult {
+  message: string;
+  status: "delivered";
 }
 
-export type CompletionSignalNotifier = {
+export interface CompletionSignalNotifier {
   notifyTaskOutcome: (
     session: CustomerSessionSnapshot & {
       task: CustomerSessionSnapshot["task"] & {
-        status: CompletionSignalTaskStatus
-      }
+        status: CompletionSignalTaskStatus;
+      };
     }
-  ) => Promise<CompletionSignalResult>
+  ) => Promise<CompletionSignalResult>;
 }
 
 export async function notifyTaskOutcome(
   session: CustomerSessionSnapshot,
   notifier: CompletionSignalNotifier | undefined
 ): Promise<CustomerSessionSnapshot> {
-  if (!notifier || !shouldNotifyTaskOutcome(session.task.status)) {
-    return session
+  if (!(notifier && shouldNotifyTaskOutcome(session.task.status))) {
+    return session;
   }
 
   try {
     const result = await notifier.notifyTaskOutcome(
       session as CustomerSessionSnapshot & {
         task: CustomerSessionSnapshot["task"] & {
-          status: CompletionSignalTaskStatus
-        }
+          status: CompletionSignalTaskStatus;
+        };
       }
-    )
+    );
     return appendNotificationEvent(session, {
       type: "task.notification.delivered",
       message: result.message,
-    })
+    });
   } catch (error) {
     return appendNotificationEvent(session, {
       type: "task.notification.failed",
       message: describeError(error),
-    })
+    });
   }
 }
 
@@ -67,7 +67,7 @@ export function shouldNotifyTaskOutcome(
     status === "takeover_required" ||
     status === "interaction_required" ||
     status === "confirmation_required"
-  )
+  );
 }
 
 function appendNotificationEvent(
@@ -85,13 +85,13 @@ function appendNotificationEvent(
         payload: {},
       },
     ],
-  }
+  };
 }
 
 function describeError(error: unknown): string {
   if (error instanceof Error) {
-    return error.message
+    return error.message;
   }
 
-  return String(error)
+  return String(error);
 }

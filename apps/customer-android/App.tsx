@@ -1,5 +1,5 @@
-import { StatusBar } from "expo-status-bar"
-import { useEffect, useMemo, useRef, useState } from "react"
+import { StatusBar } from "expo-status-bar";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -10,164 +10,174 @@ import {
   Text,
   TextInput,
   View,
-} from "react-native"
-
+} from "react-native";
+import { createCompletionSignalNotifier } from "./src/completion-signal-gateway";
 import {
-  startCustomerTask,
-  type CustomerTaskEvent,
   type CustomerSessionSnapshot,
-} from "./src/customer-session"
-import { createCompletionSignalNotifier } from "./src/completion-signal-gateway"
+  type CustomerTaskEvent,
+  startCustomerTask,
+} from "./src/customer-session";
 import {
-  deriveDeviceAuthorityState,
   type DeviceAuthoritySnapshot,
   type DeviceAuthorityState,
-} from "./src/device-authority"
-import { createDeviceAuthorityGateway } from "./src/device-authority-gateway"
+  deriveDeviceAuthorityState,
+} from "./src/device-authority";
+import { createDeviceAuthorityGateway } from "./src/device-authority-gateway";
 import {
   createNativeHostedTaskRunner,
   requireCustomerAutomationNativeModule,
-} from "./src/native-customer-automation"
-import { createRoutineActionExecutor } from "./src/routine-action-executor-gateway"
+} from "./src/native-customer-automation";
+import { createRoutineActionExecutor } from "./src/routine-action-executor-gateway";
 import {
   createPauseContinueActionResult,
   executeConfirmedPauseAction,
   runHostedRoutineActionLoop,
   stopPausedRoutineActionSession,
-} from "./src/routine-actions"
-import { createScreenStateCollector } from "./src/screen-state-gateway"
-import { describeError, visibleTraceEvents } from "./src/task-state"
-import { styles } from "./src/styles"
+} from "./src/routine-actions";
+import { createScreenStateCollector } from "./src/screen-state-gateway";
+import { styles } from "./src/styles";
+import { describeError, visibleTraceEvents } from "./src/task-state";
 
 const DEFAULT_RUNTIME_URL =
-  process.env.EXPO_PUBLIC_CUSTOMER_RUNTIME_URL ?? "http://localhost:8787"
+  process.env.EXPO_PUBLIC_CUSTOMER_RUNTIME_URL ?? "http://localhost:8787";
 const DEFAULT_RUNTIME_ACCESS_TOKEN =
-  process.env.EXPO_PUBLIC_CUSTOMER_RUNTIME_ACCESS_TOKEN ?? ""
-const DEFAULT_INSTRUCTION = "打开小红书搜索咖啡店，停在结果页"
+  process.env.EXPO_PUBLIC_CUSTOMER_RUNTIME_ACCESS_TOKEN ?? "";
+const DEFAULT_INSTRUCTION = "打开小红书搜索咖啡店，停在结果页";
 const DEFAULT_AUTHORITY_SNAPSHOT: DeviceAuthoritySnapshot = {
   accessibilityService: "disabled",
   screenCapture: "missing",
   notifications: "missing",
-}
-const authorityGateway = createDeviceAuthorityGateway()
-const routineActionExecutor = createRoutineActionExecutor()
-const screenStateCollector = createScreenStateCollector()
-const completionSignalNotifier = createCompletionSignalNotifier()
+};
+const authorityGateway = createDeviceAuthorityGateway();
+const routineActionExecutor = createRoutineActionExecutor();
+const screenStateCollector = createScreenStateCollector();
+const completionSignalNotifier = createCompletionSignalNotifier();
 const nativeHostedTaskRunner =
   Platform.OS === "web"
     ? null
     : createNativeHostedTaskRunner(
         requireCustomerAutomationNativeModule(NativeModules)
-      )
+      );
 
 export default function App() {
-  const [runtimeUrl, setRuntimeUrl] = useState(DEFAULT_RUNTIME_URL)
+  const [runtimeUrl, setRuntimeUrl] = useState(DEFAULT_RUNTIME_URL);
   const [runtimeAccessToken, setRuntimeAccessToken] = useState(
     DEFAULT_RUNTIME_ACCESS_TOKEN
-  )
-  const [instruction, setInstruction] = useState(DEFAULT_INSTRUCTION)
-  const [session, setSession] = useState<CustomerSessionSnapshot | null>(null)
-  const [errorMessage, setErrorMessage] = useState<string | null>(null)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [isTaskLoopRunning, setIsTaskLoopRunning] = useState(false)
-  const [authoritySnapshot, setAuthoritySnapshot] =
-    useState(DEFAULT_AUTHORITY_SNAPSHOT)
+  );
+  const [instruction, setInstruction] = useState(DEFAULT_INSTRUCTION);
+  const [session, setSession] = useState<CustomerSessionSnapshot | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isTaskLoopRunning, setIsTaskLoopRunning] = useState(false);
+  const [authoritySnapshot, setAuthoritySnapshot] = useState(
+    DEFAULT_AUTHORITY_SNAPSHOT
+  );
   const [authorityState, setAuthorityState] = useState(() =>
     deriveDeviceAuthorityState(DEFAULT_AUTHORITY_SNAPSHOT)
-  )
+  );
 
   const traceEvents = useMemo(
     () => visibleTraceEvents(session?.events ?? []),
     [session]
-  )
-  const latestEvent = session?.events.at(-1) ?? null
-  const isPaused = Boolean(session?.pause)
-  const isConfirmationPause = session?.task.status === "confirmation_required"
-  const stopRequestedRef = useRef(false)
+  );
+  const latestEvent = session?.events.at(-1) ?? null;
+  const isPaused = Boolean(session?.pause);
+  const isConfirmationPause = session?.task.status === "confirmation_required";
+  const stopRequestedRef = useRef(false);
 
-  function applyAuthoritySnapshot(snapshot: DeviceAuthoritySnapshot) {
-    setAuthoritySnapshot(snapshot)
-    setAuthorityState((previousState) =>
-      deriveDeviceAuthorityState(snapshot, previousState.status)
-    )
-  }
+  const applyAuthoritySnapshot = useCallback(
+    (snapshot: DeviceAuthoritySnapshot) => {
+      setAuthoritySnapshot(snapshot);
+      setAuthorityState((previousState) =>
+        deriveDeviceAuthorityState(snapshot, previousState.status)
+      );
+    },
+    []
+  );
 
   useEffect(() => {
-    let isMounted = true
-    void authorityGateway
-      .getSnapshot()
-      .then((snapshot) => {
+    let isMounted = true;
+
+    async function loadAuthoritySnapshot() {
+      try {
+        const snapshot = await authorityGateway.getSnapshot();
         if (isMounted) {
-          applyAuthoritySnapshot(snapshot)
+          applyAuthoritySnapshot(snapshot);
         }
-      })
-      .catch((error) => {
+      } catch (error) {
         if (isMounted) {
-          setErrorMessage(describeError(error))
+          setErrorMessage(describeError(error));
         }
-      })
+      }
+    }
+
+    loadAuthoritySnapshot();
 
     return () => {
-      isMounted = false
-    }
-  }, [])
+      isMounted = false;
+    };
+  }, [applyAuthoritySnapshot]);
 
   async function refreshAuthority() {
-    setErrorMessage(null)
+    setErrorMessage(null);
     try {
-      applyAuthoritySnapshot(await authorityGateway.getSnapshot())
+      applyAuthoritySnapshot(await authorityGateway.getSnapshot());
     } catch (error) {
-      setErrorMessage(describeError(error))
+      setErrorMessage(describeError(error));
     }
   }
 
   async function handleOpenAccessibilitySettings() {
-    setErrorMessage(null)
+    setErrorMessage(null);
     try {
-      applyAuthoritySnapshot(await authorityGateway.openAccessibilitySettings())
+      applyAuthoritySnapshot(
+        await authorityGateway.openAccessibilitySettings()
+      );
     } catch (error) {
-      setErrorMessage(describeError(error))
+      setErrorMessage(describeError(error));
     }
   }
 
   async function handleRequestScreenCapture() {
-    setErrorMessage(null)
+    setErrorMessage(null);
     try {
-      applyAuthoritySnapshot(await authorityGateway.requestScreenCapture())
+      applyAuthoritySnapshot(await authorityGateway.requestScreenCapture());
     } catch (error) {
-      setErrorMessage(describeError(error))
+      setErrorMessage(describeError(error));
     }
   }
 
   async function handleRequestNotifications() {
-    setErrorMessage(null)
+    setErrorMessage(null);
     try {
-      applyAuthoritySnapshot(await authorityGateway.requestNotifications())
+      applyAuthoritySnapshot(await authorityGateway.requestNotifications());
     } catch (error) {
-      setErrorMessage(describeError(error))
+      setErrorMessage(describeError(error));
     }
   }
 
   async function handleSimulatePermissionLoss() {
     if (!authorityGateway.simulateScreenCaptureLoss) {
-      return
+      return;
     }
 
-    setErrorMessage(null)
+    setErrorMessage(null);
     try {
-      applyAuthoritySnapshot(await authorityGateway.simulateScreenCaptureLoss())
+      applyAuthoritySnapshot(
+        await authorityGateway.simulateScreenCaptureLoss()
+      );
     } catch (error) {
-      setErrorMessage(describeError(error))
+      setErrorMessage(describeError(error));
     }
   }
 
   async function handleStartTask() {
-    setIsSubmitting(true)
-    setErrorMessage(null)
-    stopRequestedRef.current = false
+    setIsSubmitting(true);
+    setErrorMessage(null);
+    stopRequestedRef.current = false;
     try {
       if (nativeHostedTaskRunner) {
-        setIsTaskLoopRunning(true)
+        setIsTaskLoopRunning(true);
         setSession(
           await nativeHostedTaskRunner.startTask({
             authorityState,
@@ -175,8 +185,8 @@ export default function App() {
             runtimeAccessToken,
             instruction,
           })
-        )
-        return
+        );
+        return;
       }
 
       const nextSession = await startCustomerTask({
@@ -184,51 +194,51 @@ export default function App() {
         runtimeUrl,
         runtimeAccessToken,
         instruction,
-      })
-      setSession(nextSession)
-      await runTaskLoopFromSession(nextSession)
+      });
+      setSession(nextSession);
+      await runTaskLoopFromSession(nextSession);
     } catch (error) {
-      setSession(null)
-      setErrorMessage(describeError(error))
+      setSession(null);
+      setErrorMessage(describeError(error));
     } finally {
-      setIsSubmitting(false)
-      setIsTaskLoopRunning(false)
+      setIsSubmitting(false);
+      setIsTaskLoopRunning(false);
     }
   }
 
   function handleStopTask() {
     if (session?.pause) {
-      setSession(stopPausedRoutineActionSession(session))
-      return
+      setSession(stopPausedRoutineActionSession(session));
+      return;
     }
 
-    stopRequestedRef.current = true
+    stopRequestedRef.current = true;
   }
 
   async function handleContinuePausedTask() {
     if (!session?.pause) {
-      return
+      return;
     }
 
     await runTaskLoopFromSession(session, {
       initialStepNumber: session.nextStepNumber,
       initialLastActionResult: createPauseContinueActionResult(session.pause),
-    })
+    });
   }
 
   async function handleAllowConfirmedAction() {
     if (!session?.pause) {
-      return
+      return;
     }
 
-    setIsTaskLoopRunning(true)
-    setErrorMessage(null)
-    stopRequestedRef.current = false
+    setIsTaskLoopRunning(true);
+    setErrorMessage(null);
+    stopRequestedRef.current = false;
     try {
       const result = await executeConfirmedPauseAction(
         session.pause,
         routineActionExecutor
-      )
+      );
       const confirmedSession = appendSessionEvent(session, {
         sequence: session.events.length + 1,
         type: "step.result",
@@ -237,29 +247,29 @@ export default function App() {
           result,
           stepNumber: Math.max(1, (session.nextStepNumber ?? 2) - 1),
         },
-      })
-      setSession(confirmedSession)
+      });
+      setSession(confirmedSession);
       await runTaskLoopFromSession(confirmedSession, {
         initialStepNumber: session.nextStepNumber,
         initialLastActionResult: result,
-      })
+      });
     } catch (error) {
-      setErrorMessage(describeError(error))
+      setErrorMessage(describeError(error));
     } finally {
-      setIsTaskLoopRunning(false)
+      setIsTaskLoopRunning(false);
     }
   }
 
   async function runTaskLoopFromSession(
     baseSession: CustomerSessionSnapshot,
     options: {
-      initialStepNumber?: number
-      initialLastActionResult?: CustomerSessionSnapshot["lastActionResult"]
+      initialStepNumber?: number;
+      initialLastActionResult?: CustomerSessionSnapshot["lastActionResult"];
     } = {}
   ) {
-    setIsTaskLoopRunning(true)
-    setErrorMessage(null)
-    stopRequestedRef.current = false
+    setIsTaskLoopRunning(true);
+    setErrorMessage(null);
+    stopRequestedRef.current = false;
     try {
       const finalSession = await runHostedRoutineActionLoop({
         taskId: baseSession.task.id,
@@ -276,14 +286,14 @@ export default function App() {
         onEvent: (event) => {
           setSession((currentSession) =>
             appendSessionEvent(currentSession ?? baseSession, event)
-          )
+          );
         },
-      })
-      setSession(finalSession)
+      });
+      setSession(finalSession);
     } catch (error) {
-      setErrorMessage(describeError(error))
+      setErrorMessage(describeError(error));
     } finally {
-      setIsTaskLoopRunning(false)
+      setIsTaskLoopRunning(false);
     }
   }
 
@@ -581,7 +591,10 @@ export default function App() {
             {traceEvents.length > 0 ? (
               <View style={styles.traceList}>
                 {traceEvents.map((event) => (
-                  <View key={`${event.sequence}-${event.type}`} style={styles.traceItem}>
+                  <View
+                    key={`${event.sequence}-${event.type}`}
+                    style={styles.traceItem}
+                  >
                     <Text style={styles.traceType}>{event.type}</Text>
                     <Text style={styles.traceMessage}>
                       {event.message ?? `#${event.sequence}`}
@@ -596,44 +609,44 @@ export default function App() {
         </ScrollView>
       </KeyboardAvoidingView>
     </View>
-  )
+  );
 }
 
 function formatAuthorityStatus(status: DeviceAuthorityState["status"]): string {
   if (status === "ready") {
-    return "Ready"
+    return "Ready";
   }
 
   if (status === "permission_lost") {
-    return "Permission Lost"
+    return "Permission Lost";
   }
 
-  return "Setup Required"
+  return "Setup Required";
 }
 
 function formatPauseStatus(status: CustomerSessionSnapshot["task"]["status"]) {
   if (status === "confirmation_required") {
-    return "Confirmation Required"
+    return "Confirmation Required";
   }
 
   if (status === "takeover_required") {
-    return "Take Over Required"
+    return "Take Over Required";
   }
 
   if (status === "interaction_required") {
-    return "Interaction Required"
+    return "Interaction Required";
   }
 
-  return "Paused"
+  return "Paused";
 }
 
 function getStatusDotStyle(status: CustomerSessionSnapshot["task"]["status"]) {
   if (status === "finished") {
-    return styles.statusFinished
+    return styles.statusFinished;
   }
 
   if (status === "failed" || status === "stopped") {
-    return styles.statusStopped
+    return styles.statusStopped;
   }
 
   if (
@@ -641,10 +654,10 @@ function getStatusDotStyle(status: CustomerSessionSnapshot["task"]["status"]) {
     status === "takeover_required" ||
     status === "interaction_required"
   ) {
-    return styles.statusPaused
+    return styles.statusPaused;
   }
 
-  return styles.statusRunning
+  return styles.statusRunning;
 }
 
 function appendSessionEvent(
@@ -654,5 +667,5 @@ function appendSessionEvent(
   return {
     ...session,
     events: [...session.events, event],
-  }
+  };
 }

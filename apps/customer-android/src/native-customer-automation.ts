@@ -1,74 +1,74 @@
-import type { DeviceAuthorityGateway } from "./device-authority-gateway"
-import type { DeviceAuthoritySnapshot } from "./device-authority"
 import {
-  notifyTaskOutcome,
   type CompletionSignalNotifier,
   type CompletionSignalResult,
-} from "./completion-signal"
+  notifyTaskOutcome,
+} from "./completion-signal";
 import type {
   CustomerScreenState,
   CustomerSessionSnapshot,
   StartCustomerTaskInput,
-} from "./customer-session"
+} from "./customer-session";
+import type { DeviceAuthoritySnapshot } from "./device-authority";
+import type { DeviceAuthorityGateway } from "./device-authority-gateway";
 import type {
   PixelPoint,
   RoutineActionExecutor,
   ScreenSize,
   ScreenStateCollector,
-} from "./routine-actions"
+} from "./routine-actions";
 
-export type CustomerAutomationNativeModule = {
-  getAuthoritySnapshot: () => Promise<DeviceAuthoritySnapshot>
-  openAccessibilitySettings: () => Promise<DeviceAuthoritySnapshot>
-  requestScreenCapture: () => Promise<DeviceAuthoritySnapshot>
-  requestNotifications: () => Promise<DeviceAuthoritySnapshot>
-  captureScreenState: () => Promise<CustomerScreenState>
-  tap: (x: number, y: number) => Promise<void>
-  doubleTap: (x: number, y: number) => Promise<void>
-  longPress: (x: number, y: number) => Promise<void>
-  swipe: (
-    startX: number,
-    startY: number,
-    endX: number,
-    endY: number
-  ) => Promise<void>
-  back: () => Promise<void>
-  home: () => Promise<void>
-  launchApp: (app: string) => Promise<void>
-  typeText: (text: string) => Promise<void>
-  wait: (durationMs: number) => Promise<void>
-  showCompletionSignal: (
-    session: CustomerSessionSnapshot
-  ) => Promise<CompletionSignalResult>
+export interface CustomerAutomationNativeModule {
+  back: () => Promise<void>;
+  captureScreenState: () => Promise<CustomerScreenState>;
+  doubleTap: (x: number, y: number) => Promise<void>;
+  getAuthoritySnapshot: () => Promise<DeviceAuthoritySnapshot>;
+  home: () => Promise<void>;
+  launchApp: (app: string) => Promise<void>;
+  longPress: (x: number, y: number) => Promise<void>;
+  openAccessibilitySettings: () => Promise<DeviceAuthoritySnapshot>;
+  requestNotifications: () => Promise<DeviceAuthoritySnapshot>;
+  requestScreenCapture: () => Promise<DeviceAuthoritySnapshot>;
   runHostedTask: (
     runtimeUrl: string,
     runtimeAccessToken: string,
     instruction: string,
     maxSteps: number
-  ) => Promise<CustomerSessionSnapshot>
+  ) => Promise<CustomerSessionSnapshot>;
+  showCompletionSignal: (
+    session: CustomerSessionSnapshot
+  ) => Promise<CompletionSignalResult>;
+  swipe: (
+    startX: number,
+    startY: number,
+    endX: number,
+    endY: number
+  ) => Promise<void>;
+  tap: (x: number, y: number) => Promise<void>;
+  typeText: (text: string) => Promise<void>;
+  wait: (durationMs: number) => Promise<void>;
 }
 
-export type HostedTaskRunner = {
+export interface HostedTaskRunner {
   startTask: (
     input: Pick<
       StartCustomerTaskInput,
       "authorityState" | "runtimeUrl" | "runtimeAccessToken" | "instruction"
     >
-  ) => Promise<CustomerSessionSnapshot>
+  ) => Promise<CustomerSessionSnapshot>;
 }
 
-type NativeModuleRegistry = {
-  CustomerAutomation?: CustomerAutomationNativeModule
+interface NativeModuleRegistry {
+  CustomerAutomation?: CustomerAutomationNativeModule;
 }
 
 export function requireCustomerAutomationNativeModule(
   modules: NativeModuleRegistry
 ): CustomerAutomationNativeModule {
   if (!modules.CustomerAutomation) {
-    throw new Error("CustomerAutomation native module is not installed.")
+    throw new Error("CustomerAutomation native module is not installed.");
   }
 
-  return modules.CustomerAutomation
+  return modules.CustomerAutomation;
 }
 
 export function createNativeDeviceAuthorityGateway(
@@ -79,7 +79,7 @@ export function createNativeDeviceAuthorityGateway(
     openAccessibilitySettings: nativeModule.openAccessibilitySettings,
     requestScreenCapture: nativeModule.requestScreenCapture,
     requestNotifications: nativeModule.requestNotifications,
-  }
+  };
 }
 
 export function createNativeScreenStateCollector(
@@ -87,7 +87,7 @@ export function createNativeScreenStateCollector(
 ): ScreenStateCollector {
   return {
     capture: nativeModule.captureScreenState,
-  }
+  };
 }
 
 export function createNativeCompletionSignalNotifier(
@@ -95,13 +95,14 @@ export function createNativeCompletionSignalNotifier(
 ): CompletionSignalNotifier {
   return {
     notifyTaskOutcome: nativeModule.showCompletionSignal,
-  }
+  };
 }
 
 export function createNativeHostedTaskRunner(
   nativeModule: CustomerAutomationNativeModule,
-  completionSignalNotifier: CompletionSignalNotifier =
-    createNativeCompletionSignalNotifier(nativeModule)
+  completionSignalNotifier: CompletionSignalNotifier = createNativeCompletionSignalNotifier(
+    nativeModule
+  )
 ): HostedTaskRunner {
   return {
     async startTask({
@@ -113,17 +114,17 @@ export function createNativeHostedTaskRunner(
       if (!authorityState.canStartTask) {
         throw new Error(
           `Android permissions are required before starting a task: ${authorityState.missing.join(", ")}.`
-        )
+        );
       }
 
-      const normalizedInstruction = instruction.trim()
+      const normalizedInstruction = instruction.trim();
       if (!normalizedInstruction) {
-        throw new Error("Instruction is required.")
+        throw new Error("Instruction is required.");
       }
 
-      const normalizedRuntimeAccessToken = runtimeAccessToken.trim()
+      const normalizedRuntimeAccessToken = runtimeAccessToken.trim();
       if (!normalizedRuntimeAccessToken) {
-        throw new Error("Runtime access token is required.")
+        throw new Error("Runtime access token is required.");
       }
 
       return notifyTaskOutcome(
@@ -134,9 +135,9 @@ export function createNativeHostedTaskRunner(
           50
         ),
         completionSignalNotifier
-      )
+      );
     },
-  }
+  };
 }
 
 export function createNativeRoutineActionExecutor(
@@ -146,54 +147,54 @@ export function createNativeRoutineActionExecutor(
   return {
     screen,
     async tap(point) {
-      const roundedPoint = roundPixelPoint(point)
-      await nativeModule.tap(roundedPoint.x, roundedPoint.y)
+      const roundedPoint = roundPixelPoint(point);
+      await nativeModule.tap(roundedPoint.x, roundedPoint.y);
     },
     async doubleTap(point) {
-      const roundedPoint = roundPixelPoint(point)
-      await nativeModule.doubleTap(roundedPoint.x, roundedPoint.y)
+      const roundedPoint = roundPixelPoint(point);
+      await nativeModule.doubleTap(roundedPoint.x, roundedPoint.y);
     },
     async longPress(point) {
-      const roundedPoint = roundPixelPoint(point)
-      await nativeModule.longPress(roundedPoint.x, roundedPoint.y)
+      const roundedPoint = roundPixelPoint(point);
+      await nativeModule.longPress(roundedPoint.x, roundedPoint.y);
     },
     async swipe(start, end) {
-      const roundedStart = roundPixelPoint(start)
-      const roundedEnd = roundPixelPoint(end)
+      const roundedStart = roundPixelPoint(start);
+      const roundedEnd = roundPixelPoint(end);
       await nativeModule.swipe(
         roundedStart.x,
         roundedStart.y,
         roundedEnd.x,
         roundedEnd.y
-      )
+      );
     },
     async back() {
-      await nativeModule.back()
+      await nativeModule.back();
     },
     async home() {
-      await nativeModule.home()
+      await nativeModule.home();
     },
     async launchApp(app) {
-      await nativeModule.launchApp(app)
+      await nativeModule.launchApp(app);
     },
     async typeText(text) {
-      await nativeModule.typeText(text)
+      await nativeModule.typeText(text);
     },
     async wait(durationMs) {
-      await delay(durationMs)
+      await delay(durationMs);
     },
-  }
+  };
 }
 
 export function roundPixelPoint(point: PixelPoint): PixelPoint {
   return {
     x: Math.round(point.x),
     y: Math.round(point.y),
-  }
+  };
 }
 
 function delay(durationMs: number): Promise<void> {
   return new Promise((resolve) => {
-    setTimeout(resolve, durationMs)
-  })
+    setTimeout(resolve, durationMs);
+  });
 }

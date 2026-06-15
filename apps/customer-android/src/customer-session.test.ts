@@ -1,19 +1,22 @@
-import { describe, expect, it } from "vitest"
+import { describe, expect, it } from "vitest";
 
-import { requestNextCustomerAction, startCustomerTask } from "./customer-session"
-import { deriveDeviceAuthorityState } from "./device-authority"
+import {
+  requestNextCustomerAction,
+  startCustomerTask,
+} from "./customer-session";
+import { deriveDeviceAuthorityState } from "./device-authority";
 
 const readyAuthorityState = deriveDeviceAuthorityState({
   accessibilityService: "enabled",
   screenCapture: "granted",
   notifications: "granted",
-})
+});
 
 describe("customer hosted session", () => {
   it("starts a hosted session with the alpha bearer token and returns the terminal trace", async () => {
-    const fetchCalls: Array<{ url: string; init?: RequestInit }> = []
+    const fetchCalls: Array<{ url: string; init?: RequestInit }> = [];
     const fetchImpl: typeof fetch = async (url, init) => {
-      fetchCalls.push({ url: String(url), init })
+      fetchCalls.push({ url: String(url), init });
 
       return new Response(
         JSON.stringify({
@@ -40,8 +43,8 @@ describe("customer hosted session", () => {
           status: 201,
           headers: { "Content-Type": "application/json" },
         }
-      )
-    }
+      );
+    };
 
     const session = await startCustomerTask({
       authorityState: readyAuthorityState,
@@ -49,9 +52,9 @@ describe("customer hosted session", () => {
       runtimeAccessToken: " alpha-token ",
       instruction: " 打开小红书搜索咖啡店，停在结果页 ",
       fetchImpl,
-    })
+    });
 
-    expect(fetchCalls).toHaveLength(1)
+    expect(fetchCalls).toHaveLength(1);
     expect(fetchCalls[0]).toMatchObject({
       url: "http://localhost:8787/sessions",
       init: {
@@ -65,19 +68,19 @@ describe("customer hosted session", () => {
           source: "customer-android",
         }),
       },
-    })
-    expect(session.task.status).toBe("finished")
-    expect(session.task.summary).toBe("已停在咖啡店搜索结果页")
+    });
+    expect(session.task.status).toBe("finished");
+    expect(session.task.summary).toBe("已停在咖啡店搜索结果页");
     expect(session.events.map((event) => event.type)).toEqual([
       "task.started",
       "task.finished",
-    ])
-  })
+    ]);
+  });
 
   it("throws before calling the runtime when the instruction is empty", async () => {
     const fetchImpl: typeof fetch = async () => {
-      throw new Error("fetch should not be called")
-    }
+      throw new Error("fetch should not be called");
+    };
 
     await expect(
       startCustomerTask({
@@ -87,13 +90,13 @@ describe("customer hosted session", () => {
         instruction: "   ",
         fetchImpl,
       })
-    ).rejects.toThrow("Instruction is required.")
-  })
+    ).rejects.toThrow("Instruction is required.");
+  });
 
   it("throws before calling the runtime when the alpha token is empty", async () => {
     const fetchImpl: typeof fetch = async () => {
-      throw new Error("fetch should not be called")
-    }
+      throw new Error("fetch should not be called");
+    };
 
     await expect(
       startCustomerTask({
@@ -103,13 +106,13 @@ describe("customer hosted session", () => {
         instruction: "检查当前页面",
         fetchImpl,
       })
-    ).rejects.toThrow("Runtime access token is required.")
-  })
+    ).rejects.toThrow("Runtime access token is required.");
+  });
 
   it("describes network failures from the hosted runtime", async () => {
     const fetchImpl: typeof fetch = async () => {
-      throw new Error("connection refused")
-    }
+      throw new Error("connection refused");
+    };
 
     await expect(
       startCustomerTask({
@@ -119,8 +122,8 @@ describe("customer hosted session", () => {
         instruction: "检查当前页面",
         fetchImpl,
       })
-    ).rejects.toThrow("Hosted runtime request failed: connection refused")
-  })
+    ).rejects.toThrow("Hosted runtime request failed: connection refused");
+  });
 
   it("uses runtime error details when the hosted runtime rejects the task", async () => {
     const fetchImpl: typeof fetch = async () =>
@@ -132,7 +135,7 @@ describe("customer hosted session", () => {
           status: 503,
           headers: { "Content-Type": "application/json" },
         }
-      )
+      );
 
     await expect(
       startCustomerTask({
@@ -142,13 +145,13 @@ describe("customer hosted session", () => {
         instruction: "检查当前页面",
         fetchImpl,
       })
-    ).rejects.toThrow("Hosted runtime is unavailable.")
-  })
+    ).rejects.toThrow("Hosted runtime is unavailable.");
+  });
 
   it("rejects before calling the runtime when Android authority is missing", async () => {
     const fetchImpl: typeof fetch = async () => {
-      throw new Error("fetch should not be called")
-    }
+      throw new Error("fetch should not be called");
+    };
 
     await expect(
       startCustomerTask({
@@ -164,13 +167,13 @@ describe("customer hosted session", () => {
       })
     ).rejects.toThrow(
       "Android permissions are required before starting a task: accessibility_service, screen_capture, notifications."
-    )
-  })
+    );
+  });
 
   it("requests one hosted action with the latest screen state and last action result", async () => {
-    const fetchCalls: Array<{ url: string; init?: RequestInit }> = []
+    const fetchCalls: Array<{ url: string; init?: RequestInit }> = [];
     const fetchImpl: typeof fetch = async (url, init) => {
-      fetchCalls.push({ url: String(url), init })
+      fetchCalls.push({ url: String(url), init });
 
       return new Response(
         JSON.stringify({
@@ -184,8 +187,8 @@ describe("customer hosted session", () => {
           status: 200,
           headers: { "Content-Type": "application/json" },
         }
-      )
-    }
+      );
+    };
 
     const decision = await requestNextCustomerAction({
       runtimeUrl: "localhost:8787",
@@ -207,9 +210,9 @@ describe("customer hosted session", () => {
         message: "Launch completed.",
       },
       fetchImpl,
-    })
+    });
 
-    expect(fetchCalls).toHaveLength(1)
+    expect(fetchCalls).toHaveLength(1);
     expect(fetchCalls[0]).toMatchObject({
       url: "http://localhost:8787/sessions/customer_task_1/steps",
       init: {
@@ -237,13 +240,13 @@ describe("customer hosted session", () => {
           },
         }),
       },
-    })
+    });
     expect(decision.action).toEqual({
       _metadata: "do",
       action: "Tap",
       element: [500, 250],
-    })
-  })
+    });
+  });
 
   it("normalizes the hosted runtime action before returning it", async () => {
     const fetchImpl: typeof fetch = async () =>
@@ -259,7 +262,7 @@ describe("customer hosted session", () => {
           status: 200,
           headers: { "Content-Type": "application/json" },
         }
-      )
+      );
 
     const decision = await requestNextCustomerAction({
       runtimeUrl: "localhost:8787",
@@ -274,14 +277,14 @@ describe("customer hosted session", () => {
         height: 2400,
       },
       fetchImpl,
-    })
+    });
 
     expect(decision.action).toEqual({
       _metadata: "do",
       action: "Type",
       text: "Sawana",
-    })
-  })
+    });
+  });
 
   it("rejects invalid hosted runtime actions", async () => {
     const fetchImpl: typeof fetch = async () =>
@@ -296,7 +299,7 @@ describe("customer hosted session", () => {
           status: 200,
           headers: { "Content-Type": "application/json" },
         }
-      )
+      );
 
     await expect(
       requestNextCustomerAction({
@@ -313,13 +316,13 @@ describe("customer hosted session", () => {
         },
         fetchImpl,
       })
-    ).rejects.toThrow("Unsupported Open-AutoGLM action: Scroll.")
-  })
+    ).rejects.toThrow("Unsupported Open-AutoGLM action: Scroll.");
+  });
 
   it("rejects before calling the runtime when the screen frame is missing", async () => {
     const fetchImpl: typeof fetch = async () => {
-      throw new Error("fetch should not be called")
-    }
+      throw new Error("fetch should not be called");
+    };
 
     await expect(
       requestNextCustomerAction({
@@ -338,6 +341,6 @@ describe("customer hosted session", () => {
       })
     ).rejects.toThrow(
       "Screen frame is required before requesting the next action."
-    )
-  })
-})
+    );
+  });
+});
