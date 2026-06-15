@@ -8,6 +8,22 @@ This context defines the shared language for a demo-first mobile AI agent produc
 The phone-installed app that the tester uses to submit tasks, watch progress, and respond when the agent needs human judgment. In early demos it may delegate actual phone control to another runtime.
 _Avoid_: phone executor app, mobile client, pure remote control
 
+**Customer App Story**:
+The desired product story where a user installs an Android app on their own physical Android phone, enters an instruction, and starts automation of that same phone from the app without setting up a separate developer workstation runtime.
+_Avoid_: sending the current demo APK, worker-backed internal demo, web fallback story, cloud-device story
+
+**Android On-Device Executor**:
+The future Android-side runtime that captures phone state and performs actions on the user's same physical Android phone after the user grants the required Android privileges.
+_Avoid_: Mac worker, ADB-only worker, cloud device runner
+
+**Customer Android API**:
+The customer-story hosted Agent Runtime paired with the customer Android app. It owns customer task sessions, action decisions, model-facing automation state, and runtime logs while the Android On-Device Executor owns same-phone observation and action execution.
+_Avoid_: demo worker extension, Mac worker route, web fallback
+
+**Full Access Mode**:
+The first customer-story execution posture where, after explicit permission setup, the agent can continue routine automation without asking for approval before every step.
+_Avoid_: silent permission bypass, production safety policy, Play Store compliance story
+
 **Agent Runtime**:
 The long-running automation role that owns a task while it is running and drives a controlled phone through the best available control path.
 _Avoid_: backend, serverless API, web app
@@ -24,9 +40,21 @@ _Avoid_: target device, test device
 An internal build optimized for proving the end-to-end phone task story with the least custom machinery that can work.
 _Avoid_: production app, release build, platform-complete app
 
+**Alpha Sideload APK**:
+The first MVP distribution artifact: an internally shared installable Android APK for proving the Customer App Story on real phones without app-store distribution or production stability commitments.
+_Avoid_: production release, beta app, Play Store build, AAB package
+
 **Acceptance QA Story**:
 The app-submitted end-to-end story that must pass before a Demo Build counts as working.
 _Avoid_: terminal smoke test, web-only demo, implementation milestone
+
+**Evidence-First Integration E2E**:
+An end-to-end acceptance posture where a customer task run must produce enough visible and recorded evidence to explain success, failure, pause, and model decisions. Scripted runs can support diagnosis, but the accepted story is judged through the integrated Android app, hosted runtime, and Controlled Phone behavior.
+_Avoid_: action contract only, scripted-only acceptance, phone-screen guessing
+
+**Run Evidence**:
+The diagnostic signal produced by a task run so a tester or agent can tell why a run finished, failed, or paused. In the first customer alpha this can be error-first and console-visible before it becomes durable observability.
+_Avoid_: full observability platform, silent failure, opaque run result
 
 **Quickstart App Version**:
 The already proven Open-AutoGLM Android quickstart reproduced through the Mobile Agent App as the tester-facing entry point.
@@ -47,6 +75,14 @@ _Avoid_: Expo Go only, pure web wrapper, Kotlin-first rewrite
 **Notification-First Coordination**:
 The first coordination surface for important background events, confirmations, and takeover prompts while another app is foregrounded on the Controlled Phone. The app resumes and reconciles task state through the Agent Runtime after the tester opens the notification.
 _Avoid_: always-on background socket, web fallback alert
+
+**Completion Signal**:
+A user-visible signal that a task run has finished, failed, or paused while the Controlled Phone may still be showing the operated app. It lets the tester understand the run state without having to guess from the target app screen alone.
+_Avoid_: forced app return, silent completion, result-page guessing
+
+**Setup Flow**:
+The guided permission setup path that helps a tester grant the Android privileges required for the Customer App Story. It is a user onboarding concept, not a requirement to merge every Android system permission into one system dialog.
+_Avoid_: scattered permission buttons, one-dialog permission bundle
 
 **Overlay Spike**:
 A later Android-native experiment for drawing a floating control surface above other apps. It is useful for demos but carries permission, native-module, and tap-interference risk, so it should not block the first working route.

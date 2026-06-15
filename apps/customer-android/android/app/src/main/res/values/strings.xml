@@ -1,0 +1,4 @@
+<resources>
+  <string name="app_name">Customer Phone Agent</string>
+  <string name="customer_automation_accessibility_description">Allow Customer Phone Agent to execute routine taps, swipes, Back, and Home for the active automation task.</string>
+</resources>

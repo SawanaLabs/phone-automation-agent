@@ -38,8 +38,9 @@ The worker creates a task, uses the existing Open-AutoGLM ADB path to operate th
 
 ## Current QA Route
 
-- The app-submitted story passed on 2026-06-10 with a single Android phone, Expo mobile app, Mac worker, Open-AutoGLM, and the ModelScope hosted `ZhipuAI/AutoGLM-Phone-9B` endpoint.
-- Before running the ModelScope route, temporarily lower the Android logical size with `adb shell wm size 992x2048`; restore it with `adb shell wm size reset` after the run.
+- The app-submitted story passed on 2026-06-10 with a single Android phone, Expo mobile app, Mac worker, Open-AutoGLM, and the hosted AutoGLM-Phone model route.
+- The current backend model endpoint standard is BigModel `autoglm-phone`, configured through `PHONE_AGENT_ENDPOINT=bigmodel` and `BIGMODEL_TOKEN`.
+- Before running the worker-backed route, temporarily lower the Android logical size with `adb shell wm size 992x2048`; restore it with `adb shell wm size reset` after the run.
 - A passing run should show `Worker Online`, `NOH_AN00 · available`, a `finished` result in the Mobile Agent App, and Meituan left on the hotpot search results page.
 - Keep QA evidence in an OS temp directory by default. Only copy evidence into the repo when the user explicitly wants durable review artifacts.
 

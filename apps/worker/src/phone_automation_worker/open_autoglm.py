@@ -5,6 +5,7 @@ import os
 import sys
 from pathlib import Path
 
+from phone_automation_worker.model_endpoints import resolve_phone_agent_endpoint_from_env
 from phone_automation_worker.models import TaskEventInput, TaskRecord, TaskRunResult
 
 
@@ -26,6 +27,11 @@ class OpenAutoGlmRunner:
         self.lang = lang
         self.verbose = verbose
         self._prepare_import_path(root)
+        if base_url is None or api_key is None or model_name is None:
+            model_endpoint = resolve_phone_agent_endpoint_from_env()
+            base_url = base_url or model_endpoint.base_url
+            api_key = api_key or model_endpoint.api_key
+            model_name = model_name or model_endpoint.model_name
         self.base_url = _required_value("PHONE_AGENT_BASE_URL", base_url)
         self.api_key = _required_value(
             "PHONE_AGENT_API_KEY",

@@ -1,7 +1,7 @@
 ---
 title: Architecture Domain Protocol
 description: Architecture-level conventions and decisions for the phone automation agent demo.
-updateAt: 2026-06-09
+updateAt: 2026-06-12
 ---
 
 # Architecture Domain Protocol
@@ -10,6 +10,7 @@ updateAt: 2026-06-09
 
 - **Runtime Boundary**: The ownership line between the Mobile Agent App, Agent Runtime, Controlled Phone, and Web Presence.
 - **Thin Worker Wrapper**: A worker integration that calls existing Open-AutoGLM behavior through a narrow task/event API before extracting or rewriting automation internals.
+- **Android On-Device Executor**: A future Android runtime that owns screen observation and action execution on the same physical phone as the installed customer app.
 
 ## Collaboration Conventions
 
@@ -18,6 +19,7 @@ updateAt: 2026-06-09
 - Keep the worker API explicit: task creation, task state, event stream or polling, confirmation, and takeover completion.
 - Borrow the Python monorepo app pattern from `apps/langgraph-agent-api` only where it fits: `uv`, a small API entry, Pydantic models, explicit auth/config errors, and focused contract tests.
 - Do not copy deployment assumptions from `apps/langgraph-agent-api`; this worker needs local ADB access and should run on the Mac for the first demo.
+- If the Customer App Story becomes the active route, treat Android permission onboarding and on-device execution as first-class architecture, not a thin extension of the Mac worker.
 
 ## Boundary Principles
 
@@ -26,6 +28,7 @@ updateAt: 2026-06-09
 - Open-AutoGLM owns the first automation loop.
 - Web stays auxiliary.
 - Native Android extensions are acceptable later, but only after a concrete demo need justifies them.
+- Customer-story Android execution can justify a new `apps/*` workspace so strong-permission executor code does not couple itself to the worker-backed demo companion.
 
 ## Decision Records
 

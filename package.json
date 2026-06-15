@@ -12,6 +12,8 @@
     "dev:worker:dry-run": "set -a; [ ! -f .env ] || . ./.env; [ ! -f .env.local ] || . ./.env.local; set +a; PHONE_AUTOMATION_WORKER_RUNNER=dry-run pnpm --dir apps/worker dev",
     "dev:worker:open-autoglm": "set -a; [ ! -f .env ] || . ./.env; [ ! -f .env.local ] || . ./.env.local; set +a; PHONE_AUTOMATION_WORKER_RUNNER=open-autoglm OPEN_AUTOGLM_ROOT=${OPEN_AUTOGLM_ROOT:-$(pwd)/../Open-AutoGLM} pnpm --dir apps/worker dev",
     "dev:worker:open-autoglm:lan": "set -a; [ ! -f .env ] || . ./.env; [ ! -f .env.local ] || . ./.env.local; set +a; PHONE_AUTOMATION_WORKER_RUNNER=open-autoglm PHONE_AUTOMATION_WORKER_HOST=0.0.0.0 OPEN_AUTOGLM_ROOT=${OPEN_AUTOGLM_ROOT:-$(pwd)/../Open-AutoGLM} pnpm --dir apps/worker dev",
+    "dev:customer-android-api": "set -a; [ ! -f .env ] || . ./.env; [ ! -f .env.local ] || . ./.env.local; set +a; pnpm --dir apps/customer-android-api dev",
+    "dev:customer-android-api:lan": "set -a; [ ! -f .env ] || . ./.env; [ ! -f .env.local ] || . ./.env.local; set +a; CUSTOMER_ANDROID_API_HOST=0.0.0.0 pnpm --dir apps/customer-android-api dev",
     "lint": "turbo lint",
     "format": "turbo format",
     "test": "turbo test",
