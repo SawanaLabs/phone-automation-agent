@@ -20,7 +20,7 @@ Use these docs when working on the customer Android APK, the paired hosted API, 
 <!-- BEGIN:docs-generated-catalog -->
 | File | Title | Description | Updated |
 | --- | --- | --- | --- |
-| ./DOCS.md | Customer Android Domain Protocol | Domain-level conventions for the customer Android app and paired API. | 2026-06-14 |
+| ./DOCS.md | Customer Android Domain Protocol | Domain-level conventions for the customer Android app and paired API. | 2026-06-15 |
 | ./action-handling.md | Customer Android Action Handling | V0 Open-AutoGLM action vocabulary, routine executor scope, and pause-state mapping for the customer Android route. | 2026-06-14 |
 | ./agent-engine.md | Customer Android Agent Engine | Runtime shape, environment contract, and session context behavior for apps/customer-android-api. | 2026-06-15 |
 | ./delivery.md | Customer Android Delivery | Alpha APK distribution, validation checkpoints, and QA gates for the customer Android route. | 2026-06-13 |

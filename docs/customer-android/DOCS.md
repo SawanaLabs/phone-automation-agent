@@ -1,7 +1,7 @@
 ---
 title: Customer Android Domain Protocol
 description: Domain-level conventions for the customer Android app and paired API.
-updateAt: 2026-06-14
+updateAt: 2026-06-15
 ---
 
 # Customer Android Domain Protocol
@@ -19,6 +19,7 @@ Use this domain when working on the customer-installable Android APK, its paired
 - **In-Memory Session Store**: The V0 session storage posture where `apps/customer-android-api` keeps active task state inside the running process and fails clearly after process restart instead of persisting or restoring tasks.
 - **Runtime Access Token**: A revocable V0 bearer token accepted by `apps/customer-android-api` from the APK. The first internal alpha uses a single shared token, and the token must not be treated as a model-provider secret once distributed inside an APK.
 - **Agent Context**: The per-session model message history kept by `apps/customer-android-api` while the split phone task is running.
+- **Customer Agent Context**: The `apps/customer-android-api` module that builds model-facing messages from Customer Steps, keeps per-session Agent Context, maps Android packages to Open-AutoGLM app names, and prunes previous images.
 - **Model Endpoint Keyword**: A code-owned provider preset such as `bigmodel` that resolves backend model URL, model name, and default provider key env without putting provider routing into YAML.
 
 ## Collaboration Conventions

@@ -16,6 +16,7 @@ updateAt: 2026-06-15
 
 - **Customer Step Agent**: The step-oriented engine that turns app-supplied phone state into the next Open-AutoGLM-style action.
 - **Customer Step Lifecycle**: The API-side application service that loads the session, enforces step preflight rules, calls the Customer Step Agent, and records the accepted outcome.
+- **Customer Agent Context**: The model-facing context module that builds prompt messages from Customer Steps, keeps per-session Agent Context, maps Android packages to Open-AutoGLM app names, and prunes old image payloads.
 - **OpenAI-Compatible Model Provider**: The server-side adapter that calls a ModelScope, BigModel, vLLM, SGLang, or similar OpenAI-format chat completion endpoint.
 - **Agent Context**: The in-memory per-session message history sent to the model across steps.
 
@@ -25,6 +26,7 @@ updateAt: 2026-06-15
 - The API exposes `GET /healthz`, `POST /sessions`, `GET /sessions/{session_id}`, and `POST /sessions/{session_id}/steps`.
 - `POST /sessions`, `GET /sessions/{session_id}`, and `POST /sessions/{session_id}/steps` require `Authorization: Bearer <CUSTOMER_ANDROID_API_ACCESS_TOKEN>`.
 - `apps/customer-android-api/src/customer_android_api/step_lifecycle.py` owns the Customer Step Lifecycle. FastAPI routes should keep HTTP concerns there and delegate session lookup, step-order checks, max-step checks, terminal-session checks, agent invocation, and accepted step recording to the lifecycle module.
+- `apps/customer-android-api/src/customer_android_api/agent_context.py` owns the Customer Agent Context. `CustomerStepAgent` should ask that module for model-ready requests and record successful model outputs there instead of constructing prompt messages inline.
 - The CLI entrypoint is `uv run python -m customer_android_api`.
 - The root scripts are:
   - `pnpm dev:customer-android-api` for local API development.
