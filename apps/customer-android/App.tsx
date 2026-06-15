@@ -1,3 +1,4 @@
+// biome-ignore lint/nursery/noExcessiveLinesPerFile: existing screen file exceeds 500 lines; split during the customer-android architecture pass.
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -59,6 +60,7 @@ const nativeHostedTaskRunner =
         requireCustomerAutomationNativeModule(NativeModules)
       );
 
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: existing screen orchestrator; split state and panels during the customer-android architecture pass.
 export default function App() {
   const [runtimeUrl, setRuntimeUrl] = useState(DEFAULT_RUNTIME_URL);
   const [runtimeAccessToken, setRuntimeAccessToken] = useState(

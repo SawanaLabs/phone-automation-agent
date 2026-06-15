@@ -1,3 +1,4 @@
+// biome-ignore lint/nursery/noExcessiveLinesPerFile: existing routine action module exceeds 500 lines; split by action family during the customer-android architecture pass.
 import {
   type CompletionSignalNotifier,
   notifyTaskOutcome,

@@ -76,6 +76,7 @@ const readyNativeModule: CustomerAutomationNativeModule = {
   },
 };
 
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: broad existing native bridge contract suite; split by bridge surface during the customer-android architecture pass.
 describe("customer automation native bridge", () => {
   it("fails fast when the native module is missing", () => {
     expect(() => requireCustomerAutomationNativeModule({})).toThrow(

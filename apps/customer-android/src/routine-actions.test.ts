@@ -1,3 +1,4 @@
+// biome-ignore lint/nursery/noExcessiveLinesPerFile: existing routine action contract test exceeds 500 lines; split by action family during the customer-android architecture pass.
 import { describe, expect, it } from "vitest";
 
 import {
@@ -49,6 +50,7 @@ function createRecordingExecutor(): RoutineActionExecutor & {
   };
 }
 
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: broad existing contract suite; split by action family during the customer-android architecture pass.
 describe("routine actions", () => {
   it("converts Open-AutoGLM relative coordinates to screen pixels", () => {
     expect(

@@ -8,6 +8,29 @@
   ],
   "overrides": [
     {
+      "includes": ["**/*.ts", "**/*.tsx"],
+      "linter": {
+        "rules": {
+          "complexity": {
+            "noExcessiveLinesPerFunction": {
+              "level": "error",
+              "options": {
+                "maxLines": 150
+              }
+            }
+          },
+          "nursery": {
+            "noExcessiveLinesPerFile": {
+              "level": "error",
+              "options": {
+                "maxLines": 500
+              }
+            }
+          }
+        }
+      }
+    },
+    {
       "includes": ["apps/*/App.tsx"],
       "linter": {
         "rules": {

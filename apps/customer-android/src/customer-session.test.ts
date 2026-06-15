@@ -12,6 +12,7 @@ const readyAuthorityState = deriveDeviceAuthorityState({
   notifications: "granted",
 });
 
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: broad existing hosted-session contract suite; split by workflow during the customer-android architecture pass.
 describe("customer hosted session", () => {
   it("starts a hosted session with the alpha bearer token and returns the terminal trace", async () => {
     const fetchCalls: Array<{ url: string; init?: RequestInit }> = [];
