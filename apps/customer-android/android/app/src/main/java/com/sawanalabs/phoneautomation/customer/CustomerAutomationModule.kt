@@ -28,15 +28,10 @@ import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
 import com.facebook.react.bridge.ReadableMap
-import com.facebook.react.bridge.WritableArray
 import com.facebook.react.bridge.WritableMap
 import com.facebook.react.modules.core.PermissionAwareActivity
 import com.facebook.react.modules.core.PermissionListener
-import org.json.JSONArray
 import org.json.JSONObject
-import java.net.HttpURLConnection
-import java.net.URL
-import java.net.URLEncoder
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
@@ -417,11 +412,14 @@ class CustomerAutomationModule(
 
     Thread {
       try {
-        val snapshot = runHostedTaskLoop(
+        val snapshot = createNativeHostedTaskLoop(
           runtimeUrl = normalizedRuntimeUrl,
-          runtimeAccessToken = normalizedRuntimeAccessToken,
-          instruction = normalizedInstruction,
-          maxSteps = maxSteps.roundToInt()
+          runtimeAccessToken = normalizedRuntimeAccessToken
+        ).run(
+          NativeHostedTaskInput(
+            instruction = normalizedInstruction,
+            maxSteps = maxSteps.roundToInt()
+          )
         )
         mainHandler.post { promise.resolve(snapshot) }
       } catch (error: Exception) {
@@ -437,108 +435,30 @@ class CustomerAutomationModule(
     }.start()
   }
 
-  private fun runHostedTaskLoop(
+  private fun createNativeHostedTaskLoop(
     runtimeUrl: String,
-    runtimeAccessToken: String,
-    instruction: String,
-    maxSteps: Int
-  ): WritableMap {
-    val startResponse = postJson(
-      "$runtimeUrl/sessions",
-      runtimeAccessToken,
-      JSONObject()
-        .put("instruction", instruction)
-        .put("source", "customer-android")
+    runtimeAccessToken: String
+  ): NativeHostedTaskLoop {
+    return NativeHostedTaskLoop(
+      runtimeClient = NativeHostedRuntimeHttpClient(runtimeUrl, runtimeAccessToken),
+      screenStateCollector = object : NativeHostedScreenStateCollector {
+        override fun capture(): JSONObject = captureScreenStateJsonBlocking()
+      },
+      actionExecutor = object : NativeHostedActionExecutor {
+        override fun pauseFor(action: JSONObject): NativeHostedPause? = createNativePause(action)
+
+        override fun dispatch(action: JSONObject): NativeActionResult =
+          dispatchHostedActionNative(action)
+      }
     )
-    val task = startResponse.getJSONObject("task")
-    val taskId = task.getString("id")
-    val events = mutableListOf<NativeTaskEvent>()
-    appendNativeEvent(events, "task.started", "Task started.")
-    Log.i(TAG, "Hosted task started: $taskId")
+  }
 
-    var lastActionResult: NativeActionResult? = null
-    for (stepNumber in 1..maxSteps) {
-      Log.i(TAG, "Hosted task $taskId step $stepNumber capture start.")
-      val screen = try {
-        captureScreenStateJsonBlocking()
-      } catch (error: Exception) {
-        val message = error.message ?: "Failed to capture screen state."
-        Log.e(TAG, "Hosted task $taskId step $stepNumber capture failed: $message", error)
-        appendNativeEvent(events, "task.failed", message)
-        return createNativeSessionSnapshot(taskId, instruction, "failed", message, events)
-      }
-      Log.i(
-        TAG,
-        "Hosted task $taskId step $stepNumber captured package=${screen.optString("currentPackage")}"
-      )
-
-      val decision = try {
-        postJson(
-          "$runtimeUrl/sessions/${encodeUrlPath(taskId)}/steps",
-          runtimeAccessToken,
-          JSONObject()
-            .put("instruction", instruction)
-            .put("source", "customer-android")
-            .put("stepNumber", stepNumber)
-            .put("screen", screen)
-            .put("lastActionResult", lastActionResult?.toJson() ?: JSONObject.NULL)
-        )
-      } catch (error: Exception) {
-        val message = error.message ?: "Hosted runtime request failed."
-        Log.e(TAG, "Hosted task $taskId step $stepNumber decision failed: $message", error)
-        appendNativeEvent(events, "task.failed", message)
-        return createNativeSessionSnapshot(taskId, instruction, "failed", message, events)
-      }
-
-      val action = decision.getJSONObject("action")
-      if (action.optString("_metadata") == "finish") {
-        val message = action.getString("message")
-        Log.i(TAG, "Hosted task $taskId finished: $message")
-        appendNativeEvent(events, "task.finished", message)
-        return createNativeSessionSnapshot(taskId, instruction, "finished", message, events)
-      }
-
-      if (action.optString("_metadata") == "failed") {
-        val message = action.optString("message").ifBlank {
-          "Hosted runtime returned a failed action."
-        }
-        Log.e(TAG, "Hosted task $taskId failed: $message")
-        appendNativeEvent(events, "task.failed", message)
-        return createNativeSessionSnapshot(taskId, instruction, "failed", message, events)
-      }
-
-      val pauseStatus = nativePauseStatus(action)
-      if (pauseStatus != null) {
-        val message = nativePauseMessage(action)
-        appendNativeEvent(events, "task.paused", message)
-        return createNativeSessionSnapshot(
-          taskId,
-          instruction,
-          pauseStatus,
-          message,
-          events,
-          pauseAction = action,
-          nextStepNumber = stepNumber + 1,
-          lastActionResult = lastActionResult
-        )
-      }
-
-      val actionName = action.getString("action")
-      Log.i(TAG, "Hosted task $taskId step $stepNumber action=$actionName.")
-      appendNativeEvent(events, "step.action", "$actionName requested.")
-      lastActionResult = dispatchHostedActionNative(action)
-      val resultMessage =
-        "Hosted task $taskId step $stepNumber result=${lastActionResult.status}: ${lastActionResult.message}"
-      if (lastActionResult.status == "failed") {
-        Log.e(TAG, resultMessage)
-      } else {
-        Log.i(TAG, resultMessage)
-      }
-      appendNativeEvent(events, "step.result", lastActionResult.message)
-    }
-
-    throw IllegalStateException(
-      "Hosted routine action loop exceeded $maxSteps steps without finish."
+  private fun createNativePause(action: JSONObject): NativeHostedPause? {
+    val pauseStatus = nativePauseStatus(action) ?: return null
+    return NativeHostedPause(
+      status = pauseStatus,
+      action = action,
+      message = nativePauseMessage(action)
     )
   }
 
@@ -811,53 +731,6 @@ class CustomerAutomationModule(
     }
   }
 
-  private fun postJson(url: String, runtimeAccessToken: String, body: JSONObject): JSONObject {
-    val connection = URL(url).openConnection() as HttpURLConnection
-    try {
-      connection.requestMethod = "POST"
-      connection.connectTimeout = HOSTED_RUNTIME_TIMEOUT_MS
-      connection.readTimeout = HOSTED_RUNTIME_TIMEOUT_MS
-      connection.doOutput = true
-      connection.setRequestProperty("Content-Type", "application/json")
-      connection.setRequestProperty("Authorization", "Bearer $runtimeAccessToken")
-      connection.outputStream.use { output ->
-        output.write(body.toString().toByteArray(Charsets.UTF_8))
-      }
-
-      val status = connection.responseCode
-      val responseText = readResponseText(connection, status)
-      if (status !in 200..299) {
-        throw IllegalStateException(describeHttpFailure(status, responseText))
-      }
-      return JSONObject(responseText.ifBlank { "{}" })
-    } finally {
-      connection.disconnect()
-    }
-  }
-
-  private fun readResponseText(connection: HttpURLConnection, status: Int): String {
-    val stream = if (status in 200..299) {
-      connection.inputStream
-    } else {
-      connection.errorStream
-    } ?: return ""
-
-    return stream.bufferedReader(Charsets.UTF_8).use { it.readText() }
-  }
-
-  private fun describeHttpFailure(status: Int, responseText: String): String {
-    return try {
-      val detail = JSONObject(responseText).optString("detail")
-      if (detail.isNotBlank()) {
-        detail
-      } else {
-        "Hosted runtime returned $status."
-      }
-    } catch (_: Exception) {
-      "Hosted runtime returned $status."
-    }
-  }
-
   private fun normalizeRuntimeUrl(value: String): String? {
     val trimmed = value.trim()
     if (trimmed.isEmpty()) {
@@ -873,133 +746,6 @@ class CustomerAutomationModule(
       "http://$trimmed"
     }
     return withScheme.trimEnd('/')
-  }
-
-  private fun encodeUrlPath(value: String): String {
-    return URLEncoder.encode(value, "UTF-8")
-  }
-
-  private fun appendNativeEvent(
-    events: MutableList<NativeTaskEvent>,
-    type: String,
-    message: String
-  ) {
-    events.add(NativeTaskEvent(events.size + 1, type, message))
-  }
-
-  private fun createNativeSessionSnapshot(
-    taskId: String,
-    instruction: String,
-    status: String,
-    summary: String?,
-    events: List<NativeTaskEvent>,
-    pauseAction: JSONObject? = null,
-    nextStepNumber: Int? = null,
-    lastActionResult: NativeActionResult? = null
-  ): WritableMap {
-    val task = Arguments.createMap().apply {
-      putString("id", taskId)
-      putString("instruction", instruction)
-      putString("status", status)
-      putString("summary", summary)
-      if (status == "failed") {
-        putString("error", summary)
-      } else {
-        putNull("error")
-      }
-    }
-    val eventArray = Arguments.createArray()
-    events.forEach { event ->
-      eventArray.pushMap(
-        Arguments.createMap().apply {
-          putInt("sequence", event.sequence)
-          putString("type", event.type)
-          putString("message", event.message)
-        }
-      )
-    }
-    return Arguments.createMap().apply {
-      putMap("task", task)
-      putArray("events", eventArray)
-      if (pauseAction != null) {
-        putMap(
-          "pause",
-          Arguments.createMap().apply {
-            putString("status", status)
-            putMap("action", jsonObjectToWritableMap(pauseAction))
-            putString("message", summary ?: "User interaction required.")
-          }
-        )
-      } else {
-        putNull("pause")
-      }
-      if (nextStepNumber != null) {
-        putInt("nextStepNumber", nextStepNumber)
-      }
-      if (lastActionResult != null) {
-        putMap("lastActionResult", jsonObjectToWritableMap(lastActionResult.toJson()))
-      } else {
-        putNull("lastActionResult")
-      }
-    }
-  }
-
-  private fun jsonObjectToWritableMap(source: JSONObject): WritableMap {
-    val map = Arguments.createMap()
-    val keys = source.keys()
-    while (keys.hasNext()) {
-      val key = keys.next()
-      putJsonValue(map, key, source.opt(key))
-    }
-    return map
-  }
-
-  private fun jsonArrayToWritableArray(source: JSONArray): WritableArray {
-    val array = Arguments.createArray()
-    for (index in 0 until source.length()) {
-      pushJsonValue(array, source.opt(index))
-    }
-    return array
-  }
-
-  private fun putJsonValue(map: WritableMap, key: String, value: Any?) {
-    when (value) {
-      null, JSONObject.NULL -> map.putNull(key)
-      is Boolean -> map.putBoolean(key, value)
-      is Int -> map.putInt(key, value)
-      is Long -> {
-        if (value >= Int.MIN_VALUE && value <= Int.MAX_VALUE) {
-          map.putInt(key, value.toInt())
-        } else {
-          map.putDouble(key, value.toDouble())
-        }
-      }
-      is Number -> map.putDouble(key, value.toDouble())
-      is String -> map.putString(key, value)
-      is JSONObject -> map.putMap(key, jsonObjectToWritableMap(value))
-      is JSONArray -> map.putArray(key, jsonArrayToWritableArray(value))
-      else -> map.putString(key, value.toString())
-    }
-  }
-
-  private fun pushJsonValue(array: WritableArray, value: Any?) {
-    when (value) {
-      null, JSONObject.NULL -> array.pushNull()
-      is Boolean -> array.pushBoolean(value)
-      is Int -> array.pushInt(value)
-      is Long -> {
-        if (value >= Int.MIN_VALUE && value <= Int.MAX_VALUE) {
-          array.pushInt(value.toInt())
-        } else {
-          array.pushDouble(value.toDouble())
-        }
-      }
-      is Number -> array.pushDouble(value.toDouble())
-      is String -> array.pushString(value)
-      is JSONObject -> array.pushMap(jsonObjectToWritableMap(value))
-      is JSONArray -> array.pushArray(jsonArrayToWritableArray(value))
-      else -> array.pushString(value.toString())
-    }
   }
 
   private fun nativePauseStatus(action: JSONObject): String? {
@@ -1344,7 +1090,6 @@ class CustomerAutomationModule(
     private const val SCREEN_CAPTURE_TIMEOUT_MS = 5000L
     private const val NATIVE_ACTION_TIMEOUT_MS = 6000L
     private const val ACTION_SETTLE_MS = 700L
-    private const val HOSTED_RUNTIME_TIMEOUT_MS = 30000
     private const val COMPLETION_SIGNAL_CHANNEL_ID = "customer_task_status"
     private const val COMPLETION_SIGNAL_NOTIFICATION_ID_BASE = 52000
     private var activeModule: CustomerAutomationModule? = null
@@ -1360,25 +1105,6 @@ class CustomerAutomationModule(
         data,
         "activity"
       )
-    }
-  }
-
-  private data class NativeTaskEvent(
-    val sequence: Int,
-    val type: String,
-    val message: String
-  )
-
-  private data class NativeActionResult(
-    val status: String,
-    val action: String,
-    val message: String
-  ) {
-    fun toJson(): JSONObject {
-      return JSONObject()
-        .put("status", status)
-        .put("action", action)
-        .put("message", message)
     }
   }
 }

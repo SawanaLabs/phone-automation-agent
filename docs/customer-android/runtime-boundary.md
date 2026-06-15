@@ -1,7 +1,7 @@
 ---
 title: Customer Android Runtime Boundary
 description: Ownership boundary for the customer Android app, paired API, and reusable contracts.
-updateAt: 2026-06-13
+updateAt: 2026-06-15
 ---
 
 # Customer Android Runtime Boundary
@@ -18,10 +18,12 @@ updateAt: 2026-06-13
 - **Customer Step Agent**: The step-oriented Agent Engine that accepts app-supplied phone state instead of reading or controlling the phone through ADB.
 - **Routine Action**: A direct physical phone action that the APK can execute after setup, such as launch, tap, type, swipe, back, home, wait, double tap, and long press.
 - **Pause Action**: An action that requires user-visible pause handling, such as takeover, interaction, or confirmation.
+- **Native Hosted Task Loop**: The Android-side hosted run loop that keeps execution alive while target apps are foregrounded, captures phone state, asks the Customer Android API for the next step, dispatches routine actions, and returns terminal or pause snapshots to React Native.
 
 ## Current Subdomain Docs
 
 - `apps/customer-android` owns task entry, permission readiness, MediaProjection screen frames, AccessibilityService state, routine action execution, human-in-the-loop pause UI, progress display, and final result evidence.
+- Inside `apps/customer-android`, `CustomerAutomationModule.kt` should stay a React Native bridge and Android permission/action adapter. The native hosted run loop belongs in `NativeHostedTaskLoop.kt`, with HTTP, screen capture, action execution, and snapshot mapping behind focused ports.
 - `apps/customer-android-api` owns customer task sessions, per-step state, prompt construction, model-provider calls, Open-AutoGLM-style response parsing, action normalization, pause/failure states, and runtime logs.
 - The first `apps/customer-android-api` implementation keeps Agent Context in memory, uses an OpenAI-compatible model provider, and exposes the Session-Step API directly to the APK.
 - The first API should consume phone state supplied by the APK. It should not call Open-AutoGLM `PhoneAgent.step()` as a black box because that method captures screenshots and executes actions through its own device layer.

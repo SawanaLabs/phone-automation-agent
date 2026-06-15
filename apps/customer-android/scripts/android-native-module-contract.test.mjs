@@ -22,6 +22,9 @@ const QUERIES_LAUNCHER_CATEGORY =
 const PAUSE_FIELD = /putMap\(\s*"pause"/;
 const NEXT_STEP_NUMBER_FIELD = /putInt\(\s*"nextStepNumber"/;
 const LAST_ACTION_RESULT_FIELD = /putMap\(\s*"lastActionResult"/;
+const PRIVATE_RUN_HOSTED_TASK_LOOP = /private fun runHostedTaskLoop\(/;
+const NATIVE_HOSTED_TASK_LOOP_CLASS = /class NativeHostedTaskLoop\(/;
+const NATIVE_HOSTED_RUNTIME_CLIENT_PORT = /interface NativeHostedRuntimeClient/;
 
 describe("Android native module contract", () => {
   it("exports native hosted task loop so app-background actions keep running", async () => {
@@ -36,7 +39,7 @@ describe("Android native module contract", () => {
     expect(moduleSource).toMatch(RUN_HOSTED_TASK_REACT_METHOD);
   });
 
-  it("handles failed hosted outcomes before reading routine action names", async () => {
+  it("keeps the hosted task loop outside the React Native bridge module", async () => {
     const moduleSource = await readFile(
       new URL(
         "../android/app/src/main/java/com/sawanalabs/phoneautomation/customer/CustomerAutomationModule.kt",
@@ -44,16 +47,37 @@ describe("Android native module contract", () => {
       ),
       "utf8"
     );
-    const failedOutcomeIndex = moduleSource.indexOf(
+    const loopSource = await readFile(
+      new URL(
+        "../android/app/src/main/java/com/sawanalabs/phoneautomation/customer/NativeHostedTaskLoop.kt",
+        import.meta.url
+      ),
+      "utf8"
+    );
+
+    expect(moduleSource).not.toMatch(PRIVATE_RUN_HOSTED_TASK_LOOP);
+    expect(loopSource).toMatch(NATIVE_HOSTED_TASK_LOOP_CLASS);
+    expect(loopSource).toMatch(NATIVE_HOSTED_RUNTIME_CLIENT_PORT);
+  });
+
+  it("handles failed hosted outcomes before reading routine action names", async () => {
+    const loopSource = await readFile(
+      new URL(
+        "../android/app/src/main/java/com/sawanalabs/phoneautomation/customer/NativeHostedTaskLoop.kt",
+        import.meta.url
+      ),
+      "utf8"
+    );
+    const failedOutcomeIndex = loopSource.indexOf(
       'action.optString("_metadata") == "failed"'
     );
-    const actionNameIndex = moduleSource.indexOf(
-      'val actionName = action.getString("action")'
+    const actionDispatchIndex = loopSource.indexOf(
+      "actionExecutor.dispatch(action)"
     );
 
     expect(failedOutcomeIndex).toBeGreaterThan(-1);
-    expect(actionNameIndex).toBeGreaterThan(-1);
-    expect(failedOutcomeIndex).toBeLessThan(actionNameIndex);
+    expect(actionDispatchIndex).toBeGreaterThan(-1);
+    expect(failedOutcomeIndex).toBeLessThan(actionDispatchIndex);
   });
 
   it("runs screen capture on a dedicated handler thread without continuous frame callbacks", async () => {
@@ -129,17 +153,17 @@ describe("Android native module contract", () => {
   });
 
   it("returns pause continuation fields from the native hosted loop", async () => {
-    const moduleSource = await readFile(
+    const mapperSource = await readFile(
       new URL(
-        "../android/app/src/main/java/com/sawanalabs/phoneautomation/customer/CustomerAutomationModule.kt",
+        "../android/app/src/main/java/com/sawanalabs/phoneautomation/customer/NativeSessionSnapshotMapper.kt",
         import.meta.url
       ),
       "utf8"
     );
 
-    expect(moduleSource).toMatch(PAUSE_FIELD);
-    expect(moduleSource).toMatch(NEXT_STEP_NUMBER_FIELD);
-    expect(moduleSource).toMatch(LAST_ACTION_RESULT_FIELD);
-    expect(moduleSource).toContain("jsonObjectToWritableMap(pauseAction)");
+    expect(mapperSource).toMatch(PAUSE_FIELD);
+    expect(mapperSource).toMatch(NEXT_STEP_NUMBER_FIELD);
+    expect(mapperSource).toMatch(LAST_ACTION_RESULT_FIELD);
+    expect(mapperSource).toContain("jsonObjectToWritableMap(pauseAction)");
   });
 });
