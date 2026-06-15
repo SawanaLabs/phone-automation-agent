@@ -2,11 +2,11 @@ export type ActionE2eCoverageGroup =
   | "routine"
   | "pause"
   | "runtime-local"
-  | "finish"
+  | "finish";
 
-export type OpenAutoGlmActionCoverageEntry = {
-  action: string
-  group: ActionE2eCoverageGroup
+export interface OpenAutoGlmActionCoverageEntry {
+  action: string;
+  group: ActionE2eCoverageGroup;
 }
 
 export const OPEN_AUTOGLM_ACTION_E2E_COVERAGE: OpenAutoGlmActionCoverageEntry[] =
@@ -26,10 +26,10 @@ export const OPEN_AUTOGLM_ACTION_E2E_COVERAGE: OpenAutoGlmActionCoverageEntry[] 
     { action: "Note", group: "runtime-local" },
     { action: "Call_API", group: "runtime-local" },
     { action: "finish", group: "finish" },
-  ]
+  ];
 
 export const SENSITIVE_TAP_E2E_COVERAGE = {
   action: "Tap",
   variant: "message",
   group: "pause",
-} as const
+} as const;

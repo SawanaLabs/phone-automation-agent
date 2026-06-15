@@ -1,6 +1,6 @@
-import type { DeviceAuthorityState } from "./device-authority"
-import { normalizeOpenAutoGlmAction } from "./open-autoglm-action-contract"
-import type { RoutineAction } from "./routine-actions"
+import type { DeviceAuthorityState } from "./device-authority";
+import { normalizeOpenAutoGlmAction } from "./open-autoglm-action-contract";
+import type { RoutineAction } from "./routine-action-types";
 
 export type CustomerTaskStatus =
   | "created"
@@ -10,78 +10,81 @@ export type CustomerTaskStatus =
   | "stopped"
   | "takeover_required"
   | "interaction_required"
-  | "confirmation_required"
+  | "confirmation_required";
 
-export type CustomerTask = {
-  id: string
-  instruction: string
-  status: CustomerTaskStatus
-  summary: string | null
-  error?: string | null
+export interface CustomerTask {
+  error?: string | null;
+  id: string;
+  instruction: string;
+  status: CustomerTaskStatus;
+  summary: string | null;
 }
 
-export type CustomerTaskEvent = {
-  sequence: number
-  type: string
-  message: string | null
-  payload?: Record<string, unknown>
+export interface CustomerTaskEvent {
+  message: string | null;
+  payload?: Record<string, unknown>;
+  sequence: number;
+  type: string;
 }
 
-export type CustomerSessionSnapshot = {
-  task: CustomerTask
-  events: CustomerTaskEvent[]
-  actions?: RoutineAction[]
-  pause?: CustomerTaskPause | null
-  nextStepNumber?: number
-  lastActionResult?: CustomerActionResult | null
+export interface CustomerSessionSnapshot {
+  actions?: RoutineAction[];
+  events: CustomerTaskEvent[];
+  lastActionResult?: CustomerActionResult | null;
+  nextStepNumber?: number;
+  pause?: CustomerTaskPause | null;
+  task: CustomerTask;
 }
 
-export type CustomerScreenState = {
-  frameBase64: string
-  frameMimeType: string
-  width: number
-  height: number
-  currentPackage?: string | null
-  accessibilitySummary?: string | null
+export interface CustomerScreenState {
+  accessibilitySummary?: string | null;
+  currentPackage?: string | null;
+  frameBase64: string;
+  frameMimeType: string;
+  height: number;
+  width: number;
 }
 
-export type CustomerActionResult = {
-  status: "succeeded" | "failed" | "unsupported"
-  action: string
-  message: string
+export interface CustomerActionResult {
+  action: string;
+  message: string;
+  status: "succeeded" | "failed" | "unsupported";
 }
 
-export type CustomerTaskPause = {
+export interface CustomerTaskPause {
+  action: RoutineAction;
+  message: string;
   status: Extract<
     CustomerTaskStatus,
     "takeover_required" | "interaction_required" | "confirmation_required"
-  >
-  action: RoutineAction
-  message: string
+  >;
 }
 
-export type CustomerActionDecision = {
-  action: RoutineAction
+export interface CustomerActionDecision {
+  action: RoutineAction;
 }
 
-export type StartCustomerTaskInput = {
-  authorityState: DeviceAuthorityState
-  runtimeUrl: string
-  runtimeAccessToken: string
-  instruction: string
-  fetchImpl?: typeof fetch
+export interface StartCustomerTaskInput {
+  authorityState: DeviceAuthorityState;
+  fetchImpl?: typeof fetch;
+  instruction: string;
+  runtimeAccessToken: string;
+  runtimeUrl: string;
 }
 
-export type RequestNextCustomerActionInput = {
-  runtimeUrl: string
-  runtimeAccessToken: string
-  taskId: string
-  instruction: string
-  stepNumber: number
-  screen: CustomerScreenState
-  lastActionResult?: CustomerActionResult | null
-  fetchImpl?: typeof fetch
+export interface RequestNextCustomerActionInput {
+  fetchImpl?: typeof fetch;
+  instruction: string;
+  lastActionResult?: CustomerActionResult | null;
+  runtimeAccessToken: string;
+  runtimeUrl: string;
+  screen: CustomerScreenState;
+  stepNumber: number;
+  taskId: string;
 }
+
+const HTTP_SCHEME_PATTERN = /^https?:\/\//i;
+const TRAILING_SLASHES_PATTERN = /\/+$/;
 
 export async function startCustomerTask({
   authorityState,
@@ -93,17 +96,17 @@ export async function startCustomerTask({
   if (!authorityState.canStartTask) {
     throw new Error(
       `Android permissions are required before starting a task: ${authorityState.missing.join(", ")}.`
-    )
+    );
   }
 
-  const normalizedInstruction = instruction.trim()
+  const normalizedInstruction = instruction.trim();
   if (!normalizedInstruction) {
-    throw new Error("Instruction is required.")
+    throw new Error("Instruction is required.");
   }
   const normalizedRuntimeAccessToken =
-    normalizeRuntimeAccessToken(runtimeAccessToken)
+    normalizeRuntimeAccessToken(runtimeAccessToken);
 
-  let response: Response
+  let response: Response;
   try {
     response = await fetchImpl(`${normalizeRuntimeUrl(runtimeUrl)}/sessions`, {
       method: "POST",
@@ -115,16 +118,16 @@ export async function startCustomerTask({
         instruction: normalizedInstruction,
         source: "customer-android",
       }),
-    })
+    });
   } catch (error) {
-    throw new Error(`Hosted runtime request failed: ${describeError(error)}`)
+    throw new Error(`Hosted runtime request failed: ${describeError(error)}`);
   }
 
   if (!response.ok) {
-    throw new Error(await describeHttpError(response))
+    throw new Error(await describeHttpError(response));
   }
 
-  return response.json() as Promise<CustomerSessionSnapshot>
+  return response.json() as Promise<CustomerSessionSnapshot>;
 }
 
 export async function requestNextCustomerAction({
@@ -137,21 +140,21 @@ export async function requestNextCustomerAction({
   lastActionResult = null,
   fetchImpl = fetch,
 }: RequestNextCustomerActionInput): Promise<CustomerActionDecision> {
-  const normalizedTaskId = taskId.trim()
+  const normalizedTaskId = taskId.trim();
   if (!normalizedTaskId) {
-    throw new Error("Task id is required.")
+    throw new Error("Task id is required.");
   }
 
-  const normalizedInstruction = instruction.trim()
+  const normalizedInstruction = instruction.trim();
   if (!normalizedInstruction) {
-    throw new Error("Instruction is required.")
+    throw new Error("Instruction is required.");
   }
 
   const normalizedRuntimeAccessToken =
-    normalizeRuntimeAccessToken(runtimeAccessToken)
-  assertScreenState(screen)
+    normalizeRuntimeAccessToken(runtimeAccessToken);
+  assertScreenState(screen);
 
-  let response: Response
+  let response: Response;
   try {
     response = await fetchImpl(
       `${normalizeRuntimeUrl(runtimeUrl)}/sessions/${encodeURIComponent(
@@ -171,70 +174,72 @@ export async function requestNextCustomerAction({
           lastActionResult,
         }),
       }
-    )
+    );
   } catch (error) {
-    throw new Error(`Hosted runtime request failed: ${describeError(error)}`)
+    throw new Error(`Hosted runtime request failed: ${describeError(error)}`);
   }
 
   if (!response.ok) {
-    throw new Error(await describeHttpError(response))
+    throw new Error(await describeHttpError(response));
   }
 
-  const body = (await response.json()) as { action?: unknown }
+  const body = (await response.json()) as { action?: unknown };
   return {
     action: normalizeOpenAutoGlmAction(body.action),
-  }
+  };
 }
 
 function assertScreenState(screen: CustomerScreenState) {
   if (!screen.frameBase64.trim()) {
-    throw new Error("Screen frame is required before requesting the next action.")
+    throw new Error(
+      "Screen frame is required before requesting the next action."
+    );
   }
 
   if (!Number.isFinite(screen.width) || screen.width <= 0) {
-    throw new Error(`Screen width must be positive: ${screen.width}.`)
+    throw new Error(`Screen width must be positive: ${screen.width}.`);
   }
 
   if (!Number.isFinite(screen.height) || screen.height <= 0) {
-    throw new Error(`Screen height must be positive: ${screen.height}.`)
+    throw new Error(`Screen height must be positive: ${screen.height}.`);
   }
 }
 
 function normalizeRuntimeUrl(value: string): string {
-  const trimmed = value.trim()
-  const withScheme = /^https?:\/\//i.test(trimmed)
+  const trimmed = value.trim();
+  const withScheme = HTTP_SCHEME_PATTERN.test(trimmed)
     ? trimmed
-    : `http://${trimmed}`
-  return withScheme.replace(/\/+$/, "")
+    : `http://${trimmed}`;
+  return withScheme.replace(TRAILING_SLASHES_PATTERN, "");
 }
 
 function normalizeRuntimeAccessToken(value: string): string {
-  const trimmed = value.trim()
+  const trimmed = value.trim();
   if (!trimmed) {
-    throw new Error("Runtime access token is required.")
+    throw new Error("Runtime access token is required.");
   }
 
-  return trimmed
+  return trimmed;
 }
 
 function describeError(error: unknown): string {
   if (error instanceof Error) {
-    return error.message
+    return error.message;
   }
 
-  return String(error)
+  return String(error);
 }
 
 async function describeHttpError(response: Response): Promise<string> {
-  const fallback = `Hosted runtime returned ${response.status}.`
+  const fallback = `Hosted runtime returned ${response.status}.`;
   try {
-    const body = (await response.json()) as { detail?: unknown }
+    const body = (await response.json()) as { detail?: unknown };
     if (typeof body.detail === "string" && body.detail) {
-      return body.detail
+      return body.detail;
     }
   } catch {
-    return fallback
+    return fallback;
   }
 
-  return fallback
+  return fallback;
 }

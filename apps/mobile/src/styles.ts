@@ -1,7 +1,7 @@
-import { StyleSheet, type StyleProp, type ViewStyle } from "react-native"
+import { type StyleProp, StyleSheet, type ViewStyle } from "react-native";
 
-import type { ConnectionState } from "./task-state"
-import type { TaskStatus } from "./worker-api"
+import type { ConnectionState } from "./task-state";
+import type { TaskStatus } from "./worker-api";
 
 export const styles = StyleSheet.create({
   safeArea: {
@@ -226,14 +226,14 @@ export const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
   },
-})
+});
 
 export const badgeStateStyles: Record<ConnectionState, StyleProp<ViewStyle>> = {
   idle: styles.badge_idle,
   checking: styles.badge_checking,
   online: styles.badge_online,
   offline: styles.badge_offline,
-}
+};
 
 export const taskStatusStyles: Record<TaskStatus, StyleProp<ViewStyle>> = {
   created: styles.status_created,
@@ -242,4 +242,4 @@ export const taskStatusStyles: Record<TaskStatus, StyleProp<ViewStyle>> = {
   failed: styles.status_failed,
   confirmation_required: styles.status_confirmation_required,
   takeover_required: styles.status_takeover_required,
-}
+};

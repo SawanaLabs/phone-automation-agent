@@ -1,4 +1,4 @@
-import type { CustomerTaskEvent } from "./customer-session"
+import type { CustomerTaskEvent } from "./customer-session";
 
 export function visibleTraceEvents(
   events: CustomerTaskEvent[]
@@ -9,13 +9,13 @@ export function visibleTraceEvents(
         event.type.startsWith("task.") || event.type.startsWith("step.")
     )
     .slice(-12)
-    .reverse()
+    .reverse();
 }
 
 export function describeError(error: unknown): string {
   if (error instanceof Error) {
-    return error.message
+    return error.message;
   }
 
-  return String(error)
+  return String(error);
 }

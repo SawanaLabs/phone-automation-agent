@@ -1,20 +1,30 @@
+const MODEL_BASE_URL_TRAILING_SLASHES = /\/+$/;
+const ACTION_INVOCATION_PATTERN = /^(do|finish)\((.*)\)$/s;
+const OPENING_CODE_FENCE_PATTERN = /^```[a-zA-Z]*\n?/;
+const CLOSING_CODE_FENCE_PATTERN = /```$/;
+const LINE_BREAK_PATTERN = /\r?\n/;
+const ARGUMENT_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
+const noopLogger = () => {
+  // Intentionally empty default logger.
+};
+
 export function createHostedAgentRuntime({
   modelProvider,
   maxSteps = 50,
   modelTimeoutMs = 30_000,
   now = () => Date.now(),
-  logger = () => {},
+  logger = noopLogger,
 }) {
-  const sessions = new Map()
-  const stepRequests = []
+  const sessions = new Map();
+  const stepRequests = [];
 
   return {
     createSession({ instruction }) {
       const normalizedInstruction = normalizeRequiredString(
         instruction,
         "Instruction"
-      )
-      const taskId = `customer_task_${now()}`
+      );
+      const taskId = `customer_task_${now()}`;
       const session = {
         task: {
           id: taskId,
@@ -25,33 +35,43 @@ export function createHostedAgentRuntime({
         },
         events: [],
         completedSteps: 0,
-      }
-      appendEvent(session, "task.started", "Task started.")
-      sessions.set(taskId, session)
-      return createSessionSnapshot(session)
+      };
+      appendEvent(session, "task.started", "Task started.");
+      sessions.set(taskId, session);
+      return createSessionSnapshot(session);
     },
 
     async createStepDecision(sessionId, body) {
-      const session = sessions.get(sessionId)
+      const session = sessions.get(sessionId);
       if (!session) {
         return createStandaloneFailure(
           404,
           "SESSION_NOT_FOUND",
           "Session not found."
-        )
+        );
       }
 
-      const validationError = validateStepRequest(body)
+      const validationError = validateStepRequest(body);
       if (validationError) {
-        return failSession(session, 400, "INVALID_STEP_REQUEST", validationError)
+        return failSession(
+          session,
+          400,
+          "INVALID_STEP_REQUEST",
+          validationError
+        );
       }
 
-      const requestSnapshot = createStepRequestSnapshot(sessionId, body)
-      stepRequests.push(requestSnapshot)
-      logger({ type: "step.request", ...requestSnapshot })
-      appendEvent(session, "step.received", `Received step ${body.stepNumber}.`, {
-        request: requestSnapshot,
-      })
+      const requestSnapshot = createStepRequestSnapshot(sessionId, body);
+      stepRequests.push(requestSnapshot);
+      logger({ type: "step.request", ...requestSnapshot });
+      appendEvent(
+        session,
+        "step.received",
+        `Received step ${body.stepNumber}.`,
+        {
+          request: requestSnapshot,
+        }
+      );
 
       if (session.completedSteps >= maxSteps) {
         return failSession(
@@ -59,7 +79,7 @@ export function createHostedAgentRuntime({
           409,
           "MAX_STEPS_EXCEEDED",
           `Hosted runtime exceeded max steps: ${maxSteps}.`
-        )
+        );
       }
 
       const prompt = createPrompt({
@@ -67,9 +87,9 @@ export function createHostedAgentRuntime({
         stepNumber: body.stepNumber,
         screen: body.screen,
         lastActionResult: body.lastActionResult ?? null,
-      })
+      });
 
-      let modelOutput
+      let modelOutput;
       try {
         modelOutput = await withTimeout(
           modelProvider.complete({
@@ -81,10 +101,10 @@ export function createHostedAgentRuntime({
             session: createSessionSnapshot(session),
           }),
           modelTimeoutMs
-        )
+        );
       } catch (error) {
         if (error instanceof ModelTimeoutError) {
-          return failSession(session, 504, "MODEL_TIMEOUT", error.message)
+          return failSession(session, 504, "MODEL_TIMEOUT", error.message);
         }
 
         return failSession(
@@ -92,33 +112,39 @@ export function createHostedAgentRuntime({
           502,
           "MODEL_PROVIDER_FAILED",
           `Model provider failed: ${describeError(error)}`
-        )
+        );
       }
 
       appendEvent(session, "model.output", String(modelOutput), {
         stepNumber: body.stepNumber,
-      })
+      });
 
-      let action
+      let action;
       try {
-        action = parseOpenAutoGlmActionText(modelOutput)
+        action = parseOpenAutoGlmActionText(modelOutput);
       } catch (error) {
-        return failSession(session, 422, "INVALID_MODEL_OUTPUT", "Invalid model output.", {
-          cause: describeError(error),
-          output: String(modelOutput),
-        })
+        return failSession(
+          session,
+          422,
+          "INVALID_MODEL_OUTPUT",
+          "Invalid model output.",
+          {
+            cause: describeError(error),
+            output: String(modelOutput),
+          }
+        );
       }
 
-      session.completedSteps += 1
+      session.completedSteps += 1;
       appendEvent(session, "step.decision", describeAction(action), {
         stepNumber: body.stepNumber,
         action,
-      })
+      });
 
       if (action._metadata === "finish") {
-        session.task.status = "finished"
-        session.task.summary = action.message
-        appendEvent(session, "task.finished", action.message)
+        session.task.status = "finished";
+        session.task.summary = action.message;
+        appendEvent(session, "task.finished", action.message);
       }
 
       return {
@@ -128,74 +154,79 @@ export function createHostedAgentRuntime({
           action,
           events: session.events,
         },
-      }
+      };
     },
 
     getDebugState() {
       return {
         requests: stepRequests,
         sessions: Array.from(sessions.values()).map(createSessionSnapshot),
-      }
+      };
     },
-  }
+  };
 }
 
 export function createModelProviderFromEnv(env, { fetchImpl = fetch } = {}) {
-  const provider = env.CUSTOMER_RUNTIME_MODEL_PROVIDER ?? "scripted"
+  const provider = env.CUSTOMER_RUNTIME_MODEL_PROVIDER ?? "scripted";
   if (provider === "scripted") {
     return createScriptedModelProvider({
       scenario: env.CUSTOMER_RUNTIME_SCENARIO ?? "routine-basic",
-    })
+    });
   }
 
   if (provider === "openai-compatible") {
     const baseUrl = normalizeRequiredString(
       env.CUSTOMER_RUNTIME_MODEL_BASE_URL,
       "CUSTOMER_RUNTIME_MODEL_BASE_URL"
-    )
+    );
     const model = normalizeRequiredString(
       env.CUSTOMER_RUNTIME_MODEL_NAME,
       "CUSTOMER_RUNTIME_MODEL_NAME"
-    )
-    const apiKey = requireModelApiKey(env.CUSTOMER_RUNTIME_MODEL_API_KEY)
+    );
+    const apiKey = requireModelApiKey(env.CUSTOMER_RUNTIME_MODEL_API_KEY);
     if (isPlaceholderSecret(apiKey)) {
-      throw new Error("CUSTOMER_RUNTIME_MODEL_API_KEY is still a placeholder.")
+      throw new Error("CUSTOMER_RUNTIME_MODEL_API_KEY is still a placeholder.");
     }
 
     return {
       async complete({ prompt }) {
-        const response = await fetchImpl(`${baseUrl.replace(/\/+$/, "")}/chat/completions`, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${apiKey}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model,
-            messages: [{ role: "user", content: prompt }],
-            temperature: 0,
-          }),
-        })
+        const response = await fetchImpl(
+          `${baseUrl.replace(MODEL_BASE_URL_TRAILING_SLASHES, "")}/chat/completions`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${apiKey}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              model,
+              messages: [{ role: "user", content: prompt }],
+              temperature: 0,
+            }),
+          }
+        );
 
         if (!response.ok) {
-          throw new Error(`provider returned ${response.status}`)
+          throw new Error(`provider returned ${response.status}`);
         }
 
-        const body = await response.json()
-        const content = body?.choices?.[0]?.message?.content
+        const body = await response.json();
+        const content = body?.choices?.[0]?.message?.content;
         if (typeof content !== "string" || !content.trim()) {
-          throw new Error("provider response did not include message content")
+          throw new Error("provider response did not include message content");
         }
 
-        return content
+        return content;
       },
-    }
+    };
   }
 
-  throw new Error(`Unsupported CUSTOMER_RUNTIME_MODEL_PROVIDER: ${provider}`)
+  throw new Error(`Unsupported CUSTOMER_RUNTIME_MODEL_PROVIDER: ${provider}`);
 }
 
-export function createScriptedModelProvider({ scenario = "routine-basic" } = {}) {
+export function createScriptedModelProvider({
+  scenario = "routine-basic",
+} = {}) {
   const supportedScenarios = new Set([
     "routine-basic",
     "launch-type",
@@ -206,50 +237,52 @@ export function createScriptedModelProvider({ scenario = "routine-basic" } = {})
     "runtime-local-actions",
     "unknown-action",
     "settings-return",
-  ])
+  ]);
   if (!supportedScenarios.has(scenario)) {
-    throw new Error(`Unsupported CUSTOMER_RUNTIME_SCENARIO: ${scenario}`)
+    throw new Error(`Unsupported CUSTOMER_RUNTIME_SCENARIO: ${scenario}`);
   }
 
   return {
-    async complete({ instruction, stepNumber }) {
-      return actionAtStep(stepNumber, createScenarioOutputs(scenario, instruction))
+    complete({ instruction, stepNumber }) {
+      return Promise.resolve(
+        actionAtStep(stepNumber, createScenarioOutputs(scenario, instruction))
+      );
     },
-  }
+  };
 }
 
 export function parseOpenAutoGlmActionText(output) {
   if (typeof output !== "string") {
-    throw new Error("Model output must be a string.")
+    throw new Error("Model output must be a string.");
   }
 
-  const invocation = extractActionInvocation(output)
-  const match = invocation.match(/^(do|finish)\((.*)\)$/s)
+  const invocation = extractActionInvocation(output);
+  const match = invocation.match(ACTION_INVOCATION_PATTERN);
   if (!match) {
-    throw new Error("Model output must contain do(...) or finish(...).")
+    throw new Error("Model output must contain do(...) or finish(...).");
   }
 
-  const kind = match[1]
-  const args = parseNamedArguments(match[2])
+  const kind = match[1];
+  const args = parseNamedArguments(match[2]);
   if (kind === "finish") {
     return {
       _metadata: "finish",
       message: normalizeRequiredString(args.message, "Finish message"),
-    }
+    };
   }
 
-  return normalizeRoutineAction(args)
+  return normalizeRoutineAction(args);
 }
 
 function normalizeRoutineAction(args) {
-  const actionName = normalizeRequiredString(args.action, "Action name")
+  const actionName = normalizeRequiredString(args.action, "Action name");
   switch (actionName) {
     case "Launch":
       return {
         _metadata: "do",
         action: "Launch",
         app: normalizeRequiredString(args.app, "Launch app"),
-      }
+      };
     case "Tap":
       return withOptionalMessage(
         {
@@ -258,24 +291,24 @@ function normalizeRoutineAction(args) {
           element: requireRelativePoint(args.element, "Tap element"),
         },
         args.message
-      )
+      );
     case "Take_over":
       return {
         _metadata: "do",
         action: "Take_over",
         message: normalizeRequiredString(args.message, "Take_over message"),
-      }
+      };
     case "Interact":
       return withOptionalMessage(
         { _metadata: "do", action: "Interact" },
         args.message
-      )
+      );
     case "Note":
       return {
         _metadata: "do",
         action: "Note",
         message: normalizeRequiredString(args.message, "Note message"),
-      }
+      };
     case "Call_API":
       return {
         _metadata: "do",
@@ -284,212 +317,219 @@ function normalizeRoutineAction(args) {
           args.instruction,
           "Call_API instruction"
         ),
-      }
+      };
     case "Type":
     case "Type_Name":
       return {
         _metadata: "do",
         action: "Type",
         text: requireText(args.text, "Type text"),
-      }
+      };
     case "Swipe":
       return {
         _metadata: "do",
         action: "Swipe",
         start: requireRelativePoint(args.start, "Swipe start"),
         end: requireRelativePoint(args.end, "Swipe end"),
-      }
+      };
     case "Back":
-      return { _metadata: "do", action: "Back" }
+      return { _metadata: "do", action: "Back" };
     case "Home":
-      return { _metadata: "do", action: "Home" }
+      return { _metadata: "do", action: "Home" };
     case "Wait":
       return {
         _metadata: "do",
         action: "Wait",
         duration: normalizeWaitDuration(args.duration),
-      }
+      };
     case "Double Tap":
       return {
         _metadata: "do",
         action: "Double Tap",
         element: requireRelativePoint(args.element, "Double Tap element"),
-      }
+      };
     case "Long Press":
       return {
         _metadata: "do",
         action: "Long Press",
         element: requireRelativePoint(args.element, "Long Press element"),
-      }
+      };
     default:
-      throw new Error(`Unsupported Open-AutoGLM action: ${actionName}.`)
+      throw new Error(`Unsupported Open-AutoGLM action: ${actionName}.`);
   }
 }
 
 function extractActionInvocation(output) {
-  const cleaned = output.trim().replace(/^```[a-zA-Z]*\n?/, "").replace(/```$/, "").trim()
-  const lines = cleaned.split(/\r?\n/).map((line) => line.trim()).filter(Boolean)
+  const cleaned = output
+    .trim()
+    .replace(OPENING_CODE_FENCE_PATTERN, "")
+    .replace(CLOSING_CODE_FENCE_PATTERN, "")
+    .trim();
+  const lines = cleaned
+    .split(LINE_BREAK_PATTERN)
+    .map((line) => line.trim())
+    .filter(Boolean);
   const invocation = [...lines]
     .reverse()
-    .find((line) => line.startsWith("do(") || line.startsWith("finish("))
+    .find((line) => line.startsWith("do(") || line.startsWith("finish("));
   if (!invocation) {
-    throw new Error("Model output must contain do(...) or finish(...).")
+    throw new Error("Model output must contain do(...) or finish(...).");
   }
 
-  return invocation
+  return invocation;
 }
 
 function parseNamedArguments(input) {
-  const args = {}
+  const args = {};
   for (const part of splitTopLevel(input)) {
-    const separatorIndex = part.indexOf("=")
+    const separatorIndex = part.indexOf("=");
     if (separatorIndex <= 0) {
-      throw new Error(`Invalid argument: ${part}`)
+      throw new Error(`Invalid argument: ${part}`);
     }
 
-    const key = part.slice(0, separatorIndex).trim()
-    const value = part.slice(separatorIndex + 1).trim()
-    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) {
-      throw new Error(`Invalid argument name: ${key}`)
+    const key = part.slice(0, separatorIndex).trim();
+    const value = part.slice(separatorIndex + 1).trim();
+    if (!ARGUMENT_NAME_PATTERN.test(key)) {
+      throw new Error(`Invalid argument name: ${key}`);
     }
-    args[key] = parseValue(value)
+    args[key] = parseValue(value);
   }
 
-  return args
+  return args;
 }
 
 function splitTopLevel(input) {
-  const parts = []
-  let current = ""
-  let quote = null
-  let bracketDepth = 0
+  const parts = [];
+  let current = "";
+  let quote = null;
+  let bracketDepth = 0;
 
   for (let index = 0; index < input.length; index += 1) {
-    const char = input[index]
-    const previous = input[index - 1]
+    const char = input[index];
+    const previous = input[index - 1];
     if (quote) {
-      current += char
+      current += char;
       if (char === quote && previous !== "\\") {
-        quote = null
+        quote = null;
       }
-      continue
+      continue;
     }
 
     if (char === '"' || char === "'") {
-      quote = char
-      current += char
-      continue
+      quote = char;
+      current += char;
+      continue;
     }
 
     if (char === "[") {
-      bracketDepth += 1
-      current += char
-      continue
+      bracketDepth += 1;
+      current += char;
+      continue;
     }
 
     if (char === "]") {
-      bracketDepth -= 1
-      current += char
-      continue
+      bracketDepth -= 1;
+      current += char;
+      continue;
     }
 
     if (char === "," && bracketDepth === 0) {
-      parts.push(current.trim())
-      current = ""
-      continue
+      parts.push(current.trim());
+      current = "";
+      continue;
     }
 
-    current += char
+    current += char;
   }
 
   if (current.trim()) {
-    parts.push(current.trim())
+    parts.push(current.trim());
   }
 
-  return parts
+  return parts;
 }
 
 function parseValue(value) {
   if (value.startsWith('"')) {
-    return JSON.parse(value)
+    return JSON.parse(value);
   }
 
   if (value.startsWith("'")) {
-    return value.slice(1, -1).replace(/\\'/g, "'")
+    return value.slice(1, -1).replace(/\\'/g, "'");
   }
 
   if (value.startsWith("[") && value.endsWith("]")) {
-    const body = value.slice(1, -1).trim()
+    const body = value.slice(1, -1).trim();
     if (!body) {
-      return []
+      return [];
     }
-    return body.split(",").map((part) => Number(part.trim()))
+    return body.split(",").map((part) => Number(part.trim()));
   }
 
   if (value === "True") {
-    return true
+    return true;
   }
 
   if (value === "False") {
-    return false
+    return false;
   }
 
-  const number = Number(value)
+  const number = Number(value);
   if (Number.isFinite(number)) {
-    return number
+    return number;
   }
 
-  return value
+  return value;
 }
 
 function createPrompt({ instruction, stepNumber, screen, lastActionResult }) {
   return [
     "You are an Open-AutoGLM-style phone automation agent.",
-    "Return exactly one do(...) action or finish(message=\"...\").",
+    'Return exactly one do(...) action or finish(message="...").',
     `Instruction: ${instruction}`,
     `Step: ${stepNumber}`,
     `Screen: ${screen.width}x${screen.height} ${screen.frameMimeType}`,
     `Current package: ${screen.currentPackage ?? "unknown"}`,
     `Accessibility summary: ${screen.accessibilitySummary ?? "unavailable"}`,
     `Last action result: ${lastActionResult ? JSON.stringify(lastActionResult) : "none"}`,
-  ].join("\n")
+  ].join("\n");
 }
 
 function validateStepRequest(body) {
   if (!body || typeof body !== "object") {
-    return "Step request body is required."
+    return "Step request body is required.";
   }
 
   const instruction =
-    typeof body.instruction === "string" ? body.instruction.trim() : ""
+    typeof body.instruction === "string" ? body.instruction.trim() : "";
   if (!instruction) {
-    return "Instruction is required."
+    return "Instruction is required.";
   }
 
   if (!Number.isInteger(body.stepNumber) || body.stepNumber < 1) {
-    return "Step number must be a positive integer."
+    return "Step number must be a positive integer.";
   }
 
   if (!body.screen || typeof body.screen !== "object") {
-    return "Screen state is required."
+    return "Screen state is required.";
   }
 
   if (
     typeof body.screen.frameBase64 !== "string" ||
     body.screen.frameBase64.trim() === ""
   ) {
-    return "Screen frame is required."
+    return "Screen frame is required.";
   }
 
   if (!Number.isFinite(body.screen.width) || body.screen.width <= 0) {
-    return "Screen width must be positive."
+    return "Screen width must be positive.";
   }
 
   if (!Number.isFinite(body.screen.height) || body.screen.height <= 0) {
-    return "Screen height must be positive."
+    return "Screen height must be positive.";
   }
 
-  return null
+  return null;
 }
 
 function createStepRequestSnapshot(sessionId, body) {
@@ -506,13 +546,13 @@ function createStepRequestSnapshot(sessionId, body) {
       accessibilitySummary: body.screen.accessibilitySummary ?? null,
     },
     lastActionResult: body.lastActionResult ?? null,
-  }
+  };
 }
 
 function failSession(session, status, code, message, payload = {}) {
-  session.task.status = "failed"
-  session.task.error = message
-  appendEvent(session, "task.failed", message, { code, ...payload })
+  session.task.status = "failed";
+  session.task.error = message;
+  appendEvent(session, "task.failed", message, { code, ...payload });
   return {
     ok: false,
     status,
@@ -524,7 +564,7 @@ function failSession(session, status, code, message, payload = {}) {
       },
       events: session.events,
     },
-  }
+  };
 }
 
 function createStandaloneFailure(status, code, message) {
@@ -539,7 +579,7 @@ function createStandaloneFailure(status, code, message) {
       },
       events: [],
     },
-  }
+  };
 }
 
 function appendEvent(session, type, message, payload = {}) {
@@ -548,112 +588,114 @@ function appendEvent(session, type, message, payload = {}) {
     type,
     message,
     payload,
-  }
-  session.events.push(event)
-  return event
+  };
+  session.events.push(event);
+  return event;
 }
 
 function createSessionSnapshot(session) {
   return {
     task: { ...session.task },
     events: [...session.events],
-  }
+  };
 }
 
 function describeAction(action) {
   if (action._metadata === "finish") {
-    return action.message
+    return action.message;
   }
 
-  return action.action
+  return action.action;
 }
 
 function normalizeRequiredString(value, label) {
   if (typeof value !== "string") {
-    throw new Error(`${label} is required.`)
+    throw new Error(`${label} is required.`);
   }
 
-  const trimmed = value.trim()
+  const trimmed = value.trim();
   if (!trimmed) {
-    throw new Error(`${label} is required.`)
+    throw new Error(`${label} is required.`);
   }
 
-  return trimmed
+  return trimmed;
 }
 
 function requireModelApiKey(value) {
   if (typeof value !== "string" || !value.trim()) {
     throw new Error(
       "CUSTOMER_RUNTIME_MODEL_API_KEY is required for openai-compatible runtime provider."
-    )
+    );
   }
 
-  return value.trim()
+  return value.trim();
 }
 
 function requireText(value, label) {
   if (typeof value !== "string" || !value.trim()) {
-    throw new Error(`${label} is required.`)
+    throw new Error(`${label} is required.`);
   }
 
-  return value
+  return value;
 }
 
 function requireRelativePoint(value, label) {
   if (!Array.isArray(value) || value.length !== 2) {
-    throw new Error(`${label} must be [x, y].`)
+    throw new Error(`${label} must be [x, y].`);
   }
 
   return [
     requireRelativeCoordinate(value[0], `${label} coordinate`),
     requireRelativeCoordinate(value[1], `${label} coordinate`),
-  ]
+  ];
 }
 
 function requireRelativeCoordinate(value, label) {
   if (typeof value !== "number" || !Number.isFinite(value)) {
-    throw new Error(`${label} must be a finite number.`)
+    throw new Error(`${label} must be a finite number.`);
   }
 
   if (value < 0 || value > 1000) {
-    throw new Error(`${label} must be between 0 and 1000: ${value}.`)
+    throw new Error(`${label} must be between 0 and 1000: ${value}.`);
   }
 
-  return value
+  return value;
 }
 
 function normalizeWaitDuration(value) {
   if (value === undefined || value === null) {
-    return "1 seconds"
+    return "1 seconds";
   }
 
-  const duration = normalizeRequiredString(value, "Wait duration")
-  const amount = Number.parseFloat(duration)
+  const duration = normalizeRequiredString(value, "Wait duration");
+  const amount = Number.parseFloat(duration);
   if (!Number.isFinite(amount)) {
-    throw new Error(`Invalid Wait duration: ${duration}.`)
+    throw new Error(`Invalid Wait duration: ${duration}.`);
   }
 
   if (amount <= 0) {
-    throw new Error(`Wait duration must be positive: ${duration}.`)
+    throw new Error(`Wait duration must be positive: ${duration}.`);
   }
 
-  return duration
+  return duration;
 }
 
 function withOptionalMessage(action, value) {
   if (value === undefined || value === null) {
-    return action
+    return action;
   }
 
   return {
     ...action,
     message: normalizeRequiredString(value, "Action message"),
-  }
+  };
 }
 
 function isPlaceholderSecret(value) {
-  const normalized = value.trim().toLowerCase()
-  return ["change_me", "your-api-key", "placeholder", "todo"].includes(normalized)
+  const normalized = value.trim().toLowerCase();
+  return ["change_me", "your-api-key", "placeholder", "todo"].includes(
+    normalized
+  );
 }
 
 function createScenarioOutputs(scenario, instruction) {
@@ -662,11 +704,11 @@ function createScenarioOutputs(scenario, instruction) {
       'do(action="Note", message="页面显示三条结果")',
       'do(action="Call_API", instruction="总结当前页面")',
       `finish(message="Finished runtime-local action customer task: ${instruction}")`,
-    ]
+    ];
   }
 
   if (scenario === "unknown-action") {
-    return ['do(action="Scroll", start=[500,800], end=[500,200])']
+    return ['do(action="Scroll", start=[500,800], end=[500,200])'];
   }
 
   if (scenario === "settings-return") {
@@ -675,28 +717,28 @@ function createScenarioOutputs(scenario, instruction) {
       'do(action="Wait", duration="1 seconds")',
       'do(action="Back")',
       `finish(message="Finished settings return customer task: ${instruction}")`,
-    ]
+    ];
   }
 
   if (scenario === "takeover-pause") {
     return [
       'do(action="Take_over", message="请先完成登录")',
       `finish(message="Finished after takeover: ${instruction}")`,
-    ]
+    ];
   }
 
   if (scenario === "interact-pause") {
     return [
       'do(action="Interact", message="请选择目标项目")',
       `finish(message="Finished after interaction: ${instruction}")`,
-    ]
+    ];
   }
 
   if (scenario === "confirmation-pause") {
     return [
       'do(action="Tap", element=[500,500], message="确认点击提交按钮")',
       `finish(message="Finished after confirmation: ${instruction}")`,
-    ]
+    ];
   }
 
   if (scenario === "launch-type") {
@@ -707,7 +749,7 @@ function createScenarioOutputs(scenario, instruction) {
       'do(action="Type_Name", text="Sawana Customer")',
       'do(action="Wait", duration="1 seconds")',
       `finish(message="Finished hosted launch and text-entry customer task: ${instruction}")`,
-    ]
+    ];
   }
 
   if (scenario === "routine-contract") {
@@ -723,7 +765,7 @@ function createScenarioOutputs(scenario, instruction) {
       'do(action="Home")',
       'do(action="Wait", duration="1 seconds")',
       `finish(message="Finished hosted routine contract customer task: ${instruction}")`,
-    ]
+    ];
   }
 
   return [
@@ -733,39 +775,39 @@ function createScenarioOutputs(scenario, instruction) {
     'do(action="Home")',
     'do(action="Wait", duration="3 seconds")',
     `finish(message="Finished hosted decision customer task: ${instruction}")`,
-  ]
+  ];
 }
 
 function actionAtStep(stepNumber, actions) {
-  return actions[Math.min(stepNumber - 1, actions.length - 1)]
+  return actions[Math.min(stepNumber - 1, actions.length - 1)];
 }
 
 async function withTimeout(promise, timeoutMs) {
-  let timeoutId
+  let timeoutId;
   try {
     return await Promise.race([
       promise,
       new Promise((_, reject) => {
         timeoutId = setTimeout(() => {
-          reject(new ModelTimeoutError(timeoutMs))
-        }, timeoutMs)
+          reject(new ModelTimeoutError(timeoutMs));
+        }, timeoutMs);
       }),
-    ])
+    ]);
   } finally {
-    clearTimeout(timeoutId)
+    clearTimeout(timeoutId);
   }
 }
 
 function describeError(error) {
   if (error instanceof Error) {
-    return error.message
+    return error.message;
   }
 
-  return String(error)
+  return String(error);
 }
 
 class ModelTimeoutError extends Error {
   constructor(timeoutMs) {
-    super(`Model provider timed out after ${timeoutMs}ms.`)
+    super(`Model provider timed out after ${timeoutMs}ms.`);
   }
 }

@@ -1,7 +1,7 @@
 ---
 title: Customer Android Agent Engine
 description: Runtime shape, environment contract, and session context behavior for apps/customer-android-api.
-updateAt: 2026-06-14
+updateAt: 2026-06-15
 ---
 
 # Customer Android Agent Engine
@@ -15,6 +15,8 @@ updateAt: 2026-06-14
 ## Domain Language
 
 - **Customer Step Agent**: The step-oriented engine that turns app-supplied phone state into the next Open-AutoGLM-style action.
+- **Customer Step Lifecycle**: The API-side application service that loads the session, enforces step preflight rules, calls the Customer Step Agent, and records the accepted outcome.
+- **Customer Agent Context**: The model-facing context module that builds prompt messages from Customer Steps, keeps per-session Agent Context, maps Android packages to Open-AutoGLM app names, and prunes old image payloads.
 - **OpenAI-Compatible Model Provider**: The server-side adapter that calls a ModelScope, BigModel, vLLM, SGLang, or similar OpenAI-format chat completion endpoint.
 - **Agent Context**: The in-memory per-session message history sent to the model across steps.
 
@@ -23,6 +25,8 @@ updateAt: 2026-06-14
 - `apps/customer-android-api` is a Python/FastAPI app managed with `uv` and orchestrated from pnpm/Turborepo through `apps/customer-android-api/package.json`.
 - The API exposes `GET /healthz`, `POST /sessions`, `GET /sessions/{session_id}`, and `POST /sessions/{session_id}/steps`.
 - `POST /sessions`, `GET /sessions/{session_id}`, and `POST /sessions/{session_id}/steps` require `Authorization: Bearer <CUSTOMER_ANDROID_API_ACCESS_TOKEN>`.
+- `apps/customer-android-api/src/customer_android_api/step_lifecycle.py` owns the Customer Step Lifecycle. FastAPI routes should keep HTTP concerns there and delegate session lookup, step-order checks, max-step checks, terminal-session checks, agent invocation, and accepted step recording to the lifecycle module.
+- `apps/customer-android-api/src/customer_android_api/agent_context.py` owns the Customer Agent Context. `CustomerStepAgent` should ask that module for model-ready requests and record successful model outputs there instead of constructing prompt messages inline.
 - The CLI entrypoint is `uv run python -m customer_android_api`.
 - The root scripts are:
   - `pnpm dev:customer-android-api` for local API development.
@@ -52,6 +56,7 @@ updateAt: 2026-06-14
 - `apps/customer-android` now has separate Runtime URL and Runtime Access Token inputs. The token is sent to the API on session creation and every step request.
 - The native Android hosted loop also passes the Runtime Access Token into its HTTP requests, so real-device execution and web/dev fetch paths share the same auth contract.
 - The in-memory session snapshot records `task.started`, `step.decided`, and terminal or pause events. `finish(...)` marks the task `finished`, `_metadata: failed` marks it `failed`, and Human-in-the-loop actions mark it `takeover_required`, `interaction_required`, or `confirmation_required`.
+- Step Outcome projection lives in `apps/customer-android-api/src/customer_android_api/step_outcome.py`; `SessionStore` should consume that classification instead of re-implementing terminal, failure, and pause rules.
 - If an APK continues past `CUSTOMER_ANDROID_API_MAX_STEPS`, the API returns `_metadata: failed` without calling the model provider and records that failed outcome in the session.
 
 ## Agent Context Behavior

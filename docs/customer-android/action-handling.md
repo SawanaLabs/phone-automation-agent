@@ -1,7 +1,7 @@
 ---
 title: Customer Android Action Handling
 description: V0 Open-AutoGLM action vocabulary, routine executor scope, and pause-state mapping for the customer Android route.
-updateAt: 2026-06-14
+updateAt: 2026-06-15
 ---
 
 # Customer Android Action Handling
@@ -15,6 +15,8 @@ updateAt: 2026-06-14
 ## Domain Language
 
 - **Routine Action**: A direct phone operation the APK can execute after explicit permission setup.
+- **Routine Action Runner**: The app-side semantic port that executes a recognized `do(...)` action and returns a `CustomerActionResult`.
+- **Routine Action Executor**: The primitive Android adapter for physical operations such as tap, swipe, launch, type, back, home, and wait.
 - **Pause Action**: A model action that must pause the task and show a user-visible Continue or Stop path.
 - **Runtime-Local Action**: A model action that belongs to backend trace, note, summary, or unsupported handling instead of physical Android input.
 - **Failed Outcome**: A normalized API outcome that tells the APK to stop the hosted loop and show a failure message.
@@ -24,6 +26,11 @@ updateAt: 2026-06-14
 
 - The shared V0 action contract recognizes the full default Chinese Open-AutoGLM action vocabulary: `Launch`, `Tap`, `Type`, `Type_Name`, `Interact`, `Swipe`, `Note`, `Call_API`, `Long Press`, `Double Tap`, `Take_over`, `Back`, `Home`, `Wait`, and `finish`.
 - The first Android executor should implement routine physical actions: `Launch`, `Tap`, `Type`, `Type_Name`, `Swipe`, `Back`, `Home`, `Wait`, `Double Tap`, `Long Press`, and `finish`.
+- Hosted loops and app run orchestration depend on `RoutineActionRunner` for action execution, confirmation approval, and pause continuation results.
+- `RoutineActionExecutor` remains the low-level physical gateway. Android input details belong there or in platform-specific adapters, while hosted loop/controller code stays on action semantics and task state.
+- Native hosted execution mirrors the same seam: `NativeRoutineActionExecutor` owns native action semantics behind `NativeHostedActionExecutor`, while `CustomerAutomationModule.kt` stays the React Native bridge.
+- Native pause continuation stays inside native hosted execution. `createNativeHostedTaskRunner` serializes the paused session, previous events, next step number, and continuation or confirmation intent, then `NativeHostedTaskResumeStateParser` restores that state for `NativeHostedTaskLoop`.
+- Native running stop stays inside native hosted execution. The app's Stop Task control calls the hosted runner, the bridge sets the active native cancellation token, and `NativeHostedTaskLoop` returns a `stopped` snapshot before the next capture, runtime request, or action dispatch.
 - `Launch` is normalized in `apps/customer-android-api` before it reaches the APK: known Open-AutoGLM Android app names such as `小红书` and `美团` are mapped to package names such as `com.xingin.xhs` and `com.sankuai.meituan`; unknown names are preserved so the APK can still try package or launcher-label fallback on the user's phone.
 - `Type_Name` should normalize to the same executor behavior as `Type`.
 - `finish` completes the task and surfaces the final message or result evidence in the app.
@@ -67,6 +74,12 @@ updateAt: 2026-06-14
   Context: The UI pause controls depend on a structured `pause` object and continuation step metadata, but the native hosted loop originally returned only task status and summary.
   Decision: Return `pause`, `nextStepNumber`, and `lastActionResult` from native hosted pause snapshots.
   Consequences: Login, permissions, user choices, and sensitive tap confirmations can resume through the same UI contract whether the loop runs in JS or native Android.
+
+- **2026-06-15 routine-action-runner-boundary**: Keep task orchestration on semantic action execution.
+  Status: Accepted
+  Context: The hosted loop and app run controller were starting to depend directly on primitive Android executor methods, which made task orchestration responsible for both action semantics and device input details.
+  Decision: Introduce `RoutineActionRunner` as the semantic port for executing routine actions, executing approved confirmation pauses, and creating pause continuation results. Keep `RoutineActionExecutor` as the primitive Android input adapter behind that port.
+  Consequences: Hosted loop/controller tests can mock action semantics directly, while physical Android execution remains isolated behind one adapter boundary.
 
 ## Update Triggers
 

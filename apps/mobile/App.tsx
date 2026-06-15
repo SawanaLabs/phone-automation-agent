@@ -1,6 +1,6 @@
-import AsyncStorage from "@react-native-async-storage/async-storage"
-import { StatusBar } from "expo-status-bar"
-import { useCallback, useEffect, useMemo, useState } from "react"
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { StatusBar } from "expo-status-bar";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   AppState,
@@ -12,130 +12,132 @@ import {
   Text,
   TextInput,
   View,
-} from "react-native"
+} from "react-native";
 
-import { FIRST_DEMO_TASK } from "./src/demo-task"
-import { styles } from "./src/styles"
+import { FIRST_DEMO_TASK } from "./src/demo-task";
+import { styles } from "./src/styles";
 import {
   DeviceSummary,
   StatusBadge,
   TaskSummary,
   TraceItem,
-} from "./src/task-components"
+} from "./src/task-components";
 import {
+  type ConnectionState,
   describeError,
   getScreenSummary,
   isActiveStatus,
   isTraceEvent,
-  type ConnectionState,
-} from "./src/task-state"
+} from "./src/task-state";
 import {
   checkWorker,
   createTask,
-  getTaskSnapshot,
   type DeviceRecord,
+  getTaskSnapshot,
   type TaskEvent,
   type TaskRecord,
-} from "./src/worker-api"
+} from "./src/worker-api";
 
-const WORKER_URL_STORAGE_KEY = "phone-automation-agent.worker-url"
-const POLL_INTERVAL_MS = 2000
+const WORKER_URL_STORAGE_KEY = "phone-automation-agent.worker-url";
+const POLL_INTERVAL_MS = 2000;
 
 export default function App() {
-  const [workerUrl, setWorkerUrl] = useState("")
-  const [instruction, setInstruction] = useState(FIRST_DEMO_TASK)
+  const [workerUrl, setWorkerUrl] = useState("");
+  const [instruction, setInstruction] = useState(FIRST_DEMO_TASK);
   const [connectionState, setConnectionState] =
-    useState<ConnectionState>("idle")
-  const [devices, setDevices] = useState<DeviceRecord[]>([])
-  const [currentTask, setCurrentTask] = useState<TaskRecord | null>(null)
-  const [events, setEvents] = useState<TaskEvent[]>([])
-  const [errorMessage, setErrorMessage] = useState<string | null>(null)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [isRefreshing, setIsRefreshing] = useState(false)
+    useState<ConnectionState>("idle");
+  const [devices, setDevices] = useState<DeviceRecord[]>([]);
+  const [currentTask, setCurrentTask] = useState<TaskRecord | null>(null);
+  const [events, setEvents] = useState<TaskEvent[]>([]);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
-    void AsyncStorage.getItem(WORKER_URL_STORAGE_KEY).then((storedUrl) => {
+    AsyncStorage.getItem(WORKER_URL_STORAGE_KEY).then((storedUrl) => {
       if (storedUrl) {
-        setWorkerUrl(storedUrl)
+        setWorkerUrl(storedUrl);
       }
-    })
-  }, [])
+    });
+  }, []);
 
   const refreshCurrentTask = useCallback(async () => {
     if (!currentTask) {
-      return
+      return;
     }
 
-    setIsRefreshing(true)
+    setIsRefreshing(true);
     try {
-      const snapshot = await getTaskSnapshot(workerUrl, currentTask.id)
-      setCurrentTask(snapshot.task)
-      setEvents(snapshot.events)
-      setErrorMessage(null)
+      const snapshot = await getTaskSnapshot(workerUrl, currentTask.id);
+      setCurrentTask(snapshot.task);
+      setEvents(snapshot.events);
+      setErrorMessage(null);
     } catch (error) {
-      setErrorMessage(describeError(error))
+      setErrorMessage(describeError(error));
     } finally {
-      setIsRefreshing(false)
+      setIsRefreshing(false);
     }
-  }, [currentTask, workerUrl])
+  }, [currentTask, workerUrl]);
 
   useEffect(() => {
-    if (!currentTask || !isActiveStatus(currentTask.status)) {
-      return
+    if (!(currentTask && isActiveStatus(currentTask.status))) {
+      return;
     }
 
     const interval = setInterval(() => {
-      void refreshCurrentTask()
-    }, POLL_INTERVAL_MS)
+      refreshCurrentTask();
+    }, POLL_INTERVAL_MS);
 
-    return () => clearInterval(interval)
-  }, [currentTask, refreshCurrentTask])
+    return () => clearInterval(interval);
+  }, [currentTask, refreshCurrentTask]);
 
   useEffect(() => {
     const subscription = AppState.addEventListener("change", (state) => {
       if (state === "active") {
-        void refreshCurrentTask()
+        refreshCurrentTask();
       }
-    })
+    });
 
-    return () => subscription.remove()
-  }, [refreshCurrentTask])
+    return () => subscription.remove();
+  }, [refreshCurrentTask]);
 
-  const visibleEvents = useMemo(() => {
-    return events.filter(isTraceEvent).slice(-8).reverse()
-  }, [events])
+  const visibleEvents = useMemo(
+    () => events.filter(isTraceEvent).slice(-8).reverse(),
+    [events]
+  );
 
-  const screenSummary = useMemo(() => {
-    return getScreenSummary(currentTask, events)
-  }, [currentTask, events])
+  const screenSummary = useMemo(
+    () => getScreenSummary(currentTask, events),
+    [currentTask, events]
+  );
 
   async function handleCheckWorker() {
-    setConnectionState("checking")
-    setErrorMessage(null)
+    setConnectionState("checking");
+    setErrorMessage(null);
     try {
-      const nextDevices = await checkWorker(workerUrl)
-      await AsyncStorage.setItem(WORKER_URL_STORAGE_KEY, workerUrl.trim())
-      setDevices(nextDevices)
-      setConnectionState("online")
+      const nextDevices = await checkWorker(workerUrl);
+      await AsyncStorage.setItem(WORKER_URL_STORAGE_KEY, workerUrl.trim());
+      setDevices(nextDevices);
+      setConnectionState("online");
     } catch (error) {
-      setDevices([])
-      setConnectionState("offline")
-      setErrorMessage(describeError(error))
+      setDevices([]);
+      setConnectionState("offline");
+      setErrorMessage(describeError(error));
     }
   }
 
   async function handleSubmitTask() {
-    setIsSubmitting(true)
-    setErrorMessage(null)
+    setIsSubmitting(true);
+    setErrorMessage(null);
     try {
-      await AsyncStorage.setItem(WORKER_URL_STORAGE_KEY, workerUrl.trim())
-      const task = await createTask(workerUrl, instruction)
-      setCurrentTask(task)
-      setEvents([])
+      await AsyncStorage.setItem(WORKER_URL_STORAGE_KEY, workerUrl.trim());
+      const task = await createTask(workerUrl, instruction);
+      setCurrentTask(task);
+      setEvents([]);
     } catch (error) {
-      setErrorMessage(describeError(error))
+      setErrorMessage(describeError(error));
     } finally {
-      setIsSubmitting(false)
+      setIsSubmitting(false);
     }
   }
 
@@ -215,7 +217,7 @@ export default function App() {
               <Text style={styles.sectionTitle}>Result</Text>
               {isRefreshing ? <ActivityIndicator color="#3563e9" /> : null}
             </View>
-            <TaskSummary task={currentTask} screenSummary={screenSummary} />
+            <TaskSummary screenSummary={screenSummary} task={currentTask} />
             <Pressable
               disabled={!currentTask || isRefreshing}
               onPress={refreshCurrentTask}
@@ -250,5 +252,5 @@ export default function App() {
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
-  )
+  );
 }

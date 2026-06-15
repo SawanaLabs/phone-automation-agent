@@ -3,7 +3,10 @@ from __future__ import annotations
 from fastapi import BackgroundTasks, FastAPI, HTTPException
 
 from phone_automation_worker.config import load_project_env
-from phone_automation_worker.devices import DeviceProvider, build_device_provider_from_env
+from phone_automation_worker.devices import (
+    DeviceProvider,
+    build_device_provider_from_env,
+)
 from phone_automation_worker.models import (
     DevicesResponse,
     TaskCreateRequest,

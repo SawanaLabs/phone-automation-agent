@@ -2,14 +2,13 @@ from __future__ import annotations
 
 import json
 import os
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from collections.abc import Sequence
-from typing import Any, Callable
+from typing import Any
 
 from openai import OpenAI
 
 from customer_android_api.model_endpoints import resolve_model_endpoint_from_env
-
 
 CompletionCreate = Callable[..., Any]
 
@@ -78,7 +77,9 @@ class ScriptedModelProvider:
         return f'finish(message="Finished customer task: {instruction}")'
 
 
-def build_model_provider_from_env() -> OpenAiCompatibleModelProvider | ScriptedModelProvider:
+def build_model_provider_from_env() -> (
+    OpenAiCompatibleModelProvider | ScriptedModelProvider
+):
     provider = os.getenv("CUSTOMER_ANDROID_MODEL_PROVIDER", "scripted").strip().lower()
     if provider == "scripted":
         return ScriptedModelProvider(load_scripted_actions_from_env())
@@ -98,7 +99,9 @@ def load_scripted_actions_from_env() -> list[str]:
     try:
         parsed = json.loads(value)
     except json.JSONDecodeError as error:
-        raise RuntimeError("CUSTOMER_ANDROID_SCRIPTED_ACTIONS_JSON must be valid JSON.") from error
+        raise RuntimeError(
+            "CUSTOMER_ANDROID_SCRIPTED_ACTIONS_JSON must be valid JSON."
+        ) from error
 
     if not isinstance(parsed, list) or not all(
         isinstance(item, str) and item.strip() for item in parsed

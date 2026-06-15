@@ -1,76 +1,76 @@
-import { NativeModules, Platform } from "react-native"
+import { NativeModules, Platform } from "react-native";
 
-import type { DeviceAuthoritySnapshot } from "./device-authority"
+import type { DeviceAuthoritySnapshot } from "./device-authority";
 import {
   createNativeDeviceAuthorityGateway,
   requireCustomerAutomationNativeModule,
-} from "./native-customer-automation"
+} from "./native-customer-automation";
 
-export type DeviceAuthorityGateway = {
-  getSnapshot: () => Promise<DeviceAuthoritySnapshot>
-  openAccessibilitySettings: () => Promise<DeviceAuthoritySnapshot>
-  requestScreenCapture: () => Promise<DeviceAuthoritySnapshot>
-  requestNotifications: () => Promise<DeviceAuthoritySnapshot>
-  simulateScreenCaptureLoss?: () => Promise<DeviceAuthoritySnapshot>
+export interface DeviceAuthorityGateway {
+  getSnapshot: () => Promise<DeviceAuthoritySnapshot>;
+  openAccessibilitySettings: () => Promise<DeviceAuthoritySnapshot>;
+  requestNotifications: () => Promise<DeviceAuthoritySnapshot>;
+  requestScreenCapture: () => Promise<DeviceAuthoritySnapshot>;
+  simulateScreenCaptureLoss?: () => Promise<DeviceAuthoritySnapshot>;
 }
 
 const SETUP_REQUIRED_SNAPSHOT: DeviceAuthoritySnapshot = {
   accessibilityService: "disabled",
   screenCapture: "missing",
   notifications: "missing",
-}
+};
 
 const READY_SNAPSHOT: DeviceAuthoritySnapshot = {
   accessibilityService: "enabled",
   screenCapture: "granted",
   notifications: "granted",
-}
+};
 
 export function createDeviceAuthorityGateway(): DeviceAuthorityGateway {
   if (Platform.OS === "web") {
-    return createDevelopmentAuthorityGateway()
+    return createDevelopmentAuthorityGateway();
   }
 
-  return createNativeAuthorityGateway()
+  return createNativeAuthorityGateway();
 }
 
 function createDevelopmentAuthorityGateway(): DeviceAuthorityGateway {
-  let snapshot = { ...SETUP_REQUIRED_SNAPSHOT }
+  let snapshot = { ...SETUP_REQUIRED_SNAPSHOT };
 
   return {
-    async getSnapshot() {
-      return snapshot
+    getSnapshot() {
+      return Promise.resolve(snapshot);
     },
-    async openAccessibilitySettings() {
+    openAccessibilitySettings() {
       snapshot = {
         ...snapshot,
         accessibilityService: "enabled",
-      }
-      return snapshot
+      };
+      return Promise.resolve(snapshot);
     },
-    async requestScreenCapture() {
-      snapshot = READY_SNAPSHOT
-      return snapshot
+    requestScreenCapture() {
+      snapshot = READY_SNAPSHOT;
+      return Promise.resolve(snapshot);
     },
-    async requestNotifications() {
+    requestNotifications() {
       snapshot = {
         ...snapshot,
         notifications: "granted",
-      }
-      return snapshot
+      };
+      return Promise.resolve(snapshot);
     },
-    async simulateScreenCaptureLoss() {
+    simulateScreenCaptureLoss() {
       snapshot = {
         ...snapshot,
         screenCapture: "missing",
-      }
-      return snapshot
+      };
+      return Promise.resolve(snapshot);
     },
-  }
+  };
 }
 
 function createNativeAuthorityGateway(): DeviceAuthorityGateway {
   return createNativeDeviceAuthorityGateway(
     requireCustomerAutomationNativeModule(NativeModules)
-  )
+  );
 }

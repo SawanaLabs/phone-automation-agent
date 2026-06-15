@@ -5,7 +5,6 @@ from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
 
-
 SessionSource = Literal["customer-android"]
 SessionStatus = Literal[
     "running",

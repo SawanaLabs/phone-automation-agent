@@ -25,6 +25,22 @@ build-backend = "uv_build"
 
 [dependency-groups]
 dev = [
-    "httpx>=0.28.1",
+    # Starlette TestClient imports httpx2 first on Starlette 1.2+.
+    "httpx2>=2.4.0",
     "pytest>=9.0.3",
+    "ruff>=0.15.17",
 ]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 88
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I", "B", "UP"]
+ignore = []
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "auto"

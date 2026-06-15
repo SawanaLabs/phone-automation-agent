@@ -5,7 +5,9 @@ import os
 import sys
 from pathlib import Path
 
-from phone_automation_worker.model_endpoints import resolve_phone_agent_endpoint_from_env
+from phone_automation_worker.model_endpoints import (
+    resolve_phone_agent_endpoint_from_env,
+)
 from phone_automation_worker.models import TaskEventInput, TaskRecord, TaskRunResult
 
 

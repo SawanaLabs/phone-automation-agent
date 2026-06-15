@@ -6,7 +6,6 @@ from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
 
-
 TaskSource = Literal["mobile"]
 TaskStatus = Literal[
     "created",

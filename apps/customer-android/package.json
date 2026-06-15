@@ -11,9 +11,7 @@
     "build": "expo export --platform android --output-dir dist",
     "release:alpha": "node scripts/release-alpha.mjs",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit",
-    "lint": "eslint .",
-    "format": "prettier --write \"**/*.{ts,tsx}\""
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@expo/metro-runtime": "~56.0.15",
@@ -26,8 +24,6 @@
   },
   "devDependencies": {
     "@types/react": "~19.2.2",
-    "@workspace/eslint-config": "workspace:^",
-    "eslint": "^9",
     "typescript": "~6.0.3",
     "vitest": "^4.1.8"
   },

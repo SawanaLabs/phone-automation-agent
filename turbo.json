@@ -11,7 +11,8 @@
     "CUSTOMER_ANDROID_API_PORT",
     "CUSTOMER_ANDROID_MODEL_BASE_URL",
     "CUSTOMER_ANDROID_MODEL_API_KEY",
-    "CUSTOMER_ANDROID_MODEL_NAME"
+    "CUSTOMER_ANDROID_MODEL_NAME",
+    "UV_CACHE_DIR"
   ],
   "ui": "tui",
   "tasks": {
@@ -31,6 +32,10 @@
     },
     "typecheck": {
       "dependsOn": ["^typecheck"]
+    },
+    "//#check": {},
+    "//#fix": {
+      "cache": false
     },
     "dev": {
       "cache": false,

@@ -1,8 +1,12 @@
 {
+  "devDependencies": {
+    "@biomejs/biome": "2.4.16",
+    "@workspace/typescript-config": "workspace:*",
+    "turbo": "^2.9.15",
+    "typescript": "^5",
+    "ultracite": "7.8.3"
+  },
   "name": "phone-automation-agent",
-  "version": "0.0.1",
-  "private": true,
-  "license": "Apache-2.0",
   "scripts": {
     "build": "turbo build",
     "dev": "turbo dev",
@@ -14,19 +18,19 @@
     "dev:worker:open-autoglm:lan": "set -a; [ ! -f .env ] || . ./.env; [ ! -f .env.local ] || . ./.env.local; set +a; PHONE_AUTOMATION_WORKER_RUNNER=open-autoglm PHONE_AUTOMATION_WORKER_HOST=0.0.0.0 OPEN_AUTOGLM_ROOT=${OPEN_AUTOGLM_ROOT:-$(pwd)/../Open-AutoGLM} pnpm --dir apps/worker dev",
     "dev:customer-android-api": "set -a; [ ! -f .env ] || . ./.env; [ ! -f .env.local ] || . ./.env.local; set +a; pnpm --dir apps/customer-android-api dev",
     "dev:customer-android-api:lan": "set -a; [ ! -f .env ] || . ./.env; [ ! -f .env.local ] || . ./.env.local; set +a; CUSTOMER_ANDROID_API_HOST=0.0.0.0 pnpm --dir apps/customer-android-api dev",
-    "lint": "turbo lint",
-    "format": "turbo format",
+    "lint": "pnpm check && pnpm lint:file-lines && pnpm lint:python",
+    "lint:file-lines": "node scripts/check-file-lines.mjs",
+    "lint:python": "turbo lint --filter=@phone-automation/customer-android-api --filter=@phone-automation/worker",
+    "format": "pnpm fix && pnpm format:python",
+    "format:python": "turbo format --filter=@phone-automation/customer-android-api --filter=@phone-automation/worker",
     "test": "turbo test",
-    "typecheck": "turbo typecheck"
+    "typecheck": "turbo typecheck",
+    "check": "ultracite check",
+    "fix": "ultracite fix"
   },
-  "devDependencies": {
-    "@workspace/eslint-config": "workspace:*",
-    "@workspace/typescript-config": "workspace:*",
-    "prettier": "^3.8.3",
-    "prettier-plugin-tailwindcss": "^0.8.0",
-    "turbo": "^2.9.15",
-    "typescript": "^5"
-  },
+  "version": "0.0.1",
+  "private": true,
+  "license": "Apache-2.0",
   "packageManager": "pnpm@10.33.4",
   "engines": {
     "node": ">=20"

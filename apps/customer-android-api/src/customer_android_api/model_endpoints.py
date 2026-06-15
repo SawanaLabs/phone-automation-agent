@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
 from collections.abc import Mapping
-
+from dataclasses import dataclass
 
 PLACEHOLDER_API_KEYS = {
     "your-api-key",
@@ -56,13 +55,21 @@ def resolve_model_endpoint_from_env(
         endpoint_keyword,
         env_name="CUSTOMER_ANDROID_MODEL_ENDPOINT",
     )
-    base_url = preset.base_url if preset else _required_explicit_value(
-        values.get("CUSTOMER_ANDROID_MODEL_BASE_URL"),
-        env_name="CUSTOMER_ANDROID_MODEL_BASE_URL",
+    base_url = (
+        preset.base_url
+        if preset
+        else _required_explicit_value(
+            values.get("CUSTOMER_ANDROID_MODEL_BASE_URL"),
+            env_name="CUSTOMER_ANDROID_MODEL_BASE_URL",
+        )
     )
-    model_name = preset.model_name if preset else _required_explicit_value(
-        values.get("CUSTOMER_ANDROID_MODEL_NAME"),
-        env_name="CUSTOMER_ANDROID_MODEL_NAME",
+    model_name = (
+        preset.model_name
+        if preset
+        else _required_explicit_value(
+            values.get("CUSTOMER_ANDROID_MODEL_NAME"),
+            env_name="CUSTOMER_ANDROID_MODEL_NAME",
+        )
     )
 
     return ResolvedModelEndpoint(
@@ -109,7 +116,9 @@ def _resolve_api_key(
     env_names = [explicit_env_name]
     if preset is not None:
         env_names.extend(
-            env_name for env_name in preset.api_key_env_names if env_name != explicit_env_name
+            env_name
+            for env_name in preset.api_key_env_names
+            if env_name != explicit_env_name
         )
 
     for env_name in env_names:

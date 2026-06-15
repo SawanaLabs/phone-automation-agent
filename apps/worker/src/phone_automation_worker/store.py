@@ -3,8 +3,12 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from threading import RLock
 
-from phone_automation_worker.models import TaskEvent, TaskEventInput, TaskRecord, TaskStatus
-
+from phone_automation_worker.models import (
+    TaskEvent,
+    TaskEventInput,
+    TaskRecord,
+    TaskStatus,
+)
 
 ACTIVE_TASK_STATUSES: set[TaskStatus] = {
     "created",
@@ -26,11 +30,16 @@ class TaskStore:
         with self._lock:
             return self._create_task_locked(task, source)
 
-    def create_task_if_idle(self, *, instruction: str, source: str) -> TaskRecord | None:
+    def create_task_if_idle(
+        self, *, instruction: str, source: str
+    ) -> TaskRecord | None:
         task = TaskRecord(instruction=instruction, source=source)
 
         with self._lock:
-            if any(existing.status in ACTIVE_TASK_STATUSES for existing in self._tasks.values()):
+            if any(
+                existing.status in ACTIVE_TASK_STATUSES
+                for existing in self._tasks.values()
+            ):
                 return None
 
             return self._create_task_locked(task, source)
@@ -59,7 +68,11 @@ class TaskStore:
     def list_events(self, task_id: str) -> list[TaskEvent] | None:
         with self._lock:
             events = self._events.get(task_id)
-            return [event.model_copy(deep=True) for event in events] if events is not None else None
+            return (
+                [event.model_copy(deep=True) for event in events]
+                if events is not None
+                else None
+            )
 
     def mark_running(self, task_id: str) -> None:
         self.update_task(task_id, status="running")

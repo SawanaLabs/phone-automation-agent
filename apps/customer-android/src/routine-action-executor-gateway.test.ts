@@ -1,6 +1,6 @@
-import { describe, expect, it } from "vitest"
+import { describe, expect, it } from "vitest";
 
-import { createGestureScreenSize } from "./screen-metrics"
+import { createGestureScreenSize } from "./screen-metrics";
 
 describe("routine action executor gateway", () => {
   it("uses physical pixels for native gesture coordinates", () => {
@@ -16,8 +16,8 @@ describe("routine action executor gateway", () => {
     ).toEqual({
       width: 1344,
       height: 2772,
-    })
-  })
+    });
+  });
 
   it("keeps web gesture coordinates in layout pixels", () => {
     expect(
@@ -32,6 +32,6 @@ describe("routine action executor gateway", () => {
     ).toEqual({
       width: 1024,
       height: 768,
-    })
-  })
-})
+    });
+  });
+});

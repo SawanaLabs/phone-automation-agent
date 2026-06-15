@@ -70,5 +70,7 @@ def normalize_run_result(result: TaskRunResult | dict[str, Any]) -> TaskRunResul
         status=result["status"],
         summary=result.get("summary"),
         error=result.get("error"),
-        events=[TaskEventInput.model_validate(event) for event in result.get("events", [])],
+        events=[
+            TaskEventInput.model_validate(event) for event in result.get("events", [])
+        ],
     )

@@ -38,7 +38,9 @@ class AdbDeviceProvider:
             raise RuntimeError("adb devices timed out") from error
 
         if result.returncode != 0:
-            detail = result.stderr.strip() or result.stdout.strip() or "adb devices failed"
+            detail = (
+                result.stderr.strip() or result.stdout.strip() or "adb devices failed"
+            )
             raise RuntimeError(detail)
 
         return _parse_adb_devices(result.stdout)

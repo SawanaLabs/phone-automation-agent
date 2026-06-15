@@ -134,7 +134,9 @@ def test_model_provider_from_env_requires_openai_compatible_config(monkeypatch):
     monkeypatch.delenv("CUSTOMER_ANDROID_MODEL_API_KEY", raising=False)
     monkeypatch.delenv("CUSTOMER_ANDROID_MODEL_NAME", raising=False)
 
-    with pytest.raises(RuntimeError, match="CUSTOMER_ANDROID_MODEL_BASE_URL is required."):
+    with pytest.raises(
+        RuntimeError, match="CUSTOMER_ANDROID_MODEL_BASE_URL is required."
+    ):
         build_model_provider_from_env()
 
 
@@ -214,7 +216,9 @@ def test_model_provider_from_env_rejects_placeholder_api_keys(
     monkeypatch.delenv("CUSTOMER_ANDROID_MODEL_BASE_URL", raising=False)
     monkeypatch.delenv("CUSTOMER_ANDROID_MODEL_NAME", raising=False)
 
-    with pytest.raises(RuntimeError, match="CUSTOMER_ANDROID_MODEL_API_KEY is required."):
+    with pytest.raises(
+        RuntimeError, match="CUSTOMER_ANDROID_MODEL_API_KEY is required."
+    ):
         build_model_provider_from_env()
 
 

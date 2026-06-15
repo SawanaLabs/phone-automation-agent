@@ -32,7 +32,9 @@ def parse_open_autoglm_action_text(output: str) -> dict[str, Any]:
         return {
             "_metadata": "do",
             "action": "Launch",
-            "app": normalize_open_autoglm_android_app_name(_require_string(args, "app")),
+            "app": normalize_open_autoglm_android_app_name(
+                _require_string(args, "app")
+            ),
         }
     if action_name == "Tap":
         action = {

@@ -1,0 +1,294 @@
+import type { CompletionSignalNotifier } from "./completion-signal";
+import {
+  type CustomerActionResult,
+  type CustomerSessionSnapshot,
+  type CustomerTaskEvent,
+  type StartCustomerTaskInput,
+  startCustomerTask as startHostedCustomerTask,
+} from "./customer-session";
+import { createRoutineActionRunner } from "./routine-action-dispatch";
+import type {
+  RoutineActionExecutor,
+  RoutineActionRunner,
+  ScreenStateCollector,
+} from "./routine-action-types";
+import {
+  runHostedRoutineActionLoop as runHostedLoop,
+  stopPausedRoutineActionSession as stopPausedSession,
+} from "./routine-actions";
+import { describeError as describeTaskError } from "./task-state";
+
+export interface CustomerTaskRunSink {
+  setErrorMessage: (message: string | null) => void;
+  setIsSubmitting: (value: boolean) => void;
+  setIsTaskLoopRunning: (value: boolean) => void;
+  setSession: (session: CustomerSessionSnapshot | null) => void;
+  updateSession: (
+    updater: (
+      currentSession: CustomerSessionSnapshot | null
+    ) => CustomerSessionSnapshot
+  ) => void;
+}
+
+export interface CustomerTaskRunController {
+  allowConfirmedAction: (
+    session: CustomerSessionSnapshot | null,
+    input: StartCustomerTaskInput
+  ) => Promise<void>;
+  continuePausedTask: (
+    session: CustomerSessionSnapshot | null,
+    input: StartCustomerTaskInput
+  ) => Promise<void>;
+  startTask: (input: StartCustomerTaskInput) => Promise<void>;
+  stopTask: (session: CustomerSessionSnapshot | null) => void;
+}
+
+export interface CustomerTaskRunControllerInput {
+  completionSignalNotifier?: CompletionSignalNotifier;
+  describeError?: (error: unknown) => string;
+  nativeHostedTaskRunner?: NativeHostedTaskRunner | null;
+  routineActionExecutor?: RoutineActionExecutor;
+  routineActionRunner?: RoutineActionRunner;
+  runHostedRoutineActionLoop?: typeof runHostedLoop;
+  screenStateCollector: ScreenStateCollector;
+  sink: CustomerTaskRunSink;
+  startCustomerTask?: typeof startHostedCustomerTask;
+  stopPausedRoutineActionSession?: typeof stopPausedSession;
+}
+
+export interface NativeHostedTaskRunner {
+  allowConfirmedAction: (
+    session: CustomerSessionSnapshot,
+    input: StartCustomerTaskInput
+  ) => Promise<CustomerSessionSnapshot>;
+  continuePausedTask: (
+    session: CustomerSessionSnapshot,
+    input: StartCustomerTaskInput
+  ) => Promise<CustomerSessionSnapshot>;
+  startTask: (
+    input: StartCustomerTaskInput
+  ) => Promise<CustomerSessionSnapshot>;
+  stopPausedTask: (session: CustomerSessionSnapshot) => CustomerSessionSnapshot;
+  stopRunningTask: () => Promise<void>;
+}
+
+export function createCustomerTaskRunController({
+  completionSignalNotifier,
+  describeError = describeTaskError,
+  nativeHostedTaskRunner = null,
+  routineActionExecutor,
+  routineActionRunner,
+  runHostedRoutineActionLoop = runHostedLoop,
+  screenStateCollector,
+  sink,
+  startCustomerTask = startHostedCustomerTask,
+  stopPausedRoutineActionSession = stopPausedSession,
+}: CustomerTaskRunControllerInput): CustomerTaskRunController {
+  let stopRequested = false;
+  const resolvedRoutineActionRunner =
+    routineActionRunner ??
+    (routineActionExecutor
+      ? createRoutineActionRunner(routineActionExecutor)
+      : null);
+
+  async function startTask(input: StartCustomerTaskInput) {
+    sink.setIsSubmitting(true);
+    sink.setErrorMessage(null);
+    stopRequested = false;
+    try {
+      if (nativeHostedTaskRunner) {
+        sink.setIsTaskLoopRunning(true);
+        sink.setSession(await nativeHostedTaskRunner.startTask(input));
+        return;
+      }
+
+      const nextSession = await startCustomerTask(input);
+      sink.setSession(nextSession);
+      await runTaskLoopFromSession(nextSession, input);
+    } catch (error) {
+      sink.setSession(null);
+      sink.setErrorMessage(describeError(error));
+    } finally {
+      sink.setIsSubmitting(false);
+      if (nativeHostedTaskRunner) {
+        sink.setIsTaskLoopRunning(false);
+      }
+    }
+  }
+
+  function stopTask(session: CustomerSessionSnapshot | null) {
+    if (session?.pause) {
+      sink.setSession(
+        nativeHostedTaskRunner
+          ? nativeHostedTaskRunner.stopPausedTask(session)
+          : stopPausedRoutineActionSession(session)
+      );
+      return;
+    }
+
+    if (nativeHostedTaskRunner) {
+      nativeHostedTaskRunner.stopRunningTask().catch((error) => {
+        sink.setErrorMessage(describeError(error));
+      });
+      return;
+    }
+
+    stopRequested = true;
+  }
+
+  async function continuePausedTask(
+    session: CustomerSessionSnapshot | null,
+    input: StartCustomerTaskInput
+  ) {
+    if (!session?.pause) {
+      return;
+    }
+
+    if (nativeHostedTaskRunner) {
+      await runNativePausedTask(() =>
+        nativeHostedTaskRunner.continuePausedTask(session, input)
+      );
+      return;
+    }
+
+    await runTaskLoopFromSession(session, input, {
+      initialLastActionResult: requireRoutineActionRunner(
+        resolvedRoutineActionRunner
+      ).createPauseContinueActionResult(session.pause),
+      initialStepNumber: session.nextStepNumber,
+    });
+  }
+
+  async function allowConfirmedAction(
+    session: CustomerSessionSnapshot | null,
+    input: StartCustomerTaskInput
+  ) {
+    if (!session?.pause) {
+      return;
+    }
+
+    if (nativeHostedTaskRunner) {
+      await runNativePausedTask(() =>
+        nativeHostedTaskRunner.allowConfirmedAction(session, input)
+      );
+      return;
+    }
+
+    sink.setIsTaskLoopRunning(true);
+    sink.setErrorMessage(null);
+    stopRequested = false;
+    try {
+      const result = await requireRoutineActionRunner(
+        resolvedRoutineActionRunner
+      ).executeConfirmedPause(session.pause);
+      const confirmedSession = appendSessionEvent(session, {
+        sequence: session.events.length + 1,
+        type: "step.result",
+        message: result.message,
+        payload: {
+          result,
+          stepNumber: Math.max(1, (session.nextStepNumber ?? 2) - 1),
+        },
+      });
+      sink.setSession(confirmedSession);
+      await runTaskLoopFromSession(
+        confirmedSession,
+        input,
+        {
+          initialLastActionResult: result,
+          initialStepNumber: session.nextStepNumber,
+        },
+        { alreadyLooping: true }
+      );
+    } catch (error) {
+      sink.setErrorMessage(describeError(error));
+    } finally {
+      sink.setIsTaskLoopRunning(false);
+    }
+  }
+
+  async function runNativePausedTask(
+    run: () => Promise<CustomerSessionSnapshot>
+  ) {
+    sink.setIsTaskLoopRunning(true);
+    sink.setErrorMessage(null);
+    stopRequested = false;
+    try {
+      sink.setSession(await run());
+    } catch (error) {
+      sink.setErrorMessage(describeError(error));
+    } finally {
+      sink.setIsTaskLoopRunning(false);
+    }
+  }
+
+  async function runTaskLoopFromSession(
+    baseSession: CustomerSessionSnapshot,
+    input: StartCustomerTaskInput,
+    options: {
+      initialLastActionResult?: CustomerActionResult | null;
+      initialStepNumber?: number;
+    } = {},
+    loopOptions: { alreadyLooping?: boolean } = {}
+  ) {
+    if (!loopOptions.alreadyLooping) {
+      sink.setIsTaskLoopRunning(true);
+    }
+    sink.setErrorMessage(null);
+    stopRequested = false;
+    try {
+      const finalSession = await runHostedRoutineActionLoop({
+        taskId: baseSession.task.id,
+        instruction: baseSession.task.instruction,
+        runtimeUrl: input.runtimeUrl,
+        runtimeAccessToken: input.runtimeAccessToken,
+        actionRunner: requireRoutineActionRunner(resolvedRoutineActionRunner),
+        screenStateCollector,
+        initialEvents: baseSession.events,
+        initialLastActionResult: options.initialLastActionResult,
+        initialStepNumber: options.initialStepNumber,
+        completionSignalNotifier,
+        shouldStop: () => stopRequested,
+        onEvent: (event) => {
+          sink.updateSession((currentSession) =>
+            appendSessionEvent(currentSession ?? baseSession, event)
+          );
+        },
+      });
+      sink.setSession(finalSession);
+    } catch (error) {
+      sink.setErrorMessage(describeError(error));
+    } finally {
+      if (!loopOptions.alreadyLooping) {
+        sink.setIsTaskLoopRunning(false);
+      }
+    }
+  }
+
+  return {
+    allowConfirmedAction,
+    continuePausedTask,
+    startTask,
+    stopTask,
+  };
+}
+
+function requireRoutineActionRunner(
+  runner: RoutineActionRunner | null
+): RoutineActionRunner {
+  if (runner) {
+    return runner;
+  }
+
+  throw new Error("Routine action runner or executor is required.");
+}
+
+export function appendSessionEvent(
+  session: CustomerSessionSnapshot,
+  event: CustomerTaskEvent
+): CustomerSessionSnapshot {
+  return {
+    ...session,
+    events: [...session.events, event],
+  };
+}

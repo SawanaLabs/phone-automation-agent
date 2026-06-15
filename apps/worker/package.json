@@ -5,8 +5,8 @@
   "scripts": {
     "build": "uv build",
     "dev": "uv run python -m phone_automation_worker",
-    "format": "uv run python -m compileall src tests",
-    "lint": "uv run python -m compileall src tests",
+    "format": "uv run ruff format src tests",
+    "lint": "uv run ruff check src tests",
     "test": "uv run pytest -q",
     "typecheck": "uv run python -m compileall src tests"
   }
