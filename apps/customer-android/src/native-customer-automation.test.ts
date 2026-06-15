@@ -76,14 +76,15 @@ const readyNativeModule: CustomerAutomationNativeModule = {
   },
 };
 
-// biome-ignore lint/complexity/noExcessiveLinesPerFunction: broad existing native bridge contract suite; split by bridge surface during the customer-android architecture pass.
 describe("customer automation native bridge", () => {
   it("fails fast when the native module is missing", () => {
     expect(() => requireCustomerAutomationNativeModule({})).toThrow(
       "CustomerAutomation native module is not installed."
     );
   });
+});
 
+describe("native device authority gateway", () => {
   it("uses native authority snapshots for the Android setup gate", async () => {
     const gateway = createNativeDeviceAuthorityGateway(readyNativeModule);
 
@@ -103,7 +104,9 @@ describe("customer automation native bridge", () => {
       notifications: "granted",
     });
   });
+});
 
+describe("native screen state collector", () => {
   it("captures native screen state for hosted decisions", async () => {
     const collector = createNativeScreenStateCollector(readyNativeModule);
 
@@ -116,7 +119,9 @@ describe("customer automation native bridge", () => {
       accessibilitySummary: "Settings",
     });
   });
+});
 
+describe("native hosted task runner", () => {
   it("runs hosted tasks through the native Android loop", async () => {
     const calls: string[] = [];
     const nativeModule: CustomerAutomationNativeModule = {
@@ -221,7 +226,9 @@ describe("customer automation native bridge", () => {
       "Android permissions are required before starting a task: accessibility_service, screen_capture, notifications."
     );
   });
+});
 
+describe("native routine action executor", () => {
   it("dispatches native routine actions with pixel coordinates", async () => {
     const calls: string[] = [];
     const nativeModule: CustomerAutomationNativeModule = {
