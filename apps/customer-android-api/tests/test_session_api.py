@@ -1,5 +1,5 @@
-from fastapi.testclient import TestClient
 import pytest
+from fastapi.testclient import TestClient
 
 from customer_android_api.app import create_app
 
@@ -1135,9 +1135,14 @@ def test_customer_step_builds_open_autoglm_style_multimodal_context():
     assert messages[0]["role"] == "system"
     assert "你必须严格按照要求输出以下格式" in messages[0]["content"]
     assert "<answer>{action}</answer>" in messages[0]["content"]
-    assert "先检查当前app是否是目标app，如果不是，先执行 Launch" in messages[0]["content"]
+    assert (
+        "先检查当前app是否是目标app，如果不是，先执行 Launch" in messages[0]["content"]
+    )
     assert 'do(action="Launch", app="xxx")' in messages[0]["content"]
-    assert "Launch 的 app 优先使用用户任务里的目标 app 中文名或已知包名" in messages[0]["content"]
+    assert (
+        "Launch 的 app 优先使用用户任务里的目标 app 中文名或已知包名"
+        in messages[0]["content"]
+    )
     assert messages[1]["role"] == "user"
     assert messages[1]["content"][0] == {
         "type": "image_url",
@@ -1147,7 +1152,10 @@ def test_customer_step_builds_open_autoglm_style_multimodal_context():
     assert "打开小红书搜索咖啡店，停在结果页" in messages[1]["content"][1]["text"]
     assert '"current_app": "小红书"' in messages[1]["content"][1]["text"]
     assert '"current_package": "com.xingin.xhs"' in messages[1]["content"][1]["text"]
-    assert '"accessibility_summary": "Search field visible"' in messages[1]["content"][1]["text"]
+    assert (
+        '"accessibility_summary": "Search field visible"'
+        in messages[1]["content"][1]["text"]
+    )
 
 
 @pytest.mark.parametrize(
@@ -1266,7 +1274,10 @@ def test_customer_step_keeps_agent_context_without_repeating_previous_images():
             "text": second_request_messages[1]["content"][0]["text"],
         }
     ]
-    assert 'do(action="Wait", duration="1 seconds")' in second_request_messages[2]["content"]
+    assert (
+        'do(action="Wait", duration="1 seconds")'
+        in second_request_messages[2]["content"]
+    )
     assert second_request_messages[3]["content"][0]["type"] == "image_url"
 
 

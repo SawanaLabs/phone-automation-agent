@@ -8,10 +8,10 @@ from typing import Protocol
 
 from customer_android_api.model_provider import ScriptedModelProvider
 from customer_android_api.models import CustomerSessionSnapshot, CustomerStepRequest
+from customer_android_api.open_autoglm_actions import parse_open_autoglm_action_text
 from customer_android_api.open_autoglm_app_catalog import (
     get_open_autoglm_android_app_name,
 )
-from customer_android_api.open_autoglm_actions import parse_open_autoglm_action_text
 
 _WEEKDAY_NAMES = ["星期一", "星期二", "星期三", "星期四", "星期五", "星期六", "星期日"]
 logger = logging.getLogger(__name__)
@@ -161,7 +161,11 @@ class CustomerStepAgent:
         if not context:
             context.append(_create_system_message(self._system_prompt))
 
-        text = _build_first_step_text(session, request) if len(context) == 1 else _build_followup_step_text(request)
+        text = (
+            _build_first_step_text(session, request)
+            if len(context) == 1
+            else _build_followup_step_text(request)
+        )
         context.append(
             _create_user_message(
                 text=text,
@@ -231,7 +235,9 @@ def _build_screen_info(request: CustomerStepRequest) -> str:
     current_package = request.screen.currentPackage
     current_app = "unknown"
     if current_package:
-        current_app = get_open_autoglm_android_app_name(current_package) or current_package
+        current_app = (
+            get_open_autoglm_android_app_name(current_package) or current_package
+        )
 
     info: dict[str, object] = {
         "current_app": current_app,

@@ -6,7 +6,6 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8787
 DEFAULT_MAX_STEPS = 50
@@ -94,7 +93,9 @@ def _port() -> int:
     try:
         port = int(value)
     except ValueError as error:
-        raise RuntimeError(f"CUSTOMER_ANDROID_API_PORT must be an integer: {value}") from error
+        raise RuntimeError(
+            f"CUSTOMER_ANDROID_API_PORT must be an integer: {value}"
+        ) from error
 
     if port <= 0:
         raise RuntimeError(f"CUSTOMER_ANDROID_API_PORT must be positive: {port}")

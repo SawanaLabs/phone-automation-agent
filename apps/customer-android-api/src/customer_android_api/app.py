@@ -15,9 +15,9 @@ from customer_android_api.config import load_settings
 from customer_android_api.model_provider import build_model_provider_from_env
 from customer_android_api.models import (
     CustomerSessionSnapshot,
-    SessionCreateRequest,
     CustomerStepRequest,
     CustomerStepResponse,
+    SessionCreateRequest,
 )
 from customer_android_api.store import SessionStore
 

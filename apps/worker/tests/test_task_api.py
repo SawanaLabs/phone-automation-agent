@@ -4,9 +4,11 @@ from threading import Event, Lock, Thread
 import pytest
 from fastapi.testclient import TestClient
 
-from phone_automation_worker.app import create_app
 from phone_automation_worker.__main__ import main
-from phone_automation_worker.model_endpoints import resolve_phone_agent_endpoint_from_env
+from phone_automation_worker.app import create_app
+from phone_automation_worker.model_endpoints import (
+    resolve_phone_agent_endpoint_from_env,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -160,7 +162,10 @@ def test_mobile_app_can_submit_task_and_read_resulting_state_and_events():
     assert created.status_code == 201
     created_body = created.json()
     assert created_body["status"] == "created"
-    assert created_body["instruction"] == "打开美团搜索附近的火锅店，不要下单，只停在搜索结果页"
+    assert (
+        created_body["instruction"]
+        == "打开美团搜索附近的火锅店，不要下单，只停在搜索结果页"
+    )
 
     task_id = created_body["id"]
     task = client.get(f"/tasks/{task_id}")
@@ -168,7 +173,10 @@ def test_mobile_app_can_submit_task_and_read_resulting_state_and_events():
 
     assert task.status_code == 200
     assert task.json()["status"] == "finished"
-    assert task.json()["summary"] == "Finished: 打开美团搜索附近的火锅店，不要下单，只停在搜索结果页"
+    assert (
+        task.json()["summary"]
+        == "Finished: 打开美团搜索附近的火锅店，不要下单，只停在搜索结果页"
+    )
 
     assert events.status_code == 200
     assert [event["type"] for event in events.json()["events"]] == [

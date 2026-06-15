@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
 from collections.abc import Mapping
-
+from dataclasses import dataclass
 
 PLACEHOLDER_API_KEYS = {
     "EMPTY",
@@ -54,13 +53,21 @@ def resolve_phone_agent_endpoint_from_env(
     values = os.environ if env is None else env
     endpoint_keyword = _clean(values.get("PHONE_AGENT_ENDPOINT"))
     preset = _preset_for_keyword(endpoint_keyword, env_name="PHONE_AGENT_ENDPOINT")
-    base_url = preset.base_url if preset else _required_explicit_value(
-        values.get("PHONE_AGENT_BASE_URL"),
-        env_name="PHONE_AGENT_BASE_URL",
+    base_url = (
+        preset.base_url
+        if preset
+        else _required_explicit_value(
+            values.get("PHONE_AGENT_BASE_URL"),
+            env_name="PHONE_AGENT_BASE_URL",
+        )
     )
-    model_name = preset.model_name if preset else _required_explicit_value(
-        values.get("PHONE_AGENT_MODEL"),
-        env_name="PHONE_AGENT_MODEL",
+    model_name = (
+        preset.model_name
+        if preset
+        else _required_explicit_value(
+            values.get("PHONE_AGENT_MODEL"),
+            env_name="PHONE_AGENT_MODEL",
+        )
     )
 
     return ResolvedModelEndpoint(
@@ -107,7 +114,9 @@ def _resolve_api_key(
     env_names = [explicit_env_name]
     if preset is not None:
         env_names.extend(
-            env_name for env_name in preset.api_key_env_names if env_name != explicit_env_name
+            env_name
+            for env_name in preset.api_key_env_names
+            if env_name != explicit_env_name
         )
 
     for env_name in env_names:
