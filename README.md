@@ -16,11 +16,17 @@ The project is demo-stage. The current model endpoint standard is BigModel
 
 ## Status
 
-- Validated: app-submitted end-to-end run on 2026-06-10.
+- Validated: worker-backed app-submitted end-to-end run on 2026-06-10.
+- Validated: Customer Android scripted action QA on a physical phone on
+  2026-06-15.
 - Target: internal testing only.
-- Distribution: no app store release yet.
+- Distribution: official Customer Android Alpha APKs are published through
+  GitHub Releases. There is no app store or AAB release.
 - Automation engine: upstream Open-AutoGLM, wrapped by a thin worker adapter.
-- Primary product surface: `apps/mobile`. `apps/web` is auxiliary.
+- Customer App Story surface: `apps/customer-android` paired with
+  `apps/customer-android-api`.
+- Worker-backed demo surface: `apps/mobile` paired with `apps/worker`.
+  `apps/web` is auxiliary.
 
 ## Features
 
@@ -32,6 +38,26 @@ The project is demo-stage. The current model endpoint standard is BigModel
 - Normalized task events for mobile progress and result review.
 - Explicit setup failures for missing model keys, missing devices, missing
   Open-AutoGLM source, and unsupported manual gates.
+
+## Customer Android Alpha APK
+
+Latest internal QA APK:
+
+- Release: [Customer Phone Agent 0.1.0-alpha.8](https://github.com/SawanaLabs/phone-automation-agent/releases/tag/customer-phone-agent-0.1.0-alpha.8)
+- APK: [customer-phone-agent-0.1.0-alpha.8.apk](https://github.com/SawanaLabs/phone-automation-agent/releases/download/customer-phone-agent-0.1.0-alpha.8/customer-phone-agent-0.1.0-alpha.8.apk)
+- Android version code: `8`
+- Commit: `af084de217113f9e6c2a7a99011768af50c4d2fb`
+- SHA-256:
+  `559b3771d03e810680b0f14dd626b9e1b90e815b2ba434c8544246b31f0c23da`
+
+Alpha APKs are sideload artifacts for internal QA. Install the APK on a physical
+Android phone, run `apps/customer-android-api`, enter the hosted Runtime URL and
+Runtime Access Token in the app, grant Accessibility Service, Screen Capture,
+and Notifications, then start a task from the APK.
+
+Alpha 0.1.0-alpha.8 includes a hosted screen-capture stability fix validated by
+scripted action QA. The next connected-device customer-story QA pass is tracked
+in [#17](https://github.com/SawanaLabs/phone-automation-agent/issues/17).
 
 ## Worker-Backed Demo Story
 

@@ -15,11 +15,15 @@ OpenAI-compatible endpoint preset 配置。
 
 ## 状态
 
-- 已验证：2026-06-10 通过 App 提交的端到端运行。
+- 已验证：2026-06-10 通过 worker-backed App 提交的端到端运行。
+- 已验证：2026-06-15 在真实手机上通过 Customer Android scripted action QA。
 - 目标：仅用于内测。
-- 分发：还没有应用商店发布版本。
+- 分发：官方 Customer Android Alpha APK 通过 GitHub Releases 发布。当前没有应用商店或
+  AAB 版本。
 - 自动化引擎：upstream Open-AutoGLM，通过很薄的 worker adapter 封装。
-- 主要产品入口：`apps/mobile`。`apps/web` 是辅助表面。
+- Customer App Story 入口：`apps/customer-android` 搭配
+  `apps/customer-android-api`。
+- Worker-backed demo 入口：`apps/mobile` 搭配 `apps/worker`。`apps/web` 是辅助表面。
 
 ## 功能
 
@@ -31,7 +35,26 @@ OpenAI-compatible endpoint preset 配置。
 - 给移动端进度和结果查看使用的规范化任务事件。
 - 对缺少模型 key、缺少设备、缺少 Open-AutoGLM 源码、未支持的人工门控进行明确报错。
 
-## Demo 故事
+## Customer Android Alpha APK
+
+最新内测 APK：
+
+- Release: [Customer Phone Agent 0.1.0-alpha.8](https://github.com/SawanaLabs/phone-automation-agent/releases/tag/customer-phone-agent-0.1.0-alpha.8)
+- APK: [customer-phone-agent-0.1.0-alpha.8.apk](https://github.com/SawanaLabs/phone-automation-agent/releases/download/customer-phone-agent-0.1.0-alpha.8/customer-phone-agent-0.1.0-alpha.8.apk)
+- Android version code: `8`
+- Commit: `af084de217113f9e6c2a7a99011768af50c4d2fb`
+- SHA-256:
+  `559b3771d03e810680b0f14dd626b9e1b90e815b2ba434c8544246b31f0c23da`
+
+Alpha APK 是内部 QA 使用的 sideload 安装包。把 APK 安装到真实 Android 手机上，启动
+`apps/customer-android-api`，在 App 中填入 hosted Runtime URL 和 Runtime Access Token，
+授予 Accessibility Service、Screen Capture、Notifications，然后从 APK 输入 task 并开始运行。
+
+Alpha 0.1.0-alpha.8 包含 hosted screen capture 稳定性修复，并已通过 scripted action QA。
+下一轮连接真机后的 customer-story QA 记录在
+[#17](https://github.com/SawanaLabs/phone-automation-agent/issues/17)。
+
+## Worker-Backed Demo 故事
 
 第一条验收 story 是：
 
