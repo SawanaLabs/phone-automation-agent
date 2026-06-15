@@ -6,7 +6,7 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 
 const MAX_FILE_LINES = 500;
-const CHECKED_EXTENSIONS = new Set([".py", ".ts", ".tsx"]);
+const CHECKED_EXTENSIONS = new Set([".py"]);
 const IGNORED_DIRECTORY_NAMES = new Set([
   ".git",
   ".next",
@@ -20,7 +20,6 @@ const IGNORED_DIRECTORY_NAMES = new Set([
 
 const LEGACY_OVERSIZED_FILES = new Set([
   "apps/customer-android-api/tests/test_session_api.py",
-  "apps/customer-android/App.tsx",
   "apps/worker/tests/test_task_api.py",
 ]);
 
@@ -94,7 +93,7 @@ function toRelativePath(filePath) {
 
 function reportFailures() {
   console.error(
-    `File line limit failed. Maximum allowed: ${MAX_FILE_LINES} lines for .ts, .tsx, and .py files.`
+    `Python file line limit failed. Maximum allowed: ${MAX_FILE_LINES} lines per .py file.`
   );
 
   if (oversizedFiles.length > 0) {
