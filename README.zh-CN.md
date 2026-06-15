@@ -2,42 +2,26 @@
 
 [English](./README.md) | [中文](./README.zh-CN.md)
 
-用于验证移动端优先手机自动化的内测 demo 应用。测试者从 Android App 提交任务，Mac 上的
-Agent Runtime 通过 ADB 和 [Open-AutoGLM](https://github.com/zai-org/Open-AutoGLM)
-控制同一台手机，然后 App 展示最终任务状态和证据。
+Customer Android 手机自动化 MVP。当前产品路线是 `apps/customer-android` 中的可安装
+Android APK，搭配 `apps/customer-android-api` 中的 hosted FastAPI runtime。
 
-项目目前处于 demo 阶段。当前模型端点标准是 BigModel `autoglm-phone`，通过
-OpenAI-compatible endpoint preset 配置。
+APK 负责手机侧能力：任务输入、权限引导、屏幕捕获、基于 Accessibility 的常规动作执行、暂停控制、
+完成通知和结果证据。API 负责 agent 侧能力：任务 session、Open-AutoGLM 风格 prompt 和
+action parsing、模型调用、运行日志和规范化失败状态。
 
-## 截图
+这个仓库目前处于内部 alpha。目标是通过 sideload APK 和 hosted runtime 证明 Customer App Story。
+当前没有 Play Store、AAB、公开 beta 或生产支持路线。
 
-<img src="./docs/assets/mobile-home.png" alt="Phone Agent 手机应用首页" width="320" />
+## 当前状态
 
-## 状态
+- 当前重点：`apps/customer-android` 加 `apps/customer-android-api`。
+- 最新内测 APK：`customer-phone-agent-0.1.0-alpha.8.apk`。
+- 已验证：2026-06-15 在真实 Android 手机上通过 scripted action QA。
+- 待验证：从可下载 alpha APK 开始的 real-provider customer-story QA，记录在
+  [#17](https://github.com/SawanaLabs/phone-automation-agent/issues/17)。
+- 真实 QA 的模型路线：BigModel `autoglm-phone`，通过 OpenAI-compatible provider preset。
 
-- 已验证：2026-06-10 通过 worker-backed App 提交的端到端运行。
-- 已验证：2026-06-15 在真实手机上通过 Customer Android scripted action QA。
-- 目标：仅用于内测。
-- 分发：官方 Customer Android Alpha APK 通过 GitHub Releases 发布。当前没有应用商店或
-  AAB 版本。
-- 自动化引擎：upstream Open-AutoGLM，通过很薄的 worker adapter 封装。
-- Customer App Story 入口：`apps/customer-android` 搭配
-  `apps/customer-android-api`。
-- Worker-backed demo 入口：`apps/mobile` 搭配 `apps/worker`。`apps/web` 是辅助表面。
-
-## 功能
-
-- 使用 Expo React Native 构建的 Android Mobile Agent App。
-- FastAPI worker，提供任务、设备和事件 endpoint。
-- `open-autoglm` runner 模式，在 worker 进程内 import `phone_agent` 并调用
-  `PhoneAgent.step()`。
-- ADB 设备发现和单活跃任务保护。
-- 给移动端进度和结果查看使用的规范化任务事件。
-- 对缺少模型 key、缺少设备、缺少 Open-AutoGLM 源码、未支持的人工门控进行明确报错。
-
-## Customer Android Alpha APK
-
-最新内测 APK：
+## 最新 Alpha APK
 
 - Release: [Customer Phone Agent 0.1.0-alpha.8](https://github.com/SawanaLabs/phone-automation-agent/releases/tag/customer-phone-agent-0.1.0-alpha.8)
 - APK: [customer-phone-agent-0.1.0-alpha.8.apk](https://github.com/SawanaLabs/phone-automation-agent/releases/download/customer-phone-agent-0.1.0-alpha.8/customer-phone-agent-0.1.0-alpha.8.apk)
@@ -46,287 +30,208 @@ OpenAI-compatible endpoint preset 配置。
 - SHA-256:
   `559b3771d03e810680b0f14dd626b9e1b90e815b2ba434c8544246b31f0c23da`
 
-Alpha APK 是内部 QA 使用的 sideload 安装包。把 APK 安装到真实 Android 手机上，启动
-`apps/customer-android-api`，在 App 中填入 hosted Runtime URL 和 Runtime Access Token，
-授予 Accessibility Service、Screen Capture、Notifications，然后从 APK 输入 task 并开始运行。
+Alpha APK 是内部 QA 使用的 sideload artifact。把 APK 安装到真实 Android 手机上。release APK
+不需要 Metro。
 
-Alpha 0.1.0-alpha.8 包含 hosted screen capture 稳定性修复，并已通过 scripted action QA。
-下一轮连接真机后的 customer-story QA 记录在
-[#17](https://github.com/SawanaLabs/phone-automation-agent/issues/17)。
+## Customer Story
 
-## Worker-Backed Demo 故事
-
-第一条验收 story 是：
+第一条 customer-story 目标是：
 
 ```text
-打开美团搜索附近的火锅店，不要下单，只停在搜索结果页
+打开小红书，搜索咖啡店，然后停一下
 ```
 
 通过信号：
 
-- App 显示 `Worker Online`。
-- App 列出至少一台可用 Android 设备。
-- 提交的任务到达 `finished`。
-- 美团停留在附近火锅搜索结果页。
+- 用户从已安装的 Customer Android APK 开始。
+- App 通过 Runtime URL 和 Runtime Access Token 连接到 `apps/customer-android-api`。
+- 用户授予 Accessibility Service、Screen Capture 和 Notifications。
+- 运行 APK 的同一台手机被观察和控制。
+- 任务停在目标 app 的结果页，或进入清晰的暂停/失败状态，并有 Result 和 Trace 证据。
+- 用户收到 Completion Signal notification，点击后能回到 App 查看证据。
 
 ## 架构
 
-第一版 demo 是 Single-Phone Demo：同一台 Android 手机同时运行 Mobile Agent App，也作为
-Open-AutoGLM 操作的 Controlled Phone。
-
 ```mermaid
-flowchart LR
-  Tester["Tester"]
-  Mobile["apps/mobile\nExpo React Native app"]
-  Worker["apps/worker\nFastAPI Agent Runtime on Mac"]
-  OAG["Open-AutoGLM\nPython source dependency"]
-  ADB["ADB"]
-  Phone["Android Controlled Phone"]
-  Model["BigModel\nOpenAI-compatible API"]
+sequenceDiagram
+  actor User as Internal QA User
+  participant App as Customer Android App<br/>Android Phone
+  participant Target as Target App<br/>Android Phone
+  participant API as Customer Android API<br/>Hosted Runtime
+  participant Model as Model Provider
 
-  Tester --> Mobile
-  Mobile -->|"HTTP task API"| Worker
-  Worker -->|"imports phone_agent"| OAG
-  OAG -->|"screenshots + actions"| ADB
-  ADB --> Phone
-  OAG -->|"chat completions"| Model
-  Worker -->|"task state + events"| Mobile
+  Note over App: UI, native module, Accessibility, MediaProjection, Notifications
+  Note over API: Session-Step API, in-memory session, Customer Step Agent, logs
+
+  User->>App: Install APK, enter Runtime URL/token, start task
+  App->>App: Check Accessibility, Screen Capture, Notifications
+  App->>API: POST /sessions with task instruction
+  API-->>App: Session snapshot
+
+  loop Until finish, pause, or failed
+    App->>Target: Observe current phone screen/state
+    App->>API: POST /sessions/{id}/steps with screen + previous result
+    API->>Model: Prompt with task, screen, and session context
+    Model-->>API: do(...) or finish(...)
+    API-->>App: Next action, pause, finish, or failed outcome
+    alt Routine action
+      App->>Target: Execute Launch/Tap/Type/Swipe/Back/Home/Wait...
+      Target-->>App: Visible phone state changes
+    else Pause, finish, or failed
+      App->>App: Record Result/Trace and show Completion Signal
+    end
+  end
+
+  User->>App: Tap notification to inspect Result/Trace
 ```
 
-worker 不启动 Open-AutoGLM 服务。它 import `phone_agent`，配置 model 和 agent，然后每一步调用
-`PhoneAgent.step()`。
+`apps/customer-android-api` 暴露：
+
+- `GET /healthz`
+- `POST /sessions`
+- `GET /sessions/{session_id}`
+- `POST /sessions/{session_id}/steps`
+
+需要鉴权的 route 使用 `Authorization: Bearer <CUSTOMER_ANDROID_API_ACCESS_TOKEN>`。
+
+## 启动 Customer Android API
+
+安装仓库依赖：
+
+```bash
+corepack enable
+pnpm install
+```
+
+在 `.env` 或 `.env.local` 中配置 alpha runtime token：
+
+```bash
+CUSTOMER_ANDROID_API_ACCESS_TOKEN="dev-alpha-token"
+```
+
+为同一局域网内的手机启动 API：
+
+```bash
+pnpm dev:customer-android-api:lan
+```
+
+API 默认监听 `8787` 端口。在 APK 里填写：
+
+```text
+http://<mac-lan-ip>:8787
+```
+
+### Scripted QA 模式
+
+scripted 模式是默认模式。它适合验证传输、权限、执行器、通知和错误证据，不消耗模型调用。
+
+可选 scripted sequence：
+
+```bash
+CUSTOMER_ANDROID_MODEL_PROVIDER="scripted"
+CUSTOMER_ANDROID_SCRIPTED_ACTIONS_JSON='["do(action=\"Launch\", app=\"com.android.settings\")","do(action=\"Wait\", duration=\"1 seconds\")","finish(message=\"done\")"]'
+```
+
+### 真实模型模式
+
+BigModel `autoglm-phone`：
+
+```bash
+CUSTOMER_ANDROID_MODEL_PROVIDER="openai-compatible"
+CUSTOMER_ANDROID_MODEL_ENDPOINT="bigmodel"
+BIGMODEL_TOKEN="<your-bigmodel-token>"
+```
+
+自定义 OpenAI-compatible endpoint：
+
+```bash
+CUSTOMER_ANDROID_MODEL_BASE_URL="<base-url>"
+CUSTOMER_ANDROID_MODEL_API_KEY="<api-key>"
+CUSTOMER_ANDROID_MODEL_NAME="<model-name>"
+```
+
+使用自定义 endpoint 时，保持 `CUSTOMER_ANDROID_MODEL_ENDPOINT` 未设置。
+
+## 使用 APK
+
+1. 从 GitHub Releases 下载最新 alpha APK。
+2. 安装到真实 Android 手机。
+3. 打开 `Customer Phone Agent`。
+4. 输入 Runtime URL，例如 `http://<mac-lan-ip>:8787`。
+5. 输入 `CUSTOMER_ANDROID_API_ACCESS_TOKEN` 对应的 Runtime Access Token。
+6. 授予 Accessibility Service、Screen Capture 和 Notifications。
+7. 启动一个有边界的搜索任务。
+8. 用 Result、Trace、Android notification、API logs 和
+   `adb logcat -s CustomerAutomation` 作为 QA 证据。
+
+不要用 alpha build 测试支付、下单、发消息、登录、captcha、验证码或不可逆账号操作。
+
+## 开发
+
+Customer Android API：
+
+```bash
+pnpm --dir apps/customer-android-api test
+pnpm --dir apps/customer-android-api typecheck
+pnpm dev:customer-android-api
+```
+
+Customer Android app：
+
+```bash
+pnpm --dir apps/customer-android test
+pnpm --dir apps/customer-android typecheck
+pnpm --dir apps/customer-android lint
+```
+
+Android release build 需要 JDK 17。keystore、Gradle 和 alpha release 细节见
+[`apps/customer-android/README.md`](./apps/customer-android/README.md)。
 
 ## 仓库结构
 
 ```text
 apps/
-  mobile/   Expo React Native Android app
-  worker/   Python FastAPI Agent Runtime
-  web/      未来 landing/download/management 使用的辅助 Web 表面
-docs/       长期产品和架构笔记
-packages/   从模板继承的 monorepo 共享包
+  customer-android/      面向客户的 Android APK
+  customer-android-api/  Hosted FastAPI Agent Runtime
+  mobile/                旧 worker-backed demo companion
+  worker/                旧 Mac/ADB worker runtime
+  web/                   辅助 Web 表面
+docs/
+  customer-android/      当前 customer app/API 领域文档
+  product/               产品 story 和边界
+  architecture/          runtime 和集成边界
+  planning/              roadmap 和 grooming 输出
 ```
-
-## 快速开始
-
-### 1. 安装仓库依赖
-
-```bash
-git clone <this-repo-url> phone-automation-agent
-cd phone-automation-agent
-corepack enable
-pnpm install
-```
-
-### 2. 提供 Open-AutoGLM 源码
-
-最低复现路径是 sibling checkout。根目录 worker 脚本默认把 `OPEN_AUTOGLM_ROOT` 指向
-`../Open-AutoGLM`。
-
-```bash
-cd ..
-git clone https://github.com/zai-org/Open-AutoGLM.git Open-AutoGLM
-cd Open-AutoGLM
-git checkout 86f55382982fb054e8fc98ca80609dff8a2cdc3c
-cd ../phone-automation-agent
-```
-
-只有当运行 `apps/worker` 的 Python 环境已经能 import `phone_agent` 时，才可以跳过
-`OPEN_AUTOGLM_ROOT`。
-
-### 3. 配置模型凭证
-
-从示例创建 `.env`，然后替换 API key。
-
-```bash
-cp .env.example .env
-```
-
-当前 BigModel 路线：
-
-```bash
-BIGMODEL_TOKEN="<your-bigmodel-token>"
-PHONE_AGENT_ENDPOINT="bigmodel"
-```
-
-endpoint 关键词会在代码里解析成：
-
-```bash
-PHONE_AGENT_BASE_URL="https://open.bigmodel.cn/api/paas/v4"
-PHONE_AGENT_MODEL="autoglm-phone"
-PHONE_AGENT_API_KEY="${BIGMODEL_TOKEN}"
-```
-
-历史 ModelScope 路线仍可通过显式配置 `PHONE_AGENT_BASE_URL`、`PHONE_AGENT_MODEL` 和
-`PHONE_AGENT_API_KEY` 使用，前提是不要设置 `PHONE_AGENT_ENDPOINT`。
-
-### 4. 运行 mobile app 和 worker
-
-连接 Android 手机，并确认 ADB 能看到设备：
-
-```bash
-adb devices -l
-```
-
-USB 路线下，反向映射 Metro 和 worker 端口：
-
-```bash
-adb reverse tcp:8081 tcp:8081
-adb reverse tcp:8765 tcp:8765
-```
-
-终端 1：
-
-```bash
-pnpm dev:mobile -- --host localhost --port 8081
-```
-
-从 Expo prompt 打开 Android App，通常按 `a`。
-
-终端 2：
-
-```bash
-trap 'adb shell wm size reset >/dev/null 2>&1' EXIT
-adb shell wm size 992x2048
-pnpm dev:worker:open-autoglm
-```
-
-在 Mobile Agent App 里：
-
-1. 把 Worker URL 设为 `http://127.0.0.1:8765`。
-2. 点击 `Check Worker`。
-3. 确认 `Worker Online` 和一台可用设备。
-4. 点击 `Submit From Phone`。
-5. 等待 `finished`。
-
-运行结束后检查恢复状态：
-
-```bash
-adb shell wm size
-```
-
-## 配置
-
-根目录 `.env` 必填值：
-
-| 变量                   | 用途                                    |
-| ---------------------- | --------------------------------------- |
-| `BIGMODEL_TOKEN`       | 后端 runtime 使用的 BigModel API token  |
-| `PHONE_AGENT_ENDPOINT` | 模型端点关键词，当前使用 `bigmodel`     |
-
-可选 override：
-
-| 变量                           | 用途                                                 |
-| ------------------------------ | ---------------------------------------------------- |
-| `PHONE_AGENT_BASE_URL`         | 未设置 `PHONE_AGENT_ENDPOINT` 时的自定义端点 base URL |
-| `PHONE_AGENT_MODEL`            | 未设置 `PHONE_AGENT_ENDPOINT` 时的自定义模型名        |
-| `PHONE_AGENT_API_KEY`          | 未设置 `PHONE_AGENT_ENDPOINT` 时的自定义 API key      |
-| `OPEN_AUTOGLM_ROOT`            | `phone_agent` 不可 import 时的 Open-AutoGLM 绝对路径 |
-| `PHONE_AGENT_MAX_STEPS`        | 最大 Open-AutoGLM 步数，默认 `12`                    |
-| `PHONE_AUTOMATION_WORKER_HOST` | worker bind host，默认 `127.0.0.1`                   |
-| `PHONE_AUTOMATION_WORKER_PORT` | worker 端口，默认 `8765`                             |
-
-Runner mode 通常由根目录 package scripts 选择，例如
-`pnpm dev:worker:open-autoglm`，不用写进 `.env`。
-
-如果真机和 Mac 在同一个 Wi-Fi 网络，使用：
-
-```bash
-pnpm dev:worker:open-autoglm:lan
-```
-
-然后把 App 的 Worker URL 设为 `http://<mac-lan-ip>:8765`。LAN 模式只在可信本地网络中使用。
-
-## 开发
-
-运行全部测试和类型检查：
-
-```bash
-pnpm test
-pnpm typecheck
-```
-
-只检查 worker：
-
-```bash
-pnpm --dir apps/worker test
-pnpm --dir apps/worker typecheck
-```
-
-只检查 mobile：
-
-```bash
-pnpm --dir apps/mobile test
-pnpm --dir apps/mobile typecheck
-```
-
-不控制手机的 endpoint smoke test：
-
-```bash
-pnpm dev:worker:dry-run
-```
-
-另开一个终端：
-
-```bash
-curl -sS http://127.0.0.1:8765/healthz
-curl -sS http://127.0.0.1:8765/devices
-curl -sS -X POST http://127.0.0.1:8765/tasks \
-  -H 'Content-Type: application/json' \
-  -d '{"instruction":"打开美团搜索附近的火锅店，不要下单，只停在搜索结果页","source":"mobile"}'
-```
-
-## 上游 Quickstart
-
-Open-AutoGLM 自己的 `.venv` 对本仓库是可选项。只有你想在 monorepo 外复现 upstream raw
-quickstart 时才需要设置：
-
-```bash
-cd ../Open-AutoGLM
-uv venv --python 3.12
-uv pip install --python .venv/bin/python -r requirements.txt
-uv pip install --python .venv/bin/python -e .
-cd ../phone-automation-agent
-```
-
-已验证的 upstream commit：
-
-```text
-86f55382982fb054e8fc98ca80609dff8a2cdc3c
-```
-
-## 安全说明
-
-- demo 使用低风险的搜索类任务。
-- 不测试下单、支付、发消息、登录、验证码或 captcha 流程。
-- 模型 provider secrets 保存在 `.env`，不要打印或提交。
-- LAN worker 模式只在可信本地网络中使用。
 
 ## 文档
 
-- `CONTEXT.md`：共享产品语言。
-- `docs/index.md`：长期文档地图。
-- `docs/product/first-demo-story.md`：验收 QA story 和已通过路线。
-- `docs/architecture/worker-api.md`：worker endpoint 和运行模式。
-- `docs/architecture/open-autoglm-integration.md`：与 Open-AutoGLM 的集成边界。
+从这些文档开始：
 
-QA 截图和录屏默认放在系统临时目录。只有需要长期 review 时，才把 artifact 复制进仓库。
+- [`docs/index.md`](./docs/index.md)：文档地图。
+- [`docs/customer-android/DOCS.md`](./docs/customer-android/DOCS.md)：Customer Android 领域协议。
+- [`docs/customer-android/runtime-contract.md`](./docs/customer-android/runtime-contract.md)：Session-Step API contract。
+- [`docs/customer-android/agent-engine.md`](./docs/customer-android/agent-engine.md)：API runtime 和 model-provider contract。
+- [`docs/customer-android/action-handling.md`](./docs/customer-android/action-handling.md)：Open-AutoGLM action vocabulary handling。
+- [`docs/customer-android/evidence-first-e2e.md`](./docs/customer-android/evidence-first-e2e.md)：真机 QA checklist。
+- [`docs/customer-android/delivery.md`](./docs/customer-android/delivery.md)：alpha APK 分发规则。
+
+## Legacy Demo Surfaces
+
+`apps/mobile` 和 `apps/worker` 仍保留在仓库中，代表更早的 Mac/ADB demo 路线。根 README
+当前主线是 Customer Android。推进可安装 customer APK story 时，使用 Customer Android 文档。
 
 ## 贡献
 
-当前还没有正式的 `CONTRIBUTING.md`。暂时按下面的规则做：
-
-- 改架构或产品语言前，先读 `docs/index.md` 和 `CONTEXT.md`。
-- 在真实 demo blocker 出现前，保持 Open-AutoGLM 集成很薄。
+- 修改 customer app 架构或产品语言前，先读 `docs/index.md` 和相关 `docs/customer-android/*` 文件。
+- provider secrets 放在本地 env 文件中。不要提交 `.env`、API key、release keystore、设备录屏或临时
+  QA artifact。
 - monorepo 使用 `pnpm`，Python 工作使用 `uv`。
-- 交接前运行相关测试和类型检查。
-- 不提交 `.env`、API key、设备录屏或临时 QA artifact。
+- 交接前运行 app 或 API 的聚焦测试。
 
 ## 上游致谢
 
-本项目基于 [zai-org/Open-AutoGLM](https://github.com/zai-org/Open-AutoGLM) 构建。
-当前仓库通过一个很薄的 worker adapter 使用现有 Android ADB 控制链路，让第一版 demo
-尽量贴近已经验证过的 upstream quickstart 路线。
+本项目使用 [zai-org/Open-AutoGLM](https://github.com/zai-org/Open-AutoGLM)
+作为 prompt shape、模型输出格式和 action vocabulary 的行为参考。
 
 ## 许可证
 
