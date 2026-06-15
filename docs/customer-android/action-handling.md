@@ -28,6 +28,7 @@ updateAt: 2026-06-15
 - The first Android executor should implement routine physical actions: `Launch`, `Tap`, `Type`, `Type_Name`, `Swipe`, `Back`, `Home`, `Wait`, `Double Tap`, `Long Press`, and `finish`.
 - Hosted loops and app run orchestration depend on `RoutineActionRunner` for action execution, confirmation approval, and pause continuation results.
 - `RoutineActionExecutor` remains the low-level physical gateway. Android input details belong there or in platform-specific adapters, while hosted loop/controller code stays on action semantics and task state.
+- Native hosted execution mirrors the same seam: `NativeRoutineActionExecutor` owns native action semantics behind `NativeHostedActionExecutor`, while `CustomerAutomationModule.kt` stays the React Native bridge.
 - `Launch` is normalized in `apps/customer-android-api` before it reaches the APK: known Open-AutoGLM Android app names such as `小红书` and `美团` are mapped to package names such as `com.xingin.xhs` and `com.sankuai.meituan`; unknown names are preserved so the APK can still try package or launcher-label fallback on the user's phone.
 - `Type_Name` should normalize to the same executor behavior as `Type`.
 - `finish` completes the task and surfaces the final message or result evidence in the app.

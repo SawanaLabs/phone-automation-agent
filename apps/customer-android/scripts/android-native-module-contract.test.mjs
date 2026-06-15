@@ -25,6 +25,10 @@ const LAST_ACTION_RESULT_FIELD = /putMap\(\s*"lastActionResult"/;
 const PRIVATE_RUN_HOSTED_TASK_LOOP = /private fun runHostedTaskLoop\(/;
 const NATIVE_HOSTED_TASK_LOOP_CLASS = /class NativeHostedTaskLoop\(/;
 const NATIVE_HOSTED_RUNTIME_CLIENT_PORT = /interface NativeHostedRuntimeClient/;
+const NATIVE_ROUTINE_ACTION_EXECUTOR_CLASS =
+  /class NativeRoutineActionExecutor\(/;
+const PRIVATE_NATIVE_ROUTINE_DISPATCH =
+  /private fun dispatchRoutineActionNative\(/;
 
 describe("Android native module contract", () => {
   it("exports native hosted task loop so app-background actions keep running", async () => {
@@ -80,6 +84,28 @@ describe("Android native module contract", () => {
     expect(failedOutcomeIndex).toBeLessThan(actionDispatchIndex);
   });
 
+  it("keeps native routine action dispatch outside the React Native bridge module", async () => {
+    const moduleSource = await readFile(
+      new URL(
+        "../android/app/src/main/java/com/sawanalabs/phoneautomation/customer/CustomerAutomationModule.kt",
+        import.meta.url
+      ),
+      "utf8"
+    );
+    const executorSource = await readFile(
+      new URL(
+        "../android/app/src/main/java/com/sawanalabs/phoneautomation/customer/NativeRoutineActionExecutor.kt",
+        import.meta.url
+      ),
+      "utf8"
+    );
+
+    expect(moduleSource).not.toMatch(PRIVATE_NATIVE_ROUTINE_DISPATCH);
+    expect(executorSource).toMatch(NATIVE_ROUTINE_ACTION_EXECUTOR_CLASS);
+    expect(executorSource).toContain("NativeHostedActionExecutor");
+    expect(executorSource).toContain("Call_API is a runtime-local action");
+  });
+
   it("runs screen capture on a dedicated handler thread without continuous frame callbacks", async () => {
     const serviceSource = await readFile(
       new URL(
@@ -109,24 +135,33 @@ describe("Android native module contract", () => {
     const captureTimeout = Number(
       moduleSource.match(SCREEN_CAPTURE_TIMEOUT_MS)?.[1]
     );
-    const actionSettle = Number(moduleSource.match(ACTION_SETTLE_MS)?.[1]);
+    const actionExecutorSource = await readFile(
+      new URL(
+        "../android/app/src/main/java/com/sawanalabs/phoneautomation/customer/NativeRoutineActionExecutor.kt",
+        import.meta.url
+      ),
+      "utf8"
+    );
+    const actionSettle = Number(
+      actionExecutorSource.match(ACTION_SETTLE_MS)?.[1]
+    );
 
     expect(captureTimeout).toBeGreaterThanOrEqual(5000);
     expect(captureTimeout).toBeGreaterThan(actionSettle * 5);
   });
 
   it("resolves Launch app targets by installed launcher label before failing", async () => {
-    const moduleSource = await readFile(
+    const actionExecutorSource = await readFile(
       new URL(
-        "../android/app/src/main/java/com/sawanalabs/phoneautomation/customer/CustomerAutomationModule.kt",
+        "../android/app/src/main/java/com/sawanalabs/phoneautomation/customer/NativeRoutineActionExecutor.kt",
         import.meta.url
       ),
       "utf8"
     );
 
-    expect(moduleSource).toContain("resolveLaunchIntentByLabel");
-    expect(moduleSource).toContain("PackageManager.MATCH_DEFAULT_ONLY");
-    expect(moduleSource).toContain("loadLabel(packageManager)");
+    expect(actionExecutorSource).toContain("resolveLaunchIntentByLabel");
+    expect(actionExecutorSource).toContain("PackageManager.MATCH_DEFAULT_ONLY");
+    expect(actionExecutorSource).toContain("loadLabel(packageManager)");
   });
 
   it("declares launcher package visibility for installed app label lookup", async () => {
