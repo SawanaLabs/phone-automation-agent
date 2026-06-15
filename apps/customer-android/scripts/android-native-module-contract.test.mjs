@@ -52,6 +52,25 @@ describe("Android native module contract", () => {
     expect(serviceSource).not.toMatch(/service\.mainHandler\.post\s*\{\s*service\.captureCurrentFrame/)
   })
 
+  it("keeps hosted screen capture timeout long enough for app transitions", async () => {
+    const moduleSource = await readFile(
+      new URL(
+        "../android/app/src/main/java/com/sawanalabs/phoneautomation/customer/CustomerAutomationModule.kt",
+        import.meta.url
+      ),
+      "utf8"
+    )
+    const captureTimeout = Number(
+      moduleSource.match(/SCREEN_CAPTURE_TIMEOUT_MS = (\d+)L/)?.[1]
+    )
+    const actionSettle = Number(
+      moduleSource.match(/ACTION_SETTLE_MS = (\d+)L/)?.[1]
+    )
+
+    expect(captureTimeout).toBeGreaterThanOrEqual(5000)
+    expect(captureTimeout).toBeGreaterThan(actionSettle * 5)
+  })
+
   it("resolves Launch app targets by installed launcher label before failing", async () => {
     const moduleSource = await readFile(
       new URL(

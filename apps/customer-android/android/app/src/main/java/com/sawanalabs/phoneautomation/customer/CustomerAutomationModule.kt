@@ -1341,7 +1341,7 @@ class CustomerAutomationModule(
     private const val TAG = "CustomerAutomation"
     private const val SCREEN_CAPTURE_REQUEST_CODE = 41031
     private const val NOTIFICATION_PERMISSION_REQUEST_CODE = 41032
-    private const val SCREEN_CAPTURE_TIMEOUT_MS = 1500L
+    private const val SCREEN_CAPTURE_TIMEOUT_MS = 5000L
     private const val NATIVE_ACTION_TIMEOUT_MS = 6000L
     private const val ACTION_SETTLE_MS = 700L
     private const val HOSTED_RUNTIME_TIMEOUT_MS = 30000
