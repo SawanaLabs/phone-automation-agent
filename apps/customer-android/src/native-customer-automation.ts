@@ -40,6 +40,7 @@ export interface CustomerAutomationNativeModule {
   showCompletionSignal: (
     session: CustomerSessionSnapshot
   ) => Promise<CompletionSignalResult>;
+  stopHostedTask: () => Promise<void>;
   swipe: (
     startX: number,
     startY: number,
@@ -67,6 +68,7 @@ export interface HostedTaskRunner {
     >
   ) => Promise<CustomerSessionSnapshot>;
   stopPausedTask: (session: CustomerSessionSnapshot) => CustomerSessionSnapshot;
+  stopRunningTask: () => Promise<void>;
 }
 
 interface NativeModuleRegistry {
@@ -155,6 +157,9 @@ export function createNativeHostedTaskRunner(
     },
     stopPausedTask(session) {
       return stopPausedRoutineActionSession(session);
+    },
+    stopRunningTask() {
+      return nativeModule.stopHostedTask();
     },
   };
 }

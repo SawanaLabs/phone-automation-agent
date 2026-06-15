@@ -91,6 +91,9 @@ describe("customer task run controller native runner", () => {
         stopPausedTask(session) {
           return session;
         },
+        async stopRunningTask() {
+          throw new Error("native start branch must not stop while finishing");
+        },
       },
       routineActionExecutor: createRecordingExecutor(),
       screenStateCollector: {
@@ -112,6 +115,43 @@ describe("customer task run controller native runner", () => {
     expect(sink.loopRunning).toEqual([true, false]);
   });
 
+  it("stops native running tasks through the native hosted task runner", () => {
+    const sink = createRecordingSink();
+    const calls: string[] = [];
+    const controller = createCustomerTaskRunController({
+      sink,
+      nativeHostedTaskRunner: {
+        async startTask() {
+          throw new Error("native branch must not start a task");
+        },
+        async continuePausedTask() {
+          throw new Error("native branch must not continue a task");
+        },
+        async allowConfirmedAction() {
+          throw new Error("native branch must not allow a confirmation");
+        },
+        stopPausedTask(session) {
+          return session;
+        },
+        async stopRunningTask() {
+          calls.push("stop-running");
+        },
+      },
+      routineActionExecutor: createRecordingExecutor(),
+      screenStateCollector: {
+        async capture() {
+          throw new Error("native branch must not capture from JS");
+        },
+      },
+    });
+
+    controller.stopTask(null);
+
+    expect(calls).toEqual(["stop-running"]);
+  });
+});
+
+describe("customer task run controller native pause runner", () => {
   it("keeps native pause continuation behind the native hosted task runner", async () => {
     const sink = createRecordingSink();
     const pausedSession = createPausedSession("interaction_required");
@@ -132,6 +172,9 @@ describe("customer task run controller native runner", () => {
         },
         stopPausedTask(session) {
           return session;
+        },
+        async stopRunningTask() {
+          throw new Error("continue branch must not stop a running task");
         },
       },
       routineActionExecutor: createRecordingExecutor(),
@@ -172,6 +215,9 @@ describe("customer task run controller native runner", () => {
         },
         stopPausedTask(session) {
           return session;
+        },
+        async stopRunningTask() {
+          throw new Error("confirmation branch must not stop a running task");
         },
       },
       routineActionExecutor: createRecordingExecutor(),

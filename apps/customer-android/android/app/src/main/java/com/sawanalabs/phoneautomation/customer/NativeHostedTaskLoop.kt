@@ -6,6 +6,7 @@ import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
+import java.util.concurrent.atomic.AtomicBoolean
 
 internal data class NativeHostedTaskInput(
   val instruction: String,
@@ -64,10 +65,29 @@ internal interface NativeHostedActionExecutor {
   fun dispatch(action: JSONObject): NativeActionResult
 }
 
+internal interface NativeHostedTaskCancellation {
+  fun shouldStop(): Boolean
+}
+
+internal class NativeHostedTaskCancellationToken : NativeHostedTaskCancellation {
+  private val stopped = AtomicBoolean(false)
+
+  fun stop() {
+    stopped.set(true)
+  }
+
+  override fun shouldStop(): Boolean = stopped.get()
+}
+
+internal object NativeHostedNoopCancellation : NativeHostedTaskCancellation {
+  override fun shouldStop(): Boolean = false
+}
+
 internal class NativeHostedTaskLoop(
   private val runtimeClient: NativeHostedRuntimeClient,
   private val screenStateCollector: NativeHostedScreenStateCollector,
   private val actionExecutor: NativeHostedActionExecutor,
+  private val cancellation: NativeHostedTaskCancellation = NativeHostedNoopCancellation,
   private val snapshotMapper: NativeSessionSnapshotMapper = NativeSessionSnapshotMapper()
 ) {
   fun run(input: NativeHostedTaskInput): WritableMap {
@@ -82,6 +102,9 @@ internal class NativeHostedTaskLoop(
 
     var lastActionResult: NativeActionResult? = input.initialLastActionResult
     if (input.approvedPauseAction != null) {
+      if (cancellation.shouldStop()) {
+        return createStoppedSnapshot(taskId, input.instruction, events)
+      }
       val actionName = input.approvedPauseAction.getString("action")
       Log.i(TAG, "Hosted task $taskId approved pause action=$actionName.")
       lastActionResult = actionExecutor.dispatch(input.approvedPauseAction)
@@ -90,6 +113,9 @@ internal class NativeHostedTaskLoop(
 
     for (stepNumber in input.initialStepNumber..input.maxSteps) {
       Log.i(TAG, "Hosted task $taskId step $stepNumber capture start.")
+      if (cancellation.shouldStop()) {
+        return createStoppedSnapshot(taskId, input.instruction, events)
+      }
       val screen = try {
         screenStateCollector.capture()
       } catch (error: Exception) {
@@ -103,6 +129,9 @@ internal class NativeHostedTaskLoop(
         "Hosted task $taskId step $stepNumber captured package=${screen.optString("currentPackage")}"
       )
 
+      if (cancellation.shouldStop()) {
+        return createStoppedSnapshot(taskId, input.instruction, events)
+      }
       val decision = try {
         runtimeClient.requestStep(
           taskId = taskId,
@@ -153,6 +182,9 @@ internal class NativeHostedTaskLoop(
       val actionName = action.getString("action")
       Log.i(TAG, "Hosted task $taskId step $stepNumber action=$actionName.")
       appendNativeEvent(events, "step.action", "$actionName requested.")
+      if (cancellation.shouldStop()) {
+        return createStoppedSnapshot(taskId, input.instruction, events)
+      }
       lastActionResult = actionExecutor.dispatch(action)
       val resultMessage =
         "Hosted task $taskId step $stepNumber result=${lastActionResult.status}: ${lastActionResult.message}"
@@ -173,6 +205,16 @@ internal class NativeHostedTaskLoop(
     val startResponse = runtimeClient.startSession(instruction)
     val task = startResponse.getJSONObject("task")
     return task.getString("id")
+  }
+
+  private fun createStoppedSnapshot(
+    taskId: String,
+    instruction: String,
+    events: MutableList<NativeTaskEvent>
+  ): WritableMap {
+    Log.i(TAG, "Hosted task $taskId stopped by user.")
+    appendNativeEvent(events, "task.stopped", "Task stopped by user.")
+    return snapshotMapper.create(taskId, instruction, "stopped", null, events)
   }
 
   private fun appendNativeEvent(

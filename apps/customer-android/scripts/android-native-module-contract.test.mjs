@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 
 const RUN_HOSTED_TASK_REACT_METHOD = /@ReactMethod\s+fun runHostedTask\(/;
+const STOP_HOSTED_TASK_REACT_METHOD = /@ReactMethod\s+fun stopHostedTask\(/;
 const CAPTURE_HANDLER_THREAD = /HandlerThread\("CustomerScreenCaptureThread"\)/;
 const PROJECTION_REGISTER_CALLBACK_CAPTURE_HANDLER =
   /projection\.registerCallback\([\s\S]*captureHandler/;
@@ -25,6 +26,10 @@ const LAST_ACTION_RESULT_FIELD = /putMap\(\s*"lastActionResult"/;
 const PRIVATE_RUN_HOSTED_TASK_LOOP = /private fun runHostedTaskLoop\(/;
 const NATIVE_HOSTED_TASK_LOOP_CLASS = /class NativeHostedTaskLoop\(/;
 const NATIVE_HOSTED_RUNTIME_CLIENT_PORT = /interface NativeHostedRuntimeClient/;
+const NATIVE_HOSTED_CANCELLATION_PORT =
+  /interface NativeHostedTaskCancellation/;
+const NATIVE_HOSTED_STOP_CHECKS =
+  /cancellation\.shouldStop\(\)[\s\S]*screenStateCollector\.capture\(\)[\s\S]*cancellation\.shouldStop\(\)[\s\S]*runtimeClient\.requestStep[\s\S]*cancellation\.shouldStop\(\)[\s\S]*actionExecutor\.dispatch/;
 const RUN_HOSTED_TASK_RESUME_PARAM = /resumeStateJson: String\?/;
 const NATIVE_HOSTED_RESUME_PARSER = /object NativeHostedTaskResumeStateParser/;
 const NATIVE_HOSTED_INPUT_RESUME_FIELDS =
@@ -45,6 +50,28 @@ describe("Android native module contract", () => {
     );
 
     expect(moduleSource).toMatch(RUN_HOSTED_TASK_REACT_METHOD);
+  });
+
+  it("exposes a native hosted stop seam for running Android loops", async () => {
+    const moduleSource = await readFile(
+      new URL(
+        "../android/app/src/main/java/com/sawanalabs/phoneautomation/customer/CustomerAutomationModule.kt",
+        import.meta.url
+      ),
+      "utf8"
+    );
+    const loopSource = await readFile(
+      new URL(
+        "../android/app/src/main/java/com/sawanalabs/phoneautomation/customer/NativeHostedTaskLoop.kt",
+        import.meta.url
+      ),
+      "utf8"
+    );
+
+    expect(moduleSource).toMatch(STOP_HOSTED_TASK_REACT_METHOD);
+    expect(moduleSource).toContain("activeHostedTaskCancellation");
+    expect(loopSource).toMatch(NATIVE_HOSTED_CANCELLATION_PORT);
+    expect(loopSource).toMatch(NATIVE_HOSTED_STOP_CHECKS);
   });
 
   it("accepts native hosted resume state through a named parser", async () => {

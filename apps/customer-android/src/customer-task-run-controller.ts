@@ -69,6 +69,7 @@ export interface NativeHostedTaskRunner {
     input: StartCustomerTaskInput
   ) => Promise<CustomerSessionSnapshot>;
   stopPausedTask: (session: CustomerSessionSnapshot) => CustomerSessionSnapshot;
+  stopRunningTask: () => Promise<void>;
 }
 
 export function createCustomerTaskRunController({
@@ -122,6 +123,13 @@ export function createCustomerTaskRunController({
           ? nativeHostedTaskRunner.stopPausedTask(session)
           : stopPausedRoutineActionSession(session)
       );
+      return;
+    }
+
+    if (nativeHostedTaskRunner) {
+      nativeHostedTaskRunner.stopRunningTask().catch((error) => {
+        sink.setErrorMessage(describeError(error));
+      });
       return;
     }
 

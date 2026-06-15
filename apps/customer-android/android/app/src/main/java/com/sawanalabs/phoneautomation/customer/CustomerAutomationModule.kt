@@ -43,6 +43,8 @@ class CustomerAutomationModule(
 ) : ReactContextBaseJavaModule(reactContext), PermissionListener {
   private var pendingScreenCapturePromise: Promise? = null
   private var pendingNotificationPermissionPromise: Promise? = null
+  private val activeHostedTaskCancellation =
+    AtomicReference<NativeHostedTaskCancellationToken?>()
   private val mainHandler = Handler(Looper.getMainLooper())
 
   private val activityEventListener: ActivityEventListener =
@@ -411,11 +413,21 @@ class CustomerAutomationModule(
       return
     }
 
+    val cancellation = NativeHostedTaskCancellationToken()
+    if (!activeHostedTaskCancellation.compareAndSet(null, cancellation)) {
+      promise.reject(
+        "HOSTED_TASK_ALREADY_RUNNING",
+        "A hosted task is already running."
+      )
+      return
+    }
+
     Thread {
       try {
         val snapshot = createNativeHostedTaskLoop(
           runtimeUrl = normalizedRuntimeUrl,
-          runtimeAccessToken = normalizedRuntimeAccessToken
+          runtimeAccessToken = normalizedRuntimeAccessToken,
+          cancellation = cancellation
         ).run(
           NativeHostedTaskResumeStateParser.createInput(
             instruction = normalizedInstruction,
@@ -433,13 +445,22 @@ class CustomerAutomationModule(
             error
           )
         }
+      } finally {
+        activeHostedTaskCancellation.compareAndSet(cancellation, null)
       }
     }.start()
   }
 
+  @ReactMethod
+  fun stopHostedTask(promise: Promise) {
+    activeHostedTaskCancellation.get()?.stop()
+    promise.resolve(null)
+  }
+
   private fun createNativeHostedTaskLoop(
     runtimeUrl: String,
-    runtimeAccessToken: String
+    runtimeAccessToken: String,
+    cancellation: NativeHostedTaskCancellation
   ): NativeHostedTaskLoop {
     return NativeHostedTaskLoop(
       runtimeClient = NativeHostedRuntimeHttpClient(runtimeUrl, runtimeAccessToken),
@@ -450,7 +471,8 @@ class CustomerAutomationModule(
         context = reactContext,
         mainHandler = mainHandler,
         displayMetricsProvider = ::getDisplayMetrics
-      )
+      ),
+      cancellation = cancellation
     )
   }
 

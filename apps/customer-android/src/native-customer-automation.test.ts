@@ -79,6 +79,7 @@ const readyNativeModule: CustomerAutomationNativeModule = {
       events: [],
     };
   },
+  async stopHostedTask() {},
 };
 
 describe("customer automation native bridge", () => {
