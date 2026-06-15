@@ -50,8 +50,7 @@ function createRecordingExecutor(): RoutineActionExecutor & {
   };
 }
 
-// biome-ignore lint/complexity/noExcessiveLinesPerFunction: broad existing contract suite; split by action family during the customer-android architecture pass.
-describe("routine actions", () => {
+describe("routine action scripts", () => {
   it("converts Open-AutoGLM relative coordinates to screen pixels", () => {
     expect(
       convertRelativePoint([500, 250], { width: 1080, height: 2400 })
@@ -169,7 +168,9 @@ describe("routine actions", () => {
       message: "Task stopped by user.",
     });
   });
+});
 
+describe("hosted routine action loop successful execution", () => {
   it("uploads screen state for each hosted step and finishes on terminal action", async () => {
     const executor = createRecordingExecutor();
     const stepRequests: Record<string, unknown>[] = [];
@@ -308,7 +309,9 @@ describe("routine actions", () => {
       message: "Completion signal delivered.",
     });
   });
+});
 
+describe("hosted routine action loop runtime-local actions", () => {
   it("records runtime-local actions without dispatching physical phone actions", async () => {
     const executor = createRecordingExecutor();
     const stepRequests: Record<string, unknown>[] = [];
@@ -400,7 +403,9 @@ describe("routine actions", () => {
       },
     });
   });
+});
 
+describe("hosted routine action loop failure handling", () => {
   it("returns a failed snapshot with trace when the hosted runtime rejects a step", async () => {
     const executor = createRecordingExecutor();
 
@@ -533,7 +538,9 @@ describe("routine actions", () => {
       message: "Grant screen capture before requesting hosted decisions.",
     });
   });
+});
 
+describe("hosted routine action takeover pause", () => {
   it("pauses takeover actions and continues with a new screen state", async () => {
     const executor = createRecordingExecutor();
     const stepRequests: Record<string, unknown>[] = [];
@@ -627,7 +634,9 @@ describe("routine actions", () => {
       },
     });
   });
+});
 
+describe("hosted routine action interaction and confirmation pause", () => {
   it("pauses interact actions", async () => {
     const executor = createRecordingExecutor();
     const fetchImpl: typeof fetch = async () =>
@@ -719,7 +728,9 @@ describe("routine actions", () => {
     });
     expect(executor.calls).toEqual(["tap:540,600"]);
   });
+});
 
+describe("hosted routine action paused session stopping", () => {
   it("stops paused sessions", async () => {
     const stopped = stopPausedRoutineActionSession({
       task: {
