@@ -4,7 +4,7 @@ import {
   createNativeScreenStateCollector,
   requireCustomerAutomationNativeModule,
 } from "./native-customer-automation";
-import type { ScreenStateCollector } from "./routine-actions";
+import type { ScreenStateCollector } from "./routine-action-types";
 import { createGestureScreenSize } from "./screen-metrics";
 
 const DEVELOPMENT_FRAME_BASE64 = "ZGV2ZWxvcG1lbnQtc2NyZWVuLWZyYW1l";

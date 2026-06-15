@@ -1,4 +1,4 @@
-import type { RoutineActionExecutor } from "./routine-actions";
+import type { RoutineActionExecutor } from "./routine-action-types";
 
 export function createRecordingExecutor(): RoutineActionExecutor & {
   calls: string[];

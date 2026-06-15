@@ -15,7 +15,7 @@ import type {
   RoutineActionExecutor,
   ScreenSize,
   ScreenStateCollector,
-} from "./routine-actions";
+} from "./routine-action-types";
 
 export interface CustomerAutomationNativeModule {
   back: () => Promise<void>;

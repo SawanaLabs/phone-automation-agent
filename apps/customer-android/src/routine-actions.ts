@@ -1,4 +1,3 @@
-// biome-ignore lint/nursery/noExcessiveLinesPerFile: existing routine action module exceeds 500 lines; split by action family during the customer-android architecture pass.
 import {
   type CompletionSignalNotifier,
   notifyTaskOutcome,
@@ -12,152 +11,17 @@ import {
   type CustomerTaskPause,
   requestNextCustomerAction,
 } from "./customer-session";
+import {
+  describeUnknownError,
+  dispatchHostedRoutineAction,
+  dispatchRoutineAction,
+} from "./routine-action-dispatch";
 
-export type RelativePoint = [number, number];
-
-export interface ScreenSize {
-  height: number;
-  width: number;
-}
-
-export interface PixelPoint {
-  x: number;
-  y: number;
-}
-
-export type RoutineAction =
-  | {
-      _metadata: "do";
-      action: "Launch";
-      app: string;
-    }
-  | {
-      _metadata: "do";
-      action: "Tap";
-      element: RelativePoint;
-      message?: string;
-    }
-  | {
-      _metadata: "do";
-      action: "Double Tap";
-      element: RelativePoint;
-    }
-  | {
-      _metadata: "do";
-      action: "Long Press";
-      element: RelativePoint;
-    }
-  | {
-      _metadata: "do";
-      action: "Swipe";
-      start: RelativePoint;
-      end: RelativePoint;
-    }
-  | {
-      _metadata: "do";
-      action: "Back";
-    }
-  | {
-      _metadata: "do";
-      action: "Home";
-    }
-  | {
-      _metadata: "do";
-      action: "Wait";
-      duration?: string;
-    }
-  | {
-      _metadata: "do";
-      action: "Type" | "Type_Name";
-      text: string;
-    }
-  | {
-      _metadata: "do";
-      action: "Take_over";
-      message: string;
-    }
-  | {
-      _metadata: "do";
-      action: "Interact";
-      message?: string;
-    }
-  | {
-      _metadata: "do";
-      action: "Note";
-      message: string;
-    }
-  | {
-      _metadata: "do";
-      action: "Call_API";
-      instruction: string;
-    }
-  | {
-      _metadata: "finish";
-      message: string;
-    }
-  | {
-      _metadata: "failed";
-      message: string;
-    };
-
-type ExecutableRoutineAction = Extract<RoutineAction, { _metadata: "do" }>;
-
-export interface RoutineActionExecutor {
-  back: () => Promise<void>;
-  doubleTap: (point: PixelPoint) => Promise<void>;
-  home: () => Promise<void>;
-  launchApp: (app: string) => Promise<void>;
-  longPress: (point: PixelPoint) => Promise<void>;
-  screen: ScreenSize;
-  swipe: (start: PixelPoint, end: PixelPoint) => Promise<void>;
-  tap: (point: PixelPoint) => Promise<void>;
-  typeText: (text: string) => Promise<void>;
-  wait: (durationMs: number) => Promise<void>;
-}
-
-export interface RoutineActionScriptInput {
-  actions: RoutineAction[];
-  executor: RoutineActionExecutor;
-  instruction: string;
-  onEvent?: (event: CustomerTaskEvent) => void;
-  shouldStop?: () => boolean;
-  taskId: string;
-}
-
-export interface ScreenStateCollector {
-  capture: () => Promise<CustomerScreenState>;
-}
-
-export interface HostedRoutineActionLoopInput {
-  completionSignalNotifier?: CompletionSignalNotifier;
-  executor: RoutineActionExecutor;
-  fetchImpl?: typeof fetch;
-  initialEvents?: CustomerTaskEvent[];
-  initialLastActionResult?: CustomerActionResult | null;
-  initialStepNumber?: number;
-  instruction: string;
-  maxSteps?: number;
-  onEvent?: (event: CustomerTaskEvent) => void;
-  runtimeAccessToken: string;
-  runtimeUrl: string;
-  screenStateCollector: ScreenStateCollector;
-  shouldStop?: () => boolean;
-  taskId: string;
-}
-
-export function convertRelativePoint(
-  point: RelativePoint,
-  screen: ScreenSize
-): PixelPoint {
-  const [relativeX, relativeY] = point;
-  assertRelativeCoordinate(relativeX);
-  assertRelativeCoordinate(relativeY);
-
-  return {
-    x: Math.round((relativeX / 1000) * screen.width),
-    y: Math.round((relativeY / 1000) * screen.height),
-  };
-}
+import type {
+  ExecutableRoutineAction,
+  HostedRoutineActionLoopInput,
+  RoutineActionScriptInput,
+} from "./routine-action-types";
 
 export async function runRoutineActionScript({
   taskId,
@@ -378,45 +242,6 @@ async function completeHostedSession(
   return notifiedSession;
 }
 
-export function createPauseContinueActionResult(
-  pause: CustomerTaskPause | null | undefined
-): CustomerActionResult {
-  if (!pause) {
-    throw new Error("A paused task is required before continuing.");
-  }
-
-  return {
-    status: "succeeded",
-    action: pause.action._metadata === "do" ? pause.action.action : "finish",
-    message:
-      pause.action._metadata === "do"
-        ? `User continued after ${pause.action.action}.`
-        : "User continued.",
-  };
-}
-
-export async function executeConfirmedPauseAction(
-  pause: CustomerTaskPause | null | undefined,
-  executor: RoutineActionExecutor
-): Promise<CustomerActionResult> {
-  if (
-    pause?.status !== "confirmation_required" ||
-    pause.action._metadata !== "do" ||
-    pause.action.action !== "Tap"
-  ) {
-    throw new Error("A confirmation pause with a Tap action is required.");
-  }
-
-  await executor.tap(
-    convertRelativePoint(pause.action.element, executor.screen)
-  );
-  return {
-    status: "succeeded",
-    action: "Tap",
-    message: "Tap completed.",
-  };
-}
-
 export function stopPausedRoutineActionSession(
   session: CustomerSessionSnapshot
 ): CustomerSessionSnapshot {
@@ -432,132 +257,6 @@ export function stopPausedRoutineActionSession(
     events,
     pause: null,
   };
-}
-
-async function dispatchHostedRoutineAction(
-  action: ExecutableRoutineAction,
-  executor: RoutineActionExecutor
-): Promise<CustomerActionResult> {
-  if (action.action === "Note") {
-    return {
-      status: "succeeded",
-      action: "Note",
-      message: `Note recorded: ${normalizeRequiredString(
-        action.message,
-        "Note message"
-      )}`,
-    };
-  }
-
-  if (action.action === "Call_API") {
-    normalizeRequiredString(action.instruction, "Call_API instruction");
-    return {
-      status: "unsupported",
-      action: "Call_API",
-      message:
-        "Call_API is a runtime-local action and is not implemented by this hosted runtime.",
-    };
-  }
-
-  try {
-    await dispatchRoutineAction(action, executor);
-    return {
-      status: "succeeded",
-      action: action.action,
-      message: `${action.action} completed.`,
-    };
-  } catch (error) {
-    return {
-      status: "failed",
-      action: action.action,
-      message: describeUnknownError(error),
-    };
-  }
-}
-
-async function dispatchRoutineAction(
-  action: ExecutableRoutineAction,
-  executor: RoutineActionExecutor
-): Promise<void> {
-  if (action.action === "Tap") {
-    await executor.tap(convertRelativePoint(action.element, executor.screen));
-    return;
-  }
-
-  if (action.action === "Double Tap") {
-    await executor.doubleTap(
-      convertRelativePoint(action.element, executor.screen)
-    );
-    return;
-  }
-
-  if (action.action === "Long Press") {
-    await executor.longPress(
-      convertRelativePoint(action.element, executor.screen)
-    );
-    return;
-  }
-
-  if (action.action === "Launch") {
-    await executor.launchApp(normalizeRequiredString(action.app, "Launch app"));
-    return;
-  }
-
-  if (action.action === "Type" || action.action === "Type_Name") {
-    await executor.typeText(action.text);
-    return;
-  }
-
-  if (action.action === "Swipe") {
-    await executor.swipe(
-      convertRelativePoint(action.start, executor.screen),
-      convertRelativePoint(action.end, executor.screen)
-    );
-    return;
-  }
-
-  if (action.action === "Back") {
-    await executor.back();
-    return;
-  }
-
-  if (action.action === "Home") {
-    await executor.home();
-    return;
-  }
-
-  if (action.action === "Wait") {
-    await executor.wait(parseWaitDurationMs(action.duration));
-    return;
-  }
-
-  throw new Error(`Unsupported routine action: ${JSON.stringify(action)}`);
-}
-
-function normalizeRequiredString(value: string, label: string): string {
-  const trimmed = value.trim();
-  if (!trimmed) {
-    throw new Error(`${label} is required.`);
-  }
-
-  return trimmed;
-}
-
-function parseWaitDurationMs(duration: string | undefined): number {
-  if (!duration) {
-    return 1000;
-  }
-
-  const value = Number.parseFloat(duration);
-  if (!Number.isFinite(value)) {
-    throw new Error(`Invalid Wait duration: ${duration}`);
-  }
-
-  if (duration.toLowerCase().includes("ms")) {
-    return Math.round(value);
-  }
-
-  return Math.round(value * 1000);
 }
 
 function createPauseForAction(
@@ -588,20 +287,6 @@ function createPauseForAction(
   }
 
   return null;
-}
-
-function assertRelativeCoordinate(value: number) {
-  if (!Number.isFinite(value) || value < 0 || value > 1000) {
-    throw new Error(`Relative coordinate must be between 0 and 1000: ${value}`);
-  }
-}
-
-function describeUnknownError(error: unknown): string {
-  if (error instanceof Error) {
-    return error.message;
-  }
-
-  return String(error);
 }
 
 function createEvent(

@@ -1,4 +1,4 @@
-import type { RelativePoint, RoutineAction } from "./routine-actions";
+import type { RelativePoint, RoutineAction } from "./routine-action-types";
 
 type RawActionObject = Record<string, unknown>;
 

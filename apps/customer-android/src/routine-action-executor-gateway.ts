@@ -4,7 +4,7 @@ import {
   createNativeRoutineActionExecutor as createNativeRoutineActionExecutorFromModule,
   requireCustomerAutomationNativeModule,
 } from "./native-customer-automation";
-import type { RoutineActionExecutor } from "./routine-actions";
+import type { RoutineActionExecutor } from "./routine-action-types";
 import { createGestureScreenSize } from "./screen-metrics";
 
 export function createRoutineActionExecutor(): RoutineActionExecutor {

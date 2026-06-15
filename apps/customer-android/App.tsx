@@ -28,10 +28,12 @@ import {
   createNativeHostedTaskRunner,
   requireCustomerAutomationNativeModule,
 } from "./src/native-customer-automation";
-import { createRoutineActionExecutor } from "./src/routine-action-executor-gateway";
 import {
   createPauseContinueActionResult,
   executeConfirmedPauseAction,
+} from "./src/routine-action-dispatch";
+import { createRoutineActionExecutor } from "./src/routine-action-executor-gateway";
+import {
   runHostedRoutineActionLoop,
   stopPausedRoutineActionSession,
 } from "./src/routine-actions";

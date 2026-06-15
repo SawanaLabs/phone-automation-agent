@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import { convertRelativePoint } from "./routine-action-dispatch";
 import {
-  convertRelativePoint,
   runHostedRoutineActionLoop,
   runRoutineActionScript,
 } from "./routine-actions";

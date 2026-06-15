@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   createPauseContinueActionResult,
   executeConfirmedPauseAction,
+} from "./routine-action-dispatch";
+import {
   runHostedRoutineActionLoop,
   stopPausedRoutineActionSession,
 } from "./routine-actions";

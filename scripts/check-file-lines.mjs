@@ -21,7 +21,6 @@ const IGNORED_DIRECTORY_NAMES = new Set([
 const LEGACY_OVERSIZED_FILES = new Set([
   "apps/customer-android-api/tests/test_session_api.py",
   "apps/customer-android/App.tsx",
-  "apps/customer-android/src/routine-actions.ts",
   "apps/worker/tests/test_task_api.py",
 ]);
 

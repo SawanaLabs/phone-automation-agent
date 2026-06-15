@@ -1,4 +1,4 @@
-import type { ScreenSize } from "./routine-actions";
+import type { ScreenSize } from "./routine-action-types";
 
 export interface GestureScreenSizeInput {
   pixelRatio: number;

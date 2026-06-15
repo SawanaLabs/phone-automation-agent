@@ -1,6 +1,6 @@
 import type { DeviceAuthorityState } from "./device-authority";
 import { normalizeOpenAutoGlmAction } from "./open-autoglm-action-contract";
-import type { RoutineAction } from "./routine-actions";
+import type { RoutineAction } from "./routine-action-types";
 
 export type CustomerTaskStatus =
   | "created"
